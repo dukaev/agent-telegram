@@ -1,0 +1,119 @@
+version: "2"
+
+linters:
+  disable-all: true
+  enable:
+    # --- 1. Correctness & Safety ---
+    - govet
+    - staticcheck
+    - errcheck
+    - nilerr
+    - bodyclose
+    - copyloopvar
+    - noctx
+    - contextcheck
+    - exhaustive
+    - gosec
+
+    # --- 2. Code Quality ---
+    - unused
+    - ineffassign
+    - unconvert
+    - prealloc
+    - errchkjson
+    - durationcheck
+
+    # --- 3. Style & Consistency ---
+    - revive
+    - misspell
+    - whitespace
+    - tagliatelle
+    - gocritic
+
+    # --- 4. Complexity (HARD LIMITS) ---
+    - gocyclo
+    - gocognit
+    - funlen
+    - nestif
+    - goconst
+
+    # --- 5. Architecture & Discipline ---
+    # - depguard     # Disabled: CLI tool needs external packages
+    # - forbidigo    # Disabled: CLI tool needs fmt.Printf for user output
+    - nolintlint
+
+    # --- 6. Tests ---
+    # - tenv  # not available in golangci-lint v2.8.0
+
+linters-settings:
+  funlen:
+    lines: 60
+    statements: 30
+
+  gocyclo:
+    min-complexity: 15
+
+  gocognit:
+    min-complexity: 15
+
+  nestif:
+    min-complexity: 3
+
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+      - name: package-comments
+        disabled: true
+      - name: var-naming
+        disabled: true
+
+      - name: error-strings
+        severity: error
+      - name: error-naming
+        severity: error
+      - name: error-return
+        severity: error
+      - name: dot-imports
+        severity: error
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+      - opinionated
+    disabled-checks:
+      - whyNoLint
+
+  nolintlint:
+    require-specific: true
+    require-explanation: true
+
+  gosec:
+    severity: high
+    confidence: medium
+    excludes:
+      - G104
+
+issues:
+  exclude-dirs:
+    - vendor
+
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - noctx
+        - contextcheck
+        - funlen
+        - gocyclo
+        - gocognit
+
+run:
+  timeout: 3m
+  tests: true
