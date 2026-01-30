@@ -7,46 +7,36 @@ import (
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"agent-telegram/cli/steps"
+	"agent-telegram/pkg/common"
 )
 
-var (
-	// Telegram brand colors
-	// Primary: Telegram Blue (#0088cc / #2AABEE)
-	// Neutral: Gray tones
-	telegramBlue = lipgloss.Color("#0088cc") // Telegram signature blue
-	normalColor  = lipgloss.Color("#6c6c6c") // Medium gray for secondary text
+// Step interface represents a login step.
+type Step interface {
+	Init() tea.Cmd
+	View() string
+}
 
-	// Telegram brand styles
-	titleStyle = lipgloss.NewStyle().
-			Foreground(telegramBlue).
-			Bold(true)
-
-	labelStyle = lipgloss.NewStyle().
-			Foreground(normalColor)
-
-	helpStyle = lipgloss.NewStyle().
-			Foreground(normalColor)
-)
-
-// LoginModel manages the login flow between phone and code steps.
+// LoginModel manages the login flow.
 type LoginModel struct {
-	currentStep interface{}
+	currentStep Step
 	phone       string
 	code        string
+	password    string
 	quitting    bool
+	successMsg  string
 }
 
 // NewLoginModel creates a new login model starting with phone step.
 func NewLoginModel() LoginModel {
 	return LoginModel{
-		currentStep: NewPhoneStep(),
+		currentStep: steps.NewPhoneStep(),
 	}
 }
 
 // Init initializes the login model.
 func (m LoginModel) Init() tea.Cmd {
-	if step, ok := m.currentStep.(interface{ Init() tea.Cmd }); ok {
+	if step := m.currentStep; step != nil {
 		return step.Init()
 	}
 	return nil
@@ -59,14 +49,20 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case PhoneSubmitted:
+	case steps.PhoneSubmitted:
 		m.phone = string(msg)
-		m.currentStep = NewCodeStep(m.phone)
-		return m, m.currentStep.(interface{ Init() tea.Cmd }).Init()
+		m.currentStep = steps.NewCodeStep()
+		return m, m.currentStep.Init()
 
-	case CodeSubmitted:
+	case steps.CodeSubmitted:
 		m.code = string(msg)
+		m.currentStep = steps.NewPasswordStep()
+		return m, m.currentStep.Init()
+
+	case steps.PasswordSubmitted:
+		m.password = string(msg)
 		m.quitting = true
+		m.successMsg = fmt.Sprintf("Login as user %s", m.phone)
 		return m, tea.Quit
 
 	case tea.KeyMsg:
@@ -77,32 +73,30 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate update to current step
+	var cmd tea.Cmd
 	switch step := m.currentStep.(type) {
-	case PhoneStep:
-		updatedStep, cmd := step.Update(msg)
-		m.currentStep = updatedStep
-		return m, cmd
-
-	case CodeStep:
-		updatedStep, cmd := step.Update(msg)
-		m.currentStep = updatedStep
-		return m, cmd
+	case steps.PhoneStep:
+		m.currentStep, cmd = step.Update(msg)
+	case steps.CodeStep:
+		m.currentStep, cmd = step.Update(msg)
+	case steps.PasswordStep:
+		m.currentStep, cmd = step.Update(msg)
 	}
 
-	return m, nil
+	return m, cmd
 }
 
 // View renders the current step.
 func (m LoginModel) View() string {
 	if m.quitting {
+		if m.successMsg != "" {
+			return common.TitleStyle.Render(m.successMsg)
+		}
 		return ""
 	}
 
-	switch step := m.currentStep.(type) {
-	case PhoneStep:
-		return step.View()
-	case CodeStep:
-		return step.View()
+	if m.currentStep != nil {
+		return m.currentStep.View()
 	}
 
 	return ""
@@ -118,19 +112,24 @@ func (m LoginModel) GetCode() string {
 	return m.code
 }
 
-// RunLoginUI runs the interactive login UI and returns the phone number and verification code.
-func RunLoginUI() (phone, code string, err error) {
+// GetPassword returns the entered 2FA password.
+func (m LoginModel) GetPassword() string {
+	return m.password
+}
+
+// RunLoginUI runs the interactive login UI and returns the phone number, code, and password.
+func RunLoginUI() (phone, code, password string, err error) {
 	p := tea.NewProgram(NewLoginModel())
 	m, err := p.Run()
 	if err != nil {
-		return "", "", fmt.Errorf("could not start program: %w", err)
+		return "", "", "", fmt.Errorf("could not start program: %w", err)
 	}
 
 	if m, ok := m.(LoginModel); ok {
-		return m.GetPhone(), m.GetCode(), nil
+		return m.GetPhone(), m.GetCode(), m.GetPassword(), nil
 	}
 
-	return "", "", fmt.Errorf("unexpected model type")
+	return "", "", "", fmt.Errorf("unexpected model type")
 }
 
 // SaveEnvFile saves the phone number to a .env file in the project directory.

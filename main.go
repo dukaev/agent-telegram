@@ -135,15 +135,15 @@ func runLogin(_ []string) {
 	// Check if .env exists
 	if _, err := os.Stat(envPath); os.IsNotExist(err) {
 		// Run interactive login UI
-		phone, code, err := cli.RunLoginUI()
+		phone, code, password, err := cli.RunLoginUI()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Validate inputs
-		if phone == "" || code == "" {
-			fmt.Fprintln(os.Stderr, "Error: All fields are required")
+		if phone == "" {
+			fmt.Fprintln(os.Stderr, "Error: Phone is required")
 			os.Exit(1)
 		}
 
@@ -154,7 +154,12 @@ func runLogin(_ []string) {
 		}
 
 		fmt.Printf("\n✓ Saved credentials to %s\n", envPath)
-		fmt.Printf("✓ Verification code: %s (mock)\n", code)
+		if code != "" {
+			fmt.Printf("✓ Verification code: %s\n", code)
+		}
+		if password != "" {
+			fmt.Printf("✓ 2FA password: %s\n", password)
+		}
 	}
 
 	fmt.Println("ok")
