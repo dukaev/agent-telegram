@@ -133,6 +133,7 @@ func runLogin(args []string) {
 	appIDStr := loginCmd.String("app-id", os.Getenv("AGENT_TELEGRAM_APP_ID"), "Telegram API App ID")
 	appHash := loginCmd.String("app-hash", os.Getenv("AGENT_TELEGRAM_APP_HASH"), "Telegram API App Hash")
 	phone := loginCmd.String("phone", os.Getenv("AGENT_TELEGRAM_PHONE"), "Phone number")
+	mockMode := loginCmd.Bool("mock", false, "Mock mode for UI testing (no real API calls)")
 
 	if err := loginCmd.Parse(args); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
@@ -153,19 +154,21 @@ func runLogin(args []string) {
 	// Create context
 	ctx := context.Background()
 
-	// Create auth service
+	// Create auth service (skip in mock mode)
 	var authService *auth.Service
-	if *phone != "" {
-		if appID != 0 && *appHash != "" {
-			authService, err = auth.NewServiceWithConfig(ctx, appID, *appHash, *phone)
+	if !*mockMode {
+		if *phone != "" {
+			if appID != 0 && *appHash != "" {
+				authService, err = auth.NewServiceWithConfig(ctx, appID, *appHash, *phone)
+			} else {
+				authService, err = auth.NewService(ctx)
+			}
 		} else {
 			authService, err = auth.NewService(ctx)
 		}
-	} else {
-		authService, err = auth.NewService(ctx)
-	}
-	if err != nil {
-		log.Fatalf("Failed to create auth service: %v", err)
+		if err != nil {
+			log.Fatalf("Failed to create auth service: %v", err)
+		}
 	}
 
 	// Run interactive login UI with Telegram authentication

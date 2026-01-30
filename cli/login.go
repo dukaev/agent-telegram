@@ -69,7 +69,9 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case steps.PhoneStep:
 			// Phone code sent successfully, move to code step
 			if msg.Success {
-				m.phone = m.authService.GetPhoneNumber()
+				if m.authService != nil {
+					m.phone = m.authService.GetPhoneNumber()
+				}
 				m.currentStep = steps.NewCodeStep(m.authService)
 				return m, m.currentStep.Init()
 			}
@@ -82,20 +84,43 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if msg.Success {
 				// Login successful without 2FA
-				m.sessionPath = m.authService.GetSessionPath()
-				m.quitting = true
-				m.successMsg = fmt.Sprintf("✓ Login successful as user %s", m.phone)
+				m.finishSuccess()
 				return m, tea.Quit
 			}
 		case steps.PasswordStep:
 			// 2FA authentication successful
 			if msg.Success {
-				m.sessionPath = m.authService.GetSessionPath()
-				m.quitting = true
-				m.successMsg = fmt.Sprintf("✓ Login successful as user %s", m.phone)
+				m.finishSuccess()
 				return m, tea.Quit
 			}
 		}
+
+	// Mock mode: handle submission messages from steps
+	case steps.PhoneCodeSent:
+		m.phone = msg.Phone
+		m.currentStep = steps.NewCodeStep(m.authService)
+		return m, m.currentStep.Init()
+
+	case steps.TwoFARequired:
+		m.twoFAHint = msg.Hint
+		m.currentStep = steps.NewPasswordStep(m.authService, msg.Hint)
+		return m, m.currentStep.Init()
+
+	case steps.PhoneSubmitted:
+		// In mock mode, PhoneSubmitted triggers transition to code step
+		m.phone = string(msg)
+		m.currentStep = steps.NewCodeStep(m.authService)
+		return m, m.currentStep.Init()
+
+	case steps.CodeSubmitted:
+		// In mock mode, simulate successful login (no 2FA)
+		m.finishSuccess()
+		return m, tea.Quit
+
+	case steps.PasswordSubmitted:
+		// In mock mode, simulate successful 2FA login
+		m.finishSuccess()
+		return m, tea.Quit
 
 	case steps.AuthError:
 		m.errorMsg = msg.Error
@@ -121,6 +146,17 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+// finishSuccess completes the login flow successfully.
+func (m *LoginModel) finishSuccess() {
+	if m.authService != nil {
+		m.sessionPath = m.authService.GetSessionPath()
+	} else {
+		m.sessionPath = "(mock mode - no session saved)"
+	}
+	m.quitting = true
+	m.successMsg = fmt.Sprintf("✓ Login successful as user %s", m.phone)
 }
 
 // View renders the current step.
