@@ -2,12 +2,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"agent-telegram/cli/steps"
+	"agent-telegram/internal/auth"
 	"agent-telegram/pkg/common"
 )
 
@@ -19,18 +21,23 @@ type Step interface {
 
 // LoginModel manages the login flow.
 type LoginModel struct {
+	ctx         context.Context
+	authService *auth.Service
 	currentStep Step
 	phone       string
-	code        string
-	password    string
+	twoFAHint   string
 	quitting    bool
 	successMsg  string
+	errorMsg    string
+	sessionPath string
 }
 
 // NewLoginModel creates a new login model starting with phone step.
-func NewLoginModel() LoginModel {
+func NewLoginModel(ctx context.Context, authService *auth.Service) LoginModel {
 	return LoginModel{
-		currentStep: steps.NewPhoneStep(),
+		ctx:         ctx,
+		authService: authService,
+		currentStep: steps.NewPhoneStep(authService),
 	}
 }
 
@@ -48,21 +55,51 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
+	// Handle specific message types
 	switch msg := msg.(type) {
-	case steps.PhoneSubmitted:
-		m.phone = string(msg)
-		m.currentStep = steps.NewCodeStep()
-		return m, m.currentStep.Init()
+	case auth.Result:
+		if msg.Error != "" {
+			m.errorMsg = msg.Error
+			m.quitting = true
+			return m, tea.Quit
+		}
 
-	case steps.CodeSubmitted:
-		m.code = string(msg)
-		m.currentStep = steps.NewPasswordStep()
-		return m, m.currentStep.Init()
+		// Check current step and transition accordingly
+		switch m.currentStep.(type) {
+		case steps.PhoneStep:
+			// Phone code sent successfully, move to code step
+			if msg.Success {
+				m.phone = m.authService.GetPhoneNumber()
+				m.currentStep = steps.NewCodeStep(m.authService)
+				return m, m.currentStep.Init()
+			}
+		case steps.CodeStep:
+			// Code verified
+			if msg.Requires2FA {
+				m.twoFAHint = msg.TwoFactorHint
+				m.currentStep = steps.NewPasswordStep(m.authService, msg.TwoFactorHint)
+				return m, m.currentStep.Init()
+			}
+			if msg.Success {
+				// Login successful without 2FA
+				m.sessionPath = m.authService.GetSessionPath()
+				m.quitting = true
+				m.successMsg = fmt.Sprintf("✓ Login successful as user %s", m.phone)
+				return m, tea.Quit
+			}
+		case steps.PasswordStep:
+			// 2FA authentication successful
+			if msg.Success {
+				m.sessionPath = m.authService.GetSessionPath()
+				m.quitting = true
+				m.successMsg = fmt.Sprintf("✓ Login successful as user %s", m.phone)
+				return m, tea.Quit
+			}
+		}
 
-	case steps.PasswordSubmitted:
-		m.password = string(msg)
+	case steps.AuthError:
+		m.errorMsg = msg.Error
 		m.quitting = true
-		m.successMsg = fmt.Sprintf("Login as user %s", m.phone)
 		return m, tea.Quit
 
 	case tea.KeyMsg:
@@ -89,6 +126,9 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the current step.
 func (m LoginModel) View() string {
 	if m.quitting {
+		if m.errorMsg != "" {
+			return common.ErrorStyle.Render("✗ Error: " + m.errorMsg)
+		}
 		if m.successMsg != "" {
 			return common.TitleStyle.Render(m.successMsg)
 		}
@@ -102,34 +142,24 @@ func (m LoginModel) View() string {
 	return ""
 }
 
+// IsSuccess returns true if login was successful.
+func (m LoginModel) IsSuccess() bool {
+	return m.successMsg != ""
+}
+
+// GetError returns the error message if any.
+func (m LoginModel) GetError() string {
+	return m.errorMsg
+}
+
 // GetPhone returns the entered phone number.
 func (m LoginModel) GetPhone() string {
 	return m.phone
 }
 
-// GetCode returns the entered verification code.
-func (m LoginModel) GetCode() string {
-	return m.code
-}
-
-// GetPassword returns the entered 2FA password.
-func (m LoginModel) GetPassword() string {
-	return m.password
-}
-
-// RunLoginUI runs the interactive login UI and returns the phone number, code, and password.
-func RunLoginUI() (phone, code, password string, err error) {
-	p := tea.NewProgram(NewLoginModel())
-	m, err := p.Run()
-	if err != nil {
-		return "", "", "", fmt.Errorf("could not start program: %w", err)
-	}
-
-	if m, ok := m.(LoginModel); ok {
-		return m.GetPhone(), m.GetCode(), m.GetPassword(), nil
-	}
-
-	return "", "", "", fmt.Errorf("unexpected model type")
+// GetSessionPath returns the session file path.
+func (m LoginModel) GetSessionPath() string {
+	return m.sessionPath
 }
 
 // SaveEnvFile saves the phone number to a .env file in the project directory.
@@ -137,4 +167,26 @@ func SaveEnvFile(projectDir, phone string) error {
 	envPath := filepath.Join(projectDir, ".env")
 	content := fmt.Sprintf("# Telegram API credentials\nTELEGRAM_PHONE=%s\n", phone)
 	return os.WriteFile(envPath, []byte(content), 0600)
+}
+
+// RunLoginUIWithAuth runs the interactive login UI with Telegram authentication.
+// Returns session path on success, error on failure.
+func RunLoginUIWithAuth(ctx context.Context, authService *auth.Service) (sessionPath string, err error) {
+	p := tea.NewProgram(NewLoginModel(ctx, authService))
+	m, err := p.Run()
+	if err != nil {
+		return "", fmt.Errorf("could not start program: %w", err)
+	}
+
+	if m, ok := m.(LoginModel); ok {
+		if m.GetError() != "" {
+			return "", fmt.Errorf("authentication failed: %s", m.GetError())
+		}
+		if m.IsSuccess() {
+			return m.GetSessionPath(), nil
+		}
+		return "", fmt.Errorf("authentication incomplete")
+	}
+
+	return "", fmt.Errorf("unexpected model type")
 }

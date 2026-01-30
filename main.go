@@ -5,13 +5,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"syscall"
 
 	"agent-telegram/cli"
+	"agent-telegram/internal/auth"
 	"agent-telegram/telegram"
 )
 
@@ -46,14 +47,19 @@ func printUsage() {
 	fmt.Println("\nCommands:")
 	fmt.Println("  serve       Start the HTTP server")
 	fmt.Println("  telegram    Connect to Telegram")
-	fmt.Println("  login       Interactive login (creates .env)")
+	fmt.Println("  login       Interactive login with Telegram authentication")
 	fmt.Println("  version     Print version information")
-	fmt.Println("\nTelegram options:")
+	fmt.Println("\nLogin options:")
 	fmt.Println("  -app-id     Telegram API App ID (from my.telegram.org)")
 	fmt.Println("  -app-hash   Telegram API App Hash (from my.telegram.org)")
-	fmt.Println("  -phone      Phone number (e.g. +1234567890)")
-	fmt.Println("\nServe options:")
-	fmt.Println("  -port       Port to listen on (default: 8080)")
+	fmt.Println("  -phone      Phone number (optional, can enter in UI)")
+	fmt.Println("\nEnvironment variables:")
+	fmt.Println("  AGENT_TELEGRAM_APP_ID     Telegram API App ID")
+	fmt.Println("  AGENT_TELEGRAM_APP_HASH   Telegram API App Hash")
+	fmt.Println("  AGENT_TELEGRAM_PHONE      Phone number (optional)")
+	fmt.Println("\nExamples:")
+	fmt.Println("  agent-telegram login -app-id 12345 -app-hash abcdef")
+	fmt.Println("  AGENT_TELEGRAM_APP_ID=12345 AGENT_TELEGRAM_APP_HASH=abcdef agent-telegram login")
 }
 
 func runServe(args []string) {
@@ -122,45 +128,52 @@ func runTelegram(args []string) {
 	cancel()
 }
 
-func runLogin(_ []string) {
-	// Get project directory
-	projectDir, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting working directory: %v\n", err)
+func runLogin(args []string) {
+	loginCmd := flag.NewFlagSet("login", flag.ExitOnError)
+	appIDStr := loginCmd.String("app-id", os.Getenv("AGENT_TELEGRAM_APP_ID"), "Telegram API App ID")
+	appHash := loginCmd.String("app-hash", os.Getenv("AGENT_TELEGRAM_APP_HASH"), "Telegram API App Hash")
+	phone := loginCmd.String("phone", os.Getenv("AGENT_TELEGRAM_PHONE"), "Phone number")
+
+	if err := loginCmd.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
 		os.Exit(1)
 	}
 
-	envPath := filepath.Join(projectDir, ".env")
-
-	// Check if .env exists
-	if _, err := os.Stat(envPath); os.IsNotExist(err) {
-		// Run interactive login UI
-		phone, code, password, err := cli.RunLoginUI()
+	// Parse app ID (optional, uses hardcoded default if not provided)
+	var appID int
+	var err error
+	if *appIDStr != "" {
+		appID, err = strconv.Atoi(*appIDStr)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Invalid app-id: %v\n", err)
 			os.Exit(1)
-		}
-
-		// Validate inputs
-		if phone == "" {
-			fmt.Fprintln(os.Stderr, "Error: Phone is required")
-			os.Exit(1)
-		}
-
-		// Save to .env
-		if err := cli.SaveEnvFile(projectDir, phone); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving .env file: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("\n✓ Saved credentials to %s\n", envPath)
-		if code != "" {
-			fmt.Printf("✓ Verification code: %s\n", code)
-		}
-		if password != "" {
-			fmt.Printf("✓ 2FA password: %s\n", password)
 		}
 	}
 
-	fmt.Println("ok")
+	// Create context
+	ctx := context.Background()
+
+	// Create auth service
+	var authService *auth.Service
+	if *phone != "" {
+		if appID != 0 && *appHash != "" {
+			authService, err = auth.NewServiceWithConfig(ctx, appID, *appHash, *phone)
+		} else {
+			authService, err = auth.NewService(ctx)
+		}
+	} else {
+		authService, err = auth.NewService(ctx)
+	}
+	if err != nil {
+		log.Fatalf("Failed to create auth service: %v", err)
+	}
+
+	// Run interactive login UI with Telegram authentication
+	sessionPath, err := cli.RunLoginUIWithAuth(ctx, authService)
+	if err != nil {
+		log.Fatalf("Login failed: %v", err)
+	}
+
+	fmt.Printf("\n✓ Session saved to: %s\n", sessionPath)
+	fmt.Println("✓ You can now use the telegram command to connect")
 }

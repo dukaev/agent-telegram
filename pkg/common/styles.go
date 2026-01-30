@@ -9,6 +9,7 @@ var (
 	// Neutral: Gray tones
 	TelegramBlue = lipgloss.Color("#0088cc") // Telegram signature blue
 	NormalColor  = lipgloss.Color("#6c6c6c") // Medium gray for secondary text
+	ErrorColor   = lipgloss.Color("#ff5555") // Red for errors
 
 	// Telegram brand styles
 	TitleStyle = lipgloss.NewStyle().
@@ -20,4 +21,8 @@ var (
 
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(NormalColor)
+
+	ErrorStyle = lipgloss.NewStyle().
+			Foreground(ErrorColor).
+			Bold(true)
 )

@@ -4,20 +4,25 @@ package steps
 import (
 	"github.com/charmbracelet/bubbletea"
 	"agent-telegram/cli/components"
+	"agent-telegram/internal/auth"
 )
 
 // PasswordStep represents the 2FA password input step.
 type PasswordStep struct {
 	passwordInput components.MaskedInput
+	authService   *auth.Service
+	twoFAHint     string
 }
 
 // NewPasswordStep creates a new password input step.
-func NewPasswordStep() PasswordStep {
+func NewPasswordStep(authService *auth.Service, hint string) PasswordStep {
 	passwordInput := components.NewMaskedInput(0, components.PasswordType)
 	passwordInput.Focus()
 
 	return PasswordStep{
 		passwordInput: passwordInput,
+		authService:   authService,
+		twoFAHint:     hint,
 	}
 }
 
@@ -44,11 +49,26 @@ func (m PasswordStep) Update(msg tea.Msg) (PasswordStep, tea.Cmd) {
 	return m, cmd
 }
 
-// Submit returns the password.
+// Submit returns the password and signs in with 2FA.
 func (m PasswordStep) Submit() tea.Cmd {
+	password := m.passwordInput.Value()
+	if m.authService != nil {
+		return m.authService.SignInWith2FA(password)
+	}
 	return func() tea.Msg {
+		return PasswordSubmitted(password)
+	}
+}
+
+// HandleAuthResult handles the authentication result.
+func (m PasswordStep) HandleAuthResult(result auth.Result) tea.Msg {
+	if result.Error != "" {
+		return AuthError{Step: "password", Error: result.Error}
+	}
+	if result.Success {
 		return PasswordSubmitted(m.passwordInput.Value())
 	}
+	return AuthError{Step: "password", Error: "2FA authentication failed"}
 }
 
 // View renders the password input step.

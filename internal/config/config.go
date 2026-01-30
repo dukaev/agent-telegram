@@ -31,6 +31,10 @@ type Config struct {
 const (
 	prefix = "AGENT_TELEGRAM_"
 	delim  = "."
+
+	// Hardcoded Telegram API credentials
+	defaultAppID   = 23027031
+	defaultAppHash = "1c6f5d81f2a754e0d2f0e3f06b1cbe17"
 )
 
 // Load loads configuration from multiple sources in priority order:
@@ -65,6 +69,16 @@ func LoadFromEnv() (*Config, error) {
 	return parseConfig(k)
 }
 
+// LoadFromEnvWithOptionalPhone loads configuration from environment variables.
+// Phone number is optional and can be set later.
+func LoadFromEnvWithOptionalPhone() (*Config, error) {
+	k := koanf.New(delim)
+	if err := loadFromEnv(k); err != nil {
+		return nil, err
+	}
+	return parseConfigOptionalPhone(k)
+}
+
 // loadFromFile loads configuration from a file (JSON or YAML).
 func loadFromFile(k *koanf.Koanf, path string) error {
 	var parser koanf.Parser
@@ -95,14 +109,43 @@ func parseConfig(k *koanf.Koanf) (*Config, error) {
 	phone := k.String("phone")
 	sessionPath := k.String("session_path")
 
+	// Use hardcoded credentials as defaults
 	if appID == 0 {
-		return nil, fmt.Errorf("missing required field: app_id")
+		appID = defaultAppID
 	}
 	if appHash == "" {
-		return nil, fmt.Errorf("missing required field: app_hash")
+		appHash = defaultAppHash
 	}
 	if phone == "" {
 		return nil, fmt.Errorf("missing required field: phone")
+	}
+
+	// Default session path
+	if sessionPath == "" {
+		sessionPath = filepath.Join(os.Getenv("HOME"), ".agent-telegram")
+	}
+
+	return &Config{
+		AppID:       appID,
+		AppHash:     appHash,
+		Phone:       phone,
+		SessionPath: sessionPath,
+	}, nil
+}
+
+// parseConfigOptionalPhone maps koanf instance to Config struct with optional phone.
+func parseConfigOptionalPhone(k *koanf.Koanf) (*Config, error) {
+	appID := k.Int("app_id")
+	appHash := k.String("app_hash")
+	phone := k.String("phone")
+	sessionPath := k.String("session_path")
+
+	// Use hardcoded credentials as defaults
+	if appID == 0 {
+		appID = defaultAppID
+	}
+	if appHash == "" {
+		appHash = defaultAppHash
 	}
 
 	// Default session path

@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"agent-telegram/cli/components"
+	"agent-telegram/internal/auth"
 	"agent-telegram/pkg/common"
 )
 
@@ -15,10 +16,11 @@ type PhoneStep struct {
 	phoneInput components.MaskedInput
 	focusIndex int // 0 = phone input, 1 = button
 	loader     components.Loader
+	authService *auth.Service
 }
 
 // NewPhoneStep creates a new phone input step.
-func NewPhoneStep() PhoneStep {
+func NewPhoneStep(authService *auth.Service) PhoneStep {
 	phoneInput := components.NewMaskedInput(12, components.PhoneType)
 	phoneInput.Focus()
 
@@ -26,6 +28,7 @@ func NewPhoneStep() PhoneStep {
 		phoneInput: phoneInput,
 		focusIndex: 0,
 		loader:     components.NewLoader(),
+		authService: authService,
 	}
 }
 
@@ -80,11 +83,26 @@ func (m PhoneStep) Update(msg tea.Msg) (PhoneStep, tea.Cmd) {
 	return m, cmd
 }
 
-// Submit returns the phone number.
+// Submit returns the phone number and sends verification code.
 func (m PhoneStep) Submit() tea.Cmd {
-	return func() tea.Msg {
-		return PhoneSubmitted(m.phoneInput.Value())
+	phone := m.phoneInput.Value()
+	if m.authService != nil {
+		return m.authService.SendCode(phone)
 	}
+	return func() tea.Msg {
+		return PhoneSubmitted(phone)
+	}
+}
+
+// HandleAuthResult handles the authentication result.
+func (m PhoneStep) HandleAuthResult(result auth.Result) tea.Msg {
+	if result.Error != "" {
+		return AuthError{Step: "phone", Error: result.Error}
+	}
+	if result.Success {
+		return PhoneCodeSent{Phone: m.phoneInput.Value(), CodeHash: result.PhoneCodeHash}
+	}
+	return PhoneSubmitted(m.phoneInput.Value())
 }
 
 // View renders the phone input step.
