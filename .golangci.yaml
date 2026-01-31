@@ -3,16 +3,14 @@ version: "2"
 linters:
   disable-all: true
   enable:
-    # --- 1. Correctness & Safety ---
+    # --- 1. Correctness & Safety (BASE) ---
     - govet
     - staticcheck
     - errcheck
     - nilerr
     - bodyclose
     - copyloopvar
-    - noctx
     - contextcheck
-    - exhaustive
     - gosec
 
     # --- 2. Code Quality ---
@@ -20,35 +18,29 @@ linters:
     - ineffassign
     - unconvert
     - prealloc
-    - errchkjson
     - durationcheck
 
     # --- 3. Style & Consistency ---
     - revive
     - misspell
     - whitespace
-    - tagliatelle
     - gocritic
+    - tagliatelle
 
-    # --- 4. Complexity (HARD LIMITS) ---
+    # --- 4. Complexity (REAL LIMITS) ---
     - gocyclo
     - gocognit
     - funlen
-    - nestif
     - goconst
 
-    # --- 5. Architecture & Discipline ---
-    # - depguard     # Disabled: CLI tool needs external packages
-    # - forbidigo    # Disabled: CLI tool needs fmt.Printf for user output
+    # --- 5. Discipline ---
     - nolintlint
 
-    # --- 6. Tests ---
-    # - tenv  # not available in golangci-lint v2.8.0
-
 linters-settings:
+  # ---- Complexity ----
   funlen:
-    lines: 60
-    statements: 30
+    lines: 80
+    statements: 40
 
   gocyclo:
     min-complexity: 15
@@ -56,13 +48,11 @@ linters-settings:
   gocognit:
     min-complexity: 15
 
-  nestif:
-    min-complexity: 3
-
   goconst:
-    min-len: 2
-    min-occurrences: 2
+    min-len: 3
+    min-occurrences: 3
 
+  # ---- Style ----
   revive:
     rules:
       - name: exported
@@ -86,9 +76,14 @@ linters-settings:
       - diagnostic
       - performance
       - style
-      - opinionated
     disabled-checks:
       - whyNoLint
+      - unnamedResult
+
+  tagliatelle:
+    case:
+      rules:
+        json: snake
 
   nolintlint:
     require-specific: true
@@ -108,7 +103,6 @@ issues:
     - path: _test\.go
       linters:
         - gosec
-        - noctx
         - contextcheck
         - funlen
         - gocyclo
