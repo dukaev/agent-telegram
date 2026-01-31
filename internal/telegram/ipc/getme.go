@@ -15,13 +15,13 @@ type GetMeParams struct{}
 
 // GetMeResult represents the result of get_me request.
 type GetMeResult struct {
-	ID         int64  `json:"id"`
-	Username   string `json:"username"`
-	FirstName  string `json:"first_name"`
-	LastName   string `json:"last_name"`
-	Phone      string `json:"phone"`
-	Verified   bool   `json:"verified"`
-	Bot        bool   `json:"bot"`
+	ID        int64  `json:"id"`
+	Username  string `json:"username"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Phone     string `json:"phone"`
+	Verified  bool   `json:"verified"`
+	Bot       bool   `json:"bot"`
 }
 
 // GetMeHandler returns a handler for get_me requests.

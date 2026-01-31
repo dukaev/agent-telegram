@@ -38,8 +38,7 @@ func (m PasswordStep) Update(msg tea.Msg) (PasswordStep, tea.Cmd) {
 	}
 
 	if msg, ok := msg.(tea.KeyMsg); ok {
-		switch msg.String() {
-		case "enter":
+		if msg.String() == components.KeyEnter {
 			return m, m.Submit()
 		}
 	}

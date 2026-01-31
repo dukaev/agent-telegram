@@ -12,11 +12,16 @@ import (
 type UpdateType string
 
 const (
-	UpdateTypeNewMessage  UpdateType = "new_message"
+	// UpdateTypeNewMessage is a new message update.
+	UpdateTypeNewMessage UpdateType = "new_message"
+	// UpdateTypeEditMessage is an edited message update.
 	UpdateTypeEditMessage UpdateType = "edit_message"
-	UpdateTypeNewChat     UpdateType = "new_chat"
-	UpdateTypeDelete      UpdateType = "delete"
-	UpdateTypeOther       UpdateType = "other"
+	// UpdateTypeNewChat is a new chat update.
+	UpdateTypeNewChat UpdateType = "new_chat"
+	// UpdateTypeDelete is a delete update.
+	UpdateTypeDelete UpdateType = "delete"
+	// UpdateTypeOther is an other type update.
+	UpdateTypeOther UpdateType = "other"
 )
 
 // StoredUpdate represents a stored Telegram update.
@@ -118,8 +123,7 @@ func NewStoredUpdate(updateType UpdateType, data map[string]interface{}) StoredU
 func MessageData(msg tg.MessageClass) map[string]interface{} {
 	data := map[string]interface{}{}
 
-	switch m := msg.(type) {
-	case *tg.Message:
+	if m, ok := msg.(*tg.Message); ok {
 		data["id"] = m.ID
 		data["text"] = m.Message
 		data["date"] = m.Date

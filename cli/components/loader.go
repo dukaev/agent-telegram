@@ -38,7 +38,7 @@ func (l Loader) Start(text string, duration time.Duration) (Loader, tea.Cmd) {
 	l.active = true
 	l.text = text
 	l.deadline = time.Now().Add(duration)
-	return l, tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
+	return l, tea.Tick(time.Millisecond*100, func(_ time.Time) tea.Msg {
 		return TickMsg{}
 	})
 }
@@ -56,7 +56,7 @@ func (l Loader) Update() (Loader, tea.Cmd) {
 	}
 
 	l.index = (l.index + 1) % len(l.frames)
-	return l, tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
+	return l, tea.Tick(time.Millisecond*100, func(_ time.Time) tea.Msg {
 		return TickMsg{}
 	})
 }

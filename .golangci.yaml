@@ -3,65 +3,72 @@ version: "2"
 linters:
   disable-all: true
   enable:
-    # --- 1. Correctness & Safety (BASE) ---
+    # --- Correctness & Safety ---
     - govet
     - staticcheck
     - errcheck
-    - nilerr
     - bodyclose
     - copyloopvar
+    - noctx
     - contextcheck
+    - exhaustive
     - gosec
 
-    # --- 2. Code Quality ---
+    # --- Code Quality ---
     - unused
     - ineffassign
     - unconvert
     - prealloc
+    - errchkjson
     - durationcheck
 
-    # --- 3. Style & Consistency ---
+    # --- Style & Consistency ---
     - revive
     - misspell
     - whitespace
-    - gocritic
     - tagliatelle
+    - gocritic
 
-    # --- 4. Complexity (REAL LIMITS) ---
+    # --- Complexity & Functions ---
     - gocyclo
     - gocognit
     - funlen
+    - nestif
     - goconst
 
-    # --- 5. Discipline ---
+    # --- Architecture & Discipline ---
+    - depguard
+    - forbidigo
     - nolintlint
 
 linters-settings:
-  # ---- Complexity ----
   funlen:
     lines: 80
     statements: 40
+    # Максимум аргументов (костыль через revive / funlen)
+    max-args: 5
 
   gocyclo:
-    min-complexity: 15
+    min-complexity: 12
 
   gocognit:
-    min-complexity: 15
+    min-complexity: 12
+
+  nestif:
+    min-complexity: 3
 
   goconst:
-    min-len: 3
-    min-occurrences: 3
+    min-len: 2
+    min-occurrences: 2
 
-  # ---- Style ----
   revive:
     rules:
       - name: exported
-        disabled: true
+        disabled: false
       - name: package-comments
-        disabled: true
+        disabled: false
       - name: var-naming
-        disabled: true
-
+        disabled: false
       - name: error-strings
         severity: error
       - name: error-naming
@@ -70,20 +77,29 @@ linters-settings:
         severity: error
       - name: dot-imports
         severity: error
+      - name: import-blacklist
+        arguments:
+          - internal/cmd
+          - internal/adapters/mysql
+          - internal/adapters/http
+        severity: error
+        comment: "Core can only depend on interfaces, not concrete implementations"
+      - name: switch-case-count
+        arguments:
+          max: 3
+          comment: "TODO: consider map+func or strategy pattern for many cases"
+      - name: package-level-vars
+        severity: error
+        comment: "Avoid global state in core packages"
 
   gocritic:
     enabled-tags:
       - diagnostic
       - performance
       - style
+      - opinionated
     disabled-checks:
       - whyNoLint
-      - unnamedResult
-
-  tagliatelle:
-    case:
-      rules:
-        json: snake
 
   nolintlint:
     require-specific: true
@@ -95,6 +111,20 @@ linters-settings:
     excludes:
       - G104
 
+  depguard:
+    list-type: blacklist
+    packages:
+      internal/adapters/mysql: "Core package must not import storage directly"
+      internal/cmd: "Core package must not import CLI code"
+
+  forbidigo:
+    forbid:
+      fmt.Println: "Use structured logger interface instead (e.g., slog)"
+      panic: "Do not panic in core package; return error instead"
+      os.Exit: "Do not exit from core package; propagate error to main"
+      var _: "Do not declare package-level state in core packages; use dependency injection"
+
+
 issues:
   exclude-dirs:
     - vendor
@@ -103,6 +133,7 @@ issues:
     - path: _test\.go
       linters:
         - gosec
+        - noctx
         - contextcheck
         - funlen
         - gocyclo

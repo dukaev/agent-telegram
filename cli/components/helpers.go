@@ -9,6 +9,9 @@ import (
 	"agent-telegram/pkg/common"
 )
 
+// KeyEnter is the enter key string.
+const KeyEnter = "enter"
+
 // HandleQuitKeys returns tea.Quit if msg is a quit key.
 // Returns ok=true if key was handled, ok=false otherwise.
 func HandleQuitKeys(msg tea.Msg) (tea.Cmd, bool) {

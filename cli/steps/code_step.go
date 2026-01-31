@@ -40,8 +40,7 @@ func (m CodeStep) Update(msg tea.Msg) (CodeStep, tea.Cmd) {
 	}
 
 	if msg, ok := msg.(tea.KeyMsg); ok && !m.loader.IsActive() {
-		switch msg.String() {
-		case "enter":
+		if msg.String() == components.KeyEnter {
 			var cmd tea.Cmd
 			m.loader, cmd = m.loader.Start("Verifying code...", 2*time.Second)
 			return m, cmd

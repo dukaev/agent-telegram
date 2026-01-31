@@ -11,8 +11,11 @@ import (
 type InputType int
 
 const (
+	// PhoneType is a phone number input.
 	PhoneType InputType = iota
+	// CodeType is a verification code input.
 	CodeType
+	// PasswordType is a 2FA password input.
 	PasswordType
 )
 

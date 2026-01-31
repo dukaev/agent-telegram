@@ -14,6 +14,11 @@ import (
 	"github.com/gotd/td/tg"
 )
 
+const (
+	// unknownPeer is the default peer string.
+	unknownPeer = "unknown"
+)
+
 // Client wraps the Telegram client
 type Client struct {
 	client      *telegram.Client
@@ -141,45 +146,50 @@ func (c *Client) GetMe(ctx context.Context) (*tg.User, error) {
 }
 
 // GetChats returns the list of dialogs/chats with pagination.
-func (c *Client) GetChats(ctx context.Context, limit, offset int) ([]map[string]interface{}, error) {
+func (c *Client) GetChats(ctx context.Context, limit, _ int) ([]map[string]interface{}, error) {
 	if c.client == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
 	api := c.client.API()
 
-	// Get dialogs
 	dialogsClass, err := api.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
-		Limit: int(limit),
+		Limit:      limit,
 		OffsetDate: 0,
-		OffsetID: 0,
+		OffsetID:   0,
 		OffsetPeer: &tg.InputPeerEmpty{},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dialogs: %w", err)
 	}
 
-	// Handle different response types
-	var dialogs []tg.DialogClass
-	var chats []tg.ChatClass
-	var users []tg.UserClass
-
-	switch d := dialogsClass.(type) {
-	case *tg.MessagesDialogs:
-		dialogs = d.Dialogs
-		chats = d.Chats
-		users = d.Users
-	case *tg.MessagesDialogsSlice:
-		dialogs = d.Dialogs
-		chats = d.Chats
-		users = d.Users
-	case *tg.MessagesDialogsNotModified:
-		return nil, fmt.Errorf("dialogs not modified")
-	default:
-		return nil, fmt.Errorf("unexpected dialogs type: %T", d)
+	dialogs, chats, users, err := extractDialogData(dialogsClass)
+	if err != nil {
+		return nil, err
 	}
 
-	// Build chat map
+	chatMap := buildChatMap(chats)
+	userMap := buildUserMap(users)
+
+	return convertDialogsToResult(dialogs, chatMap, userMap), nil
+}
+
+// extractDialogData extracts dialogs, chats, and users from the response.
+func extractDialogData(dialogsClass tg.MessagesDialogsClass) ([]tg.DialogClass, []tg.ChatClass, []tg.UserClass, error) {
+	switch d := dialogsClass.(type) {
+	case *tg.MessagesDialogs:
+		return d.Dialogs, d.Chats, d.Users, nil
+	case *tg.MessagesDialogsSlice:
+		return d.Dialogs, d.Chats, d.Users, nil
+	case *tg.MessagesDialogsNotModified:
+		return nil, nil, nil, fmt.Errorf("dialogs not modified")
+	default:
+		return nil, nil, nil, fmt.Errorf("unexpected dialogs type: %T", d)
+	}
+}
+
+// buildChatMap builds a map of chat ID to chat class.
+func buildChatMap(chats []tg.ChatClass) map[int64]tg.ChatClass {
 	chatMap := make(map[int64]tg.ChatClass)
 	for _, ch := range chats {
 		var id int64
@@ -193,17 +203,22 @@ func (c *Client) GetChats(ctx context.Context, limit, offset int) ([]map[string]
 		}
 		chatMap[id] = ch
 	}
+	return chatMap
+}
 
-	// Build user map
+// buildUserMap builds a map of user ID to user class.
+func buildUserMap(users []tg.UserClass) map[int64]tg.UserClass {
 	userMap := make(map[int64]tg.UserClass)
 	for _, u := range users {
-		switch user := u.(type) {
-		case *tg.User:
+		if user, ok := u.(*tg.User); ok {
 			userMap[user.ID] = user
 		}
 	}
+	return userMap
+}
 
-	// Convert to response format
+// convertDialogsToResult converts dialogs to the result format.
+func convertDialogsToResult(dialogs []tg.DialogClass, chatMap map[int64]tg.ChatClass, userMap map[int64]tg.UserClass) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(dialogs))
 	for _, dialogClass := range dialogs {
 		dialog, ok := dialogClass.(*tg.Dialog)
@@ -212,58 +227,91 @@ func (c *Client) GetChats(ctx context.Context, limit, offset int) ([]map[string]
 		}
 
 		chatInfo := map[string]interface{}{
-			"peer": dialog.Peer,
+			"peer":                dialog.Peer,
+			"unread_count":        dialog.UnreadCount,
+			"read_inbox_max_id":   dialog.ReadInboxMaxID,
+			"read_outbox_max_id":  dialog.ReadOutboxMaxID,
 		}
 
-		// Get chat details from peer
-		switch p := dialog.Peer.(type) {
-		case *tg.PeerUser:
-			if userClass, ok := userMap[p.UserID]; ok {
-				if user, ok := userClass.(*tg.User); ok {
-					chatInfo["type"] = "user"
-					chatInfo["user_id"] = user.ID
-					chatInfo["first_name"] = user.FirstName
-					chatInfo["last_name"] = user.LastName
-					chatInfo["username"] = user.Username
-					if user.Bot {
-						chatInfo["bot"] = true
-					}
-				}
-			}
-		case *tg.PeerChat:
-			if chatClass, ok := chatMap[int64(p.ChatID)]; ok {
-				if chat, ok := chatClass.(*tg.Chat); ok {
-					chatInfo["type"] = "chat"
-					chatInfo["chat_id"] = chat.ID
-					chatInfo["title"] = chat.Title
-					chatInfo["participants_count"] = chat.ParticipantsCount
-				}
-			}
-		case *tg.PeerChannel:
-			if chatClass, ok := chatMap[int64(p.ChannelID)]; ok {
-				if channel, ok := chatClass.(*tg.Channel); ok {
-					chatInfo["type"] = "channel"
-					chatInfo["channel_id"] = channel.ID
-					chatInfo["title"] = channel.Title
-					chatInfo["username"] = channel.Username
-					chatInfo["megagroup"] = channel.Megagroup
-				}
-			}
-		}
-
-		// Add top message info
 		if dialog.TopMessage > 0 {
 			chatInfo["top_message_id"] = dialog.TopMessage
 		}
 
-		chatInfo["unread_count"] = dialog.UnreadCount
-		chatInfo["read_inbox_max_id"] = dialog.ReadInboxMaxID
-		chatInfo["read_outbox_max_id"] = dialog.ReadOutboxMaxID
-
+		populateChatInfo(dialog.Peer, chatInfo, chatMap, userMap)
 		result = append(result, chatInfo)
 	}
+	return result
+}
 
-	return result, nil
+// populateChatInfo populates chat info based on peer type.
+func populateChatInfo(peer tg.PeerClass, chatInfo map[string]interface{}, chatMap map[int64]tg.ChatClass, userMap map[int64]tg.UserClass) {
+	switch p := peer.(type) {
+	case *tg.PeerUser:
+		populateUserInfo(p, chatInfo, userMap)
+	case *tg.PeerChat:
+		populateGroupInfo(p, chatInfo, chatMap)
+	case *tg.PeerChannel:
+		populateChannelInfo(p, chatInfo, chatMap)
+	}
+}
+
+// populateUserInfo populates user chat information.
+func populateUserInfo(p *tg.PeerUser, chatInfo map[string]interface{}, userMap map[int64]tg.UserClass) {
+	userClass, ok := userMap[p.UserID]
+	if !ok {
+		return
+	}
+
+	user, ok := userClass.(*tg.User)
+	if !ok {
+		return
+	}
+
+	chatInfo["type"] = "user"
+	chatInfo["user_id"] = user.ID
+	chatInfo["first_name"] = user.FirstName
+	chatInfo["last_name"] = user.LastName
+	chatInfo["username"] = user.Username
+	if user.Bot {
+		chatInfo["bot"] = true
+	}
+}
+
+// populateGroupInfo populates group chat information.
+func populateGroupInfo(p *tg.PeerChat, chatInfo map[string]interface{}, chatMap map[int64]tg.ChatClass) {
+	chatClass, ok := chatMap[p.ChatID]
+	if !ok {
+		return
+	}
+
+	chat, ok := chatClass.(*tg.Chat)
+	if !ok {
+		return
+	}
+
+	chatInfo["type"] = "chat"
+	chatInfo["chat_id"] = chat.ID
+	chatInfo["title"] = chat.Title
+	chatInfo["participants_count"] = chat.ParticipantsCount
+}
+
+// populateChannelInfo populates channel chat information.
+func populateChannelInfo(p *tg.PeerChannel, chatInfo map[string]interface{}, chatMap map[int64]tg.ChatClass) {
+	chatClass, ok := chatMap[p.ChannelID]
+	if !ok {
+		return
+	}
+
+	channel, ok := chatClass.(*tg.Channel)
+	if !ok {
+		return
+	}
+
+	chatInfo["type"] = "channel"
+	chatInfo["channel_id"] = channel.ID
+	chatInfo["title"] = channel.Title
+	chatInfo["username"] = channel.Username
+	chatInfo["megagroup"] = channel.Megagroup
 }
 
 // GetUpdates pops and returns stored updates.
@@ -281,8 +329,8 @@ func (c *Client) RegisterUpdateHandlers(dispatcher tg.UpdateDispatcher) {
 	}
 
 	// New messages
-	dispatcher.OnNewMessage(func(ctx context.Context, e tg.Entities, update *tg.UpdateNewMessage) error {
-		peer := "unknown"
+	dispatcher.OnNewMessage(func(_ context.Context, _ tg.Entities, update *tg.UpdateNewMessage) error {
+		peer := unknownPeer
 		if msg, ok := update.Message.(*tg.Message); ok && msg.PeerID != nil {
 			peer = peerToString(msg.PeerID)
 		}
@@ -294,8 +342,8 @@ func (c *Client) RegisterUpdateHandlers(dispatcher tg.UpdateDispatcher) {
 	})
 
 	// Edited messages
-	dispatcher.OnEditMessage(func(ctx context.Context, e tg.Entities, update *tg.UpdateEditMessage) error {
-		peer := "unknown"
+	dispatcher.OnEditMessage(func(_ context.Context, _ tg.Entities, update *tg.UpdateEditMessage) error {
+		peer := unknownPeer
 		if msg, ok := update.Message.(*tg.Message); ok && msg.PeerID != nil {
 			peer = peerToString(msg.PeerID)
 		}
@@ -317,6 +365,6 @@ func peerToString(peer tg.PeerClass) string {
 	case *tg.PeerChannel:
 		return fmt.Sprintf("channel:%d", p.ChannelID)
 	default:
-		return "unknown"
+		return unknownPeer
 	}
 }

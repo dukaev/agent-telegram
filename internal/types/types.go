@@ -1,4 +1,5 @@
 // Package types provides shared types and interfaces for the agent-telegram application.
+//revive:disable:var-naming
 package types
 
 // PeerType represents the type of a Telegram peer (user, chat, or channel).
@@ -13,6 +14,11 @@ const (
 	PeerTypeChannel
 )
 
+const (
+	// peerTypeUnknown is the unknown peer type string.
+	peerTypeUnknown = "unknown"
+)
+
 // String returns a string representation of the peer type.
 func (p PeerType) String() string {
 	switch p {
@@ -23,7 +29,7 @@ func (p PeerType) String() string {
 	case PeerTypeChannel:
 		return "channel"
 	default:
-		return "unknown"
+		return peerTypeUnknown
 	}
 }
 
@@ -49,24 +55,24 @@ const (
 
 // SendCodeResult represents the result of sending a verification code.
 type SendCodeResult struct {
-	PhoneCodeHash string `json:"phone_code_hash"`
+	PhoneCodeHash string `json:"phoneCodeHash"`
 	Timeout       int    `json:"timeout"`
 }
 
 // SignInResult represents the result of a sign-in attempt.
 type SignInResult struct {
 	Success       bool   `json:"success"`
-	Requires2FA   bool   `json:"requires_2fa"`
-	TwoFactorHint string `json:"two_factor_hint,omitempty"`
-	AuthError     string `json:"auth_error,omitempty"`
+	Requires2FA   bool   `json:"requires2fa"`
+	TwoFactorHint string `json:"twoFactorHint,omitempty"`
+	AuthError     string `json:"authError,omitempty"`
 }
 
 // User represents a Telegram user.
 type User struct {
 	ID         int64  `json:"id"`
-	FirstName  string `json:"first_name,omitempty"`
-	LastName   string `json:"last_name,omitempty"`
+	FirstName  string `json:"firstName,omitempty"`
+	LastName   string `json:"lastName,omitempty"`
 	Username   string `json:"username,omitempty"`
 	Phone      string `json:"phone,omitempty"`
-	AccessHash int64  `json:"access_hash,omitempty"`
+	AccessHash int64  `json:"accessHash,omitempty"`
 }

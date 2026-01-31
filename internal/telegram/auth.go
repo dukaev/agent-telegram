@@ -119,6 +119,14 @@ func (s *Service) SendCode(ctx context.Context, userID int, phoneNumber string) 
 	}, nil
 }
 
+// signInResult holds the result of sign in operation.
+type signInResult struct {
+	requires2FA   bool
+	twoFactorHint string
+	authError     string
+	success       bool
+}
+
 // SignIn authenticates with the verification code.
 func (s *Service) SignIn(ctx context.Context, userID int, phoneNumber, phoneCode, phoneCodeHash string) (*types.SignInResult, error) {
 	s.logger.Info("Starting sign in with verification code",
@@ -130,12 +138,11 @@ func (s *Service) SignIn(ctx context.Context, userID int, phoneNumber, phoneCode
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	var requires2FA bool
-	var twoFactorHint string
-	var authError string
+	var result signInResult
 
 	err = client.Run(ctx, func(ctx context.Context) error {
 		api := client.API()
+		var err error
 
 		authResult, err := api.AuthSignIn(ctx, &tg.AuthSignInRequest{
 			PhoneNumber:   phoneNumber,
@@ -144,59 +151,67 @@ func (s *Service) SignIn(ctx context.Context, userID int, phoneNumber, phoneCode
 		})
 
 		if err != nil {
-			if strings.Contains(err.Error(), "SESSION_PASSWORD_NEEDED") {
-				s.logger.Info("2FA password required",
-					"phone_number", phoneNumber)
-
-				passwordInfo, pwdErr := api.AccountGetPassword(ctx)
-				if pwdErr != nil {
-					return fmt.Errorf("failed to get 2FA info: %w", pwdErr)
-				}
-
-				requires2FA = true
-				if passwordInfo.Hint != "" {
-					twoFactorHint = passwordInfo.Hint
-				}
-
-				s.logger.Info("2FA info retrieved",
-					"phone_number", phoneNumber,
-					"hint", twoFactorHint)
-
-				return nil
-			}
-
-			authError = err.Error()
-			s.logger.Error("Authentication failed",
-				"phone_number", phoneNumber,
-				"error", err)
-			return fmt.Errorf("authentication failed: %w", err)
+			return s.handleSignInError(ctx, api, phoneNumber, err, &result)
 		}
 
-		switch result := authResult.(type) {
-		case *tg.AuthAuthorization:
-			s.logger.Info("Authentication successful",
-				"phone_number", phoneNumber)
-		case *tg.AuthAuthorizationSignUpRequired:
-			authError = "account registration required"
-			return fmt.Errorf("account registration required for phone number: %s", phoneNumber)
-		default:
-			authError = fmt.Sprintf("unexpected authentication result type: %T", result)
-			return fmt.Errorf("unexpected authentication result: %T", result)
-		}
-
-		return nil
+		return s.processAuthResult(authResult, phoneNumber, &result)
 	})
 
-	if err != nil && authError == "" {
+	if err != nil && result.authError == "" {
 		return nil, err
 	}
 
 	return &types.SignInResult{
-		Success:       !requires2FA && authError == "",
-		Requires2FA:   requires2FA,
-		TwoFactorHint: twoFactorHint,
-		AuthError:     authError,
+		Success:       result.success,
+		Requires2FA:   result.requires2FA,
+		TwoFactorHint: result.twoFactorHint,
+		AuthError:     result.authError,
 	}, nil
+}
+
+// handleSignInError handles sign in errors, checking for 2FA requirement.
+func (s *Service) handleSignInError(ctx context.Context, api *tg.Client, phoneNumber string, err error, result *signInResult) error {
+	if !strings.Contains(err.Error(), "SESSION_PASSWORD_NEEDED") {
+		result.authError = err.Error()
+		s.logger.Error("Authentication failed",
+			"phone_number", phoneNumber,
+			"error", err)
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+
+	s.logger.Info("2FA password required", "phone_number", phoneNumber)
+
+	passwordInfo, pwdErr := api.AccountGetPassword(ctx)
+	if pwdErr != nil {
+		return fmt.Errorf("failed to get 2FA info: %w", pwdErr)
+	}
+
+	result.requires2FA = true
+	if passwordInfo.Hint != "" {
+		result.twoFactorHint = passwordInfo.Hint
+	}
+
+	s.logger.Info("2FA info retrieved",
+		"phone_number", phoneNumber,
+		"hint", result.twoFactorHint)
+
+	return nil
+}
+
+// processAuthResult processes the authentication result.
+func (s *Service) processAuthResult(authResult tg.AuthAuthorizationClass, phoneNumber string, result *signInResult) error {
+	switch r := authResult.(type) {
+	case *tg.AuthAuthorization:
+		s.logger.Info("Authentication successful", "phone_number", phoneNumber)
+		result.success = true
+	case *tg.AuthAuthorizationSignUpRequired:
+		result.authError = "account registration required"
+		return fmt.Errorf("account registration required for phone number: %s", phoneNumber)
+	default:
+		result.authError = fmt.Sprintf("unexpected authentication result type: %T", r)
+		return fmt.Errorf("unexpected authentication result: %T", r)
+	}
+	return nil
 }
 
 // SignInWith2FA authenticates with the 2FA password.
@@ -234,14 +249,13 @@ func (s *Service) SignInWith2FA(ctx context.Context, userID int, phoneNumber, pa
 			return fmt.Errorf("failed to authenticate with 2FA password: %w", err)
 		}
 
-		switch result := authResult.(type) {
+		switch r := authResult.(type) {
 		case *tg.AuthAuthorization:
-			s.logger.Info("2FA authentication successful",
-				"phone_number", phoneNumber)
+			s.logger.Info("2FA authentication successful", "phone_number", phoneNumber)
 		case *tg.AuthAuthorizationSignUpRequired:
 			return fmt.Errorf("account registration required for phone number: %s", phoneNumber)
 		default:
-			return fmt.Errorf("unexpected 2FA authentication result: %T", result)
+			return fmt.Errorf("unexpected 2FA authentication result: %T", r)
 		}
 
 		return nil

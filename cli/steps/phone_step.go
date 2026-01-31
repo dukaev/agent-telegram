@@ -40,7 +40,7 @@ func (m PhoneStep) Update(msg tea.Msg) (PhoneStep, tea.Cmd) {
 	}
 
 	if msg, ok := msg.(tea.KeyMsg); ok && !m.loader.IsActive() {
-		if msg.String() == "enter" {
+		if msg.String() == components.KeyEnter {
 			var cmd tea.Cmd
 			m.loader, cmd = m.loader.Start("Sending code...", 2*time.Second)
 			return m, cmd
