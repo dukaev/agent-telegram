@@ -23,13 +23,14 @@ func HandleQuitKeys(msg tea.Msg) (tea.Cmd, bool) {
 
 // RenderLoaderView renders the loading state with spinner.
 func RenderLoaderView(label, value, frame string) string {
-	loaderLine := common.LabelStyle.Render(label) + " " +
-		lipgloss.NewStyle().Foreground(common.TelegramBlue).Render(frame+" ") +
-		value
+	labelWithSpinner := common.LabelStyle.Render(label) + " " +
+		lipgloss.NewStyle().Foreground(common.TelegramBlue).Render(frame)
 
 	lines := []string{
 		common.TitleStyle.Render(" Telegram Login"),
-		loaderLine,
+		"",
+		labelWithSpinner,
+		value,
 	}
 	return strings.Join(lines, "\n")
 }
@@ -38,6 +39,7 @@ func RenderLoaderView(label, value, frame string) string {
 func RenderInputView(inputLine string, showHelp bool) string {
 	lines := []string{
 		common.TitleStyle.Render(" Telegram Login"),
+		"",
 		inputLine,
 	}
 
@@ -49,7 +51,7 @@ func RenderInputView(inputLine string, showHelp bool) string {
 	return strings.Join(lines, "\n")
 }
 
-// RenderLabeledInput renders a labeled input field.
+// RenderLabeledInput renders a labeled input field with label above.
 func RenderLabeledInput(label, input string) string {
-	return common.LabelStyle.Render(label) + " " + input
+	return common.LabelStyle.Render(label) + "\n" + input
 }

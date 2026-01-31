@@ -9,14 +9,14 @@ import (
 
 // PasswordStep represents the 2FA password input step.
 type PasswordStep struct {
-	passwordInput components.MaskedInput
+	passwordInput components.Input
 	authService   *auth.Service
 	twoFAHint     string
 }
 
 // NewPasswordStep creates a new password input step.
 func NewPasswordStep(authService *auth.Service, hint string) PasswordStep {
-	passwordInput := components.NewMaskedInput(0, components.PasswordType)
+	passwordInput := components.NewInput(components.PasswordType)
 	passwordInput.Focus()
 
 	return PasswordStep{
@@ -45,7 +45,7 @@ func (m PasswordStep) Update(msg tea.Msg) (PasswordStep, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.passwordInput, cmd = m.passwordInput.Update(msg)
+	m.passwordInput.Model, cmd = m.passwordInput.Update(msg)
 	return m, cmd
 }
 

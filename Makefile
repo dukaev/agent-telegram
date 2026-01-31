@@ -18,3 +18,6 @@ test:
 clean:
 	go clean
 	rm -f agent-telegram
+
+login-mock:
+	go run main.go login -mock

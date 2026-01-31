@@ -12,6 +12,12 @@ import (
 	"syscall"
 
 	"agent-telegram/cli"
+	"agent-telegram/cmd/chats"
+	"agent-telegram/cmd/echo"
+	"agent-telegram/cmd/get-me"
+	"agent-telegram/cmd/ping"
+	cmdserve "agent-telegram/cmd/serve"
+	"agent-telegram/cmd/status"
 	"agent-telegram/internal/auth"
 	"agent-telegram/telegram"
 )
@@ -29,11 +35,21 @@ func main() {
 
 	switch os.Args[1] {
 	case "serve":
-		runServe(os.Args[2:])
+		cmdserve.Run(os.Args[2:])
 	case "telegram":
 		runTelegram(os.Args[2:])
 	case "login":
 		runLogin(os.Args[2:])
+	case "ping":
+		ping.Run(os.Args[2:])
+	case "echo":
+		echo.Run(os.Args[2:])
+	case "get-me":
+		getme.Run(os.Args[2:])
+	case "chats":
+		chats.Run(os.Args[2:])
+	case "status":
+		status.Run(os.Args[2:])
 	case "version":
 		fmt.Printf("agent-telegram %s\n", version)
 	default:
@@ -45,33 +61,32 @@ func main() {
 func printUsage() {
 	fmt.Println("Usage: agent-telegram <command>")
 	fmt.Println("\nCommands:")
-	fmt.Println("  serve       Start the HTTP server")
+	fmt.Println("  serve       Start IPC server with Telegram (Unix socket)")
 	fmt.Println("  telegram    Connect to Telegram")
 	fmt.Println("  login       Interactive login with Telegram authentication")
+	fmt.Println("  ping        Send ping to IPC server")
+	fmt.Println("  echo        Echo message via IPC server")
+	fmt.Println("  get-me      Get current Telegram user info")
+	fmt.Println("  chats       List Telegram chats")
+	fmt.Println("  status      Check IPC server status")
 	fmt.Println("  version     Print version information")
 	fmt.Println("\nLogin options:")
 	fmt.Println("  -app-id     Telegram API App ID (from my.telegram.org)")
 	fmt.Println("  -app-hash   Telegram API App Hash (from my.telegram.org)")
 	fmt.Println("  -phone      Phone number (optional, can enter in UI)")
-	fmt.Println("\nEnvironment variables:")
-	fmt.Println("  AGENT_TELEGRAM_APP_ID     Telegram API App ID")
-	fmt.Println("  AGENT_TELEGRAM_APP_HASH   Telegram API App Hash")
-	fmt.Println("  AGENT_TELEGRAM_PHONE      Phone number (optional)")
+	fmt.Println("\nIPC options:")
+	fmt.Println("  -socket     Path to Unix socket (default: /tmp/agent-telegram.sock)")
+	fmt.Println("  -session    Path to Telegram session file")
+	fmt.Println("              (default: ~/.agent-telegram/session.json)")
+	fmt.Println("              (or AGENT_TELEGRAM_SESSION_PATH env)")
 	fmt.Println("\nExamples:")
-	fmt.Println("  agent-telegram login -app-id 12345 -app-hash abcdef")
-	fmt.Println("  AGENT_TELEGRAM_APP_ID=12345 AGENT_TELEGRAM_APP_HASH=abcdef agent-telegram login")
-}
-
-func runServe(args []string) {
-	serveCmd := flag.NewFlagSet("serve", flag.ExitOnError)
-	servePort := serveCmd.String("port", "8080", "Port to listen on")
-
-	if err := serveCmd.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Starting server on port %s...\n", *servePort)
-	// Server implementation goes here
+	fmt.Println("  agent-telegram serve                           # Start IPC server")
+	fmt.Println("  agent-telegram serve --session /path/session    # Use custom session")
+	fmt.Println("  agent-telegram ping                            # Ping server")
+	fmt.Println("  agent-telegram get-me                          # Get user info")
+	fmt.Println("  agent-telegram chats                           # List chats (default 10)")
+	fmt.Println("  agent-telegram chats --limit 20 --offset 10    # List with pagination")
+	fmt.Println("  agent-telegram status                          # Check status")
 }
 
 func runTelegram(args []string) {

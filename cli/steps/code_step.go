@@ -7,19 +7,18 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"agent-telegram/cli/components"
 	"agent-telegram/internal/auth"
-	"agent-telegram/pkg/common"
 )
 
 // CodeStep represents the verification code input step.
 type CodeStep struct {
-	codeInput   components.MaskedInput
+	codeInput   components.Input
 	loader      components.Loader
 	authService *auth.Service
 }
 
 // NewCodeStep creates a new code input step.
 func NewCodeStep(authService *auth.Service) CodeStep {
-	codeInput := components.NewMaskedInput(5, components.CodeType)
+	codeInput := components.NewInput(components.CodeType)
 	codeInput.Focus()
 
 	return CodeStep{
@@ -62,7 +61,7 @@ func (m CodeStep) Update(msg tea.Msg) (CodeStep, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	m.codeInput, cmd = m.codeInput.Update(msg)
+	m.codeInput.Model, cmd = m.codeInput.Update(msg)
 	return m, cmd
 }
 
@@ -96,7 +95,7 @@ func (m CodeStep) View() string {
 	if m.loader.IsActive() {
 		return components.RenderLoaderView(
 			m.codeInput.GetLabel(),
-			m.codeInput.ValueOnlyColored(common.TelegramBlue),
+			m.codeInput.ViewWithSpinner(m.loader.Frame()),
 			m.loader.Frame(),
 		)
 	}

@@ -25,4 +25,16 @@ var (
 	ErrorStyle = lipgloss.NewStyle().
 			Foreground(ErrorColor).
 			Bold(true)
+
+	// Input styles
+	InputStyle = lipgloss.NewStyle().
+			Foreground(TelegramBlue)
+
+	InputPlaceholderStyle = lipgloss.NewStyle().
+			Foreground(NormalColor).
+			Faint(true)
+
+	InputFocusedStyle = lipgloss.NewStyle().
+			Foreground(TelegramBlue).
+			Bold(true)
 )
