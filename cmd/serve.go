@@ -38,8 +38,10 @@ Telegram client runs in background and stays connected.`,
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	serveCmd.Flags().StringVarP(&serveSocket, "socket", "s", "", "Path to Unix socket (default: /tmp/agent-telegram.sock)")
-	serveCmd.Flags().StringVarP(&serveSession, "session", "", "", "Path to Telegram session file (default: ~/.agent-telegram/session.json)")
+	serveCmd.Flags().StringVarP(&serveSocket, "socket", "s", "",
+		"Path to Unix socket (default: /tmp/agent-telegram.sock)")
+	serveCmd.Flags().StringVarP(&serveSession, "session", "", "",
+		"Path to Telegram session file (default: ~/.agent-telegram/session.json)")
 }
 
 func runServe(_ *cobra.Command, _ []string) {
@@ -102,7 +104,10 @@ func loadTelegramCredentials() (appID int, appHash, phone string) {
 	phone = os.Getenv("TELEGRAM_PHONE")
 
 	if appIDStr == "" || appHash == "" {
-		fmt.Fprintf(os.Stderr, "Missing Telegram credentials. Set TELEGRAM_APP_ID and TELEGRAM_APP_HASH (or AGENT_TELEGRAM_APP_ID and AGENT_TELEGRAM_APP_HASH) in .env or environment.\n")
+		fmt.Fprintf(os.Stderr,
+			"Missing Telegram credentials. Set TELEGRAM_APP_ID and "+
+				"TELEGRAM_APP_HASH (or AGENT_TELEGRAM_APP_ID and AGENT_TELEGRAM_APP_HASH) "+
+				"in .env or environment.\n")
 		os.Exit(1)
 	}
 

@@ -1,7 +1,6 @@
 version: "2"
 
 linters:
-  disable-all: true
   enable:
     # --- Correctness & Safety ---
     - govet
@@ -28,11 +27,13 @@ linters:
     - whitespace
     - tagliatelle
     - gocritic
+    - lll
 
     # --- Complexity & Functions ---
     - gocyclo
     - gocognit
     - funlen
+    - maintidx
     - nestif
     - goconst
 
@@ -42,10 +43,18 @@ linters:
 
 linters-settings:
   funlen:
-    lines: 80
-    statements: 40
-    # Максимум аргументов (костыль через revive / funlen)
+    lines: 50
+    statements: 30
     max-args: 5
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+      - opinionated
+    enabled-checks:
+      - all                 # Включает все доступные проверки
 
   gocyclo:
     min-complexity: 12
@@ -60,8 +69,19 @@ linters-settings:
     min-len: 2
     min-occurrences: 2
 
+  maintidx:
+    under: 20
+
+  lll:
+    # Максимальная длина строки
+    line-length: 120
+    # Пропускать строки с тегами
+    tab-width: 2
+
   revive:
     rules:
+      # NOTE: file-length-limit is configured separately via .revive.toml
+      # and run as a standalone check in the lint target (see Makefile)
       - name: exported
         disabled: false
       - name: package-comments
@@ -90,15 +110,9 @@ linters-settings:
       - name: package-level-vars
         severity: error
         comment: "Avoid global state in core packages"
-
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-      - style
-      - opinionated
-    disabled-checks:
-      - whyNoLint
+      # Добавьте для лимита аргументов, если нужно
+      - name: argument-limit
+        arguments: [5]
 
   nolintlint:
     require-specific: true

@@ -1,0 +1,66 @@
+# Revive configuration file
+# This config enables file-length-limit rule for standalone revive linter
+
+ignoreFailures = false
+
+# Enable default rules from golint
+[rule.blank-imports]
+	severity = "error"
+
+[rule.context-as-argument]
+	severity = "error"
+
+[rule.context-keys-type]
+	severity = "error"
+
+[rule.dot-imports]
+	severity = "error"
+
+[rule.error-naming]
+	severity = "error"
+
+[rule.error-return]
+	severity = "error"
+
+[rule.error-strings]
+	severity = "error"
+
+[rule.exported]
+	severity = "warning"
+
+[rule.indent-error-flow]
+	severity = "error"
+
+[rule.package-comments]
+	severity = "warning"
+
+[rule.range]
+	severity = "error"
+
+[rule.receiver-naming]
+	severity = "error"
+
+[rule.time-naming]
+	severity = "error"
+
+[rule.unexported-naming]
+	severity = "warning"
+
+[rule.unexported-return]
+	severity = "warning"
+
+[rule.unused-parameter]
+	severity = "warning"
+
+[rule.var-declaration]
+	severity = "error"
+
+[rule.var-naming]
+	severity = "warning"
+
+# File length limit rule - max 200 lines
+[rule.file-length-limit]
+	severity = "error"
+	arguments = [
+		{ max = 200, skipBlankLines = true, skipComments = true }
+	]

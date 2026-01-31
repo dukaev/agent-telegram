@@ -1,7 +1,10 @@
 .PHONY: lint lint-fix build run test clean
 
+REVIVE = $(shell go env GOPATH)/bin/revive
+
 lint:
 	golangci-lint run ./...
+	@$(REVIVE) -config .revive.toml ./...
 
 lint-fix:
 	golangci-lint run --fix ./...

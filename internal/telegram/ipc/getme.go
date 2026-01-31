@@ -49,4 +49,5 @@ type Client interface {
 	GetMe(ctx context.Context) (*tg.User, error)
 	GetChats(ctx context.Context, limit, offset int) ([]map[string]interface{}, error)
 	GetUpdates(limit int) []telegram.StoredUpdate
+	GetMessages(ctx context.Context, params telegram.GetMessagesParams) (*telegram.GetMessagesResult, error)
 }

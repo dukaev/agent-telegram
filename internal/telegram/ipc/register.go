@@ -41,4 +41,15 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 		}
 		return result, nil
 	})
+
+	srv.Register("get_messages", func(params json.RawMessage) (interface{}, *ipc.ErrorObject) {
+		result, err := GetMessagesHandler(client)(params)
+		if err != nil {
+			return nil, &ipc.ErrorObject{
+				Code:    -32000,
+				Message: err.Error(),
+			}
+		}
+		return result, nil
+	})
 }
