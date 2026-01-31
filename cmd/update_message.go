@@ -3,12 +3,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 // updateMessageCmd represents the update-message command.
@@ -27,21 +23,13 @@ func init() {
 }
 
 func runUpdateMessage(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-	peer := args[0]
-	messageID, _ := strconv.ParseInt(args[1], 10, 64)
-	text := args[2]
-
-	client := ipc.NewClient(socketPath)
-	_, rpcErr := client.Call("update_message", map[string]any{
-		"peer":      peer,
-		"messageId": messageID,
-		"text":      text,
+	runner := NewRunnerFromRoot(false)
+	result := runner.CallWithParams("update_message", map[string]any{
+		"peer":      args[0],
+		"messageId": runner.MustParseInt64(args[1]),
+		"text":      args[2],
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Message updated successfully!\n")
+	runner.PrintResult(result, func(any) {
+		fmt.Printf("Message updated successfully!\n")
+	})
 }

@@ -1,5 +1,5 @@
-// Package telegram provides 2FA authentication functionality.
-package telegram
+// Package tgauth provides 2FA authentication functionality.
+package tgauth
 
 import (
 	"context"

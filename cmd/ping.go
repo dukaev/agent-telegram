@@ -19,7 +19,7 @@ var pingCmd = &cobra.Command{
 	Use:   "ping",
 	Short: "Send ping to IPC server",
 	Long:  `Send a ping message to the IPC server and receive a pong response.`,
-	Run: runPing,
+	Run:   runPing,
 }
 
 func init() {

@@ -2,13 +2,10 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -43,7 +40,7 @@ func init() {
 }
 
 func runSendPoll(cmd *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
+	runner := NewRunnerFromRoot(sendPollJSON)
 	peer := args[0]
 	question := args[1]
 
@@ -69,8 +66,7 @@ func runSendPoll(cmd *cobra.Command, args []string) {
 		optionMaps[i] = map[string]string{"text": opt}
 	}
 
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("send_poll", map[string]any{
+	result := runner.CallWithParams("send_poll", map[string]any{
 		"peer":       peer,
 		"question":   question,
 		"options":    optionMaps,
@@ -78,42 +74,15 @@ func runSendPoll(cmd *cobra.Command, args []string) {
 		"quiz":       sendPollQuiz,
 		"correctIdx": sendPollCorrect,
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
 
-	if sendPollJSON {
-		printSendPollJSON(result)
-	} else {
-		printSendPollResult(result)
-	}
-}
-
-// printSendPollJSON prints the result as JSON.
-func printSendPollJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
-
-// printSendPollResult prints the result in a human-readable format.
-func printSendPollResult(result any) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
-	}
-
-	id, _ := r["id"].(float64)
-	peer, _ := r["peer"].(string)
-	question, _ := r["question"].(string)
-
-	fmt.Printf("Poll sent successfully!\n")
-	fmt.Printf("  Peer: @%s\n", peer)
-	fmt.Printf("  Question: %s\n", question)
-	fmt.Printf("  ID: %d\n", int64(id))
+	runner.PrintResult(result, func(r any) {
+		rMap, _ := r.(map[string]any)
+		id, _ := rMap["id"].(float64)
+		peer, _ := rMap["peer"].(string)
+		question, _ := rMap["question"].(string)
+		fmt.Printf("Poll sent successfully!\n")
+		fmt.Printf("  Peer: @%s\n", peer)
+		fmt.Printf("  Question: %s\n", question)
+		fmt.Printf("  ID: %d\n", int64(id))
+	})
 }

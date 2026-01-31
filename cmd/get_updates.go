@@ -2,13 +2,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -32,41 +28,19 @@ func init() {
 }
 
 func runGetUpdates(_ *cobra.Command, _ []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-
-	client := ipc.NewClient(socketPath)
-	result, err := client.Call("get_updates", map[string]any{
+	runner := NewRunnerFromRoot(getUpdatesJSON)
+	result := runner.CallWithParams("get_updates", map[string]any{
 		"limit": getUpdatesLimit,
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 
-	if getUpdatesJSON {
-		printJSON(result)
-		return
-	}
-
-	printUpdates(result)
-}
-
-// printJSON prints the result as JSON.
-func printJSON(result any) {
-	output, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(output))
+	runner.PrintResult(result, printUpdates)
 }
 
 // printUpdates prints updates in a human-readable format.
 func printUpdates(result any) {
-	resultMap, ok := result.(map[string]any)
+	resultMap, ok := ToMap(result)
 	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response\n")
-		os.Exit(1)
+		return
 	}
 
 	updates, ok := resultMap["updates"].([]any)
@@ -83,7 +57,7 @@ func printUpdates(result any) {
 
 // printUpdate prints a single update.
 func printUpdate(u any) {
-	update, ok := u.(map[string]any)
+	update, ok := ToMap(u)
 	if !ok {
 		return
 	}
@@ -95,12 +69,12 @@ func printUpdate(u any) {
 
 // printMessageText prints the message text if available.
 func printMessageText(data any) {
-	dataMap, ok := data.(map[string]any)
+	dataMap, ok := ToMap(data)
 	if !ok {
 		return
 	}
 
-	msg, ok := dataMap["message"].(map[string]any)
+	msg, ok := ToMap(dataMap["message"])
 	if !ok {
 		return
 	}

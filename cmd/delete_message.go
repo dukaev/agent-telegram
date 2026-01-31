@@ -3,12 +3,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 // deleteMessageCmd represents the delete-message command.
@@ -27,17 +23,11 @@ func init() {
 }
 
 func runDeleteMessage(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-	messageID, _ := strconv.ParseInt(args[0], 10, 64)
-
-	client := ipc.NewClient(socketPath)
-	_, rpcErr := client.Call("delete_message", map[string]any{
-		"messageId": messageID,
+	runner := NewRunnerFromRoot(false)
+	result := runner.CallWithParams("delete_message", map[string]any{
+		"messageId": runner.MustParseInt64(args[0]),
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Message deleted successfully!\n")
+	runner.PrintResult(result, func(any) {
+		fmt.Printf("Message deleted successfully!\n")
+	})
 }

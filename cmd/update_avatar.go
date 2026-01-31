@@ -2,13 +2,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -34,36 +30,11 @@ func init() {
 }
 
 func runUpdateAvatar(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-	filePath := args[0]
-
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("update_avatar", map[string]any{
-		"file": filePath,
+	runner := NewRunnerFromRoot(updateAvatarJSON)
+	result := runner.CallWithParams("update_avatar", map[string]any{
+		"file": args[0],
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	if updateAvatarJSON {
-		printUpdateAvatarJSON(result)
-	} else {
-		printUpdateAvatarResult(result)
-	}
-}
-
-// printUpdateAvatarJSON prints the result as JSON.
-func printUpdateAvatarJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
-
-// printUpdateAvatarResult prints the result in a human-readable format.
-func printUpdateAvatarResult(_ any) {
-	fmt.Printf("Avatar updated successfully!\n")
+	runner.PrintResult(result, func(any) {
+		fmt.Printf("Avatar updated successfully!\n")
+	})
 }

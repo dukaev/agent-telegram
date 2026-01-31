@@ -1,5 +1,5 @@
-// Package telegram provides Telegram sign-in functionality.
-package telegram
+// Package tgauth provides Telegram sign-in functionality.
+package tgauth
 
 import (
 	"context"

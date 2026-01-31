@@ -2,13 +2,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -34,54 +30,34 @@ func init() {
 }
 
 func runGetUserInfo(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
+	runner := NewRunnerFromRoot(getUserInfoJSON)
 	username := args[0]
 
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("get_user_info", map[string]any{
+	result := runner.CallWithParams("get_user_info", map[string]any{
 		"username": username,
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
 
-	if getUserInfoJSON {
-		printGetUserInfoJSON(result)
-	} else {
-		printGetUserInfoResult(result)
-	}
-}
-
-// printGetUserInfoJSON prints the result as JSON.
-func printGetUserInfoJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
+	runner.PrintResult(result, printGetUserInfoResult)
 }
 
 // printGetUserInfoResult prints the result in a human-readable format.
 func printGetUserInfoResult(result any) {
-	r, ok := result.(map[string]any)
+	r, ok := ToMap(result)
 	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
+		return
 	}
 
-	id, _ := r["id"].(float64)
-	username, _ := r["username"].(string)
-	firstName, _ := r["firstName"].(string)
-	lastName, _ := r["lastName"].(string)
-	phone, _ := r["phone"].(string)
-	bio, _ := r["bio"].(string)
+	id := ExtractInt64(r, "id")
+	username := ExtractString(r, "username")
+	firstName := ExtractString(r, "firstName")
+	lastName := ExtractString(r, "lastName")
+	phone := ExtractString(r, "phone")
+	bio := ExtractString(r, "bio")
 	verified, _ := r["verified"].(bool)
 	bot, _ := r["bot"].(bool)
 
 	fmt.Printf("User Information:\n")
-	fmt.Printf("  ID: %d\n", int64(id))
+	fmt.Printf("  ID: %d\n", id)
 	fmt.Printf("  Username: @%s\n", username)
 	fmt.Printf("  Name: %s %s\n", firstName, lastName)
 	if phone != "" {

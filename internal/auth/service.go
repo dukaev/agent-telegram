@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"agent-telegram/internal/config"
-	"agent-telegram/internal/telegram"
+	"agent-telegram/internal/tgauth"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -23,9 +23,9 @@ type Result struct {
 	Error         string
 }
 
-// Service wraps the Telegram service for TUI integration.
+// Service wraps the Telegram auth service for TUI integration.
 type Service struct {
-	telegramService *telegram.Service
+	telegramService *tgauth.Service
 	userID          int
 	ctx             context.Context
 	logger          *slog.Logger
@@ -41,7 +41,7 @@ func NewService(ctx context.Context) (*Service, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	telegramService := telegram.NewService(cfg, slog.Default())
+	telegramService := tgauth.NewService(cfg, slog.Default())
 
 	return &Service{
 		telegramService: telegramService,
@@ -56,7 +56,7 @@ func NewServiceWithConfig(ctx context.Context, appID int, appHash, phone string)
 	sessionPath := filepath.Join(getConfigDir(), ".agent-telegram")
 	cfg := config.LoadFromArgs(appID, appHash, phone, sessionPath)
 
-	telegramService := telegram.NewService(cfg, slog.Default())
+	telegramService := tgauth.NewService(cfg, slog.Default())
 
 	return &Service{
 		telegramService: telegramService,

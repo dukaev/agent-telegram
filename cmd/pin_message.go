@@ -3,12 +3,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 // pinMessageCmd represents the pin-message command.
@@ -27,21 +23,14 @@ func init() {
 }
 
 func runPinMessage(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-	peer := args[0]
-	messageID, _ := strconv.ParseInt(args[1], 10, 64)
-
-	client := ipc.NewClient(socketPath)
-	_, rpcErr := client.Call("pin_message", map[string]any{
-		"peer":      peer,
-		"messageId": messageID,
+	runner := NewRunnerFromRoot(false)
+	result := runner.CallWithParams("pin_message", map[string]any{
+		"peer":      args[0],
+		"messageId": runner.MustParseInt64(args[1]),
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Message pinned successfully!\n")
+	runner.PrintResult(result, func(any) {
+		fmt.Printf("Message pinned successfully!\n")
+	})
 }
 
 // unpinMessageCmd represents the unpin-message command.
@@ -60,19 +49,12 @@ func init() {
 }
 
 func runUnpinMessage(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-	peer := args[0]
-	messageID, _ := strconv.ParseInt(args[1], 10, 64)
-
-	client := ipc.NewClient(socketPath)
-	_, rpcErr := client.Call("unpin_message", map[string]any{
-		"peer":      peer,
-		"messageId": messageID,
+	runner := NewRunnerFromRoot(false)
+	result := runner.CallWithParams("unpin_message", map[string]any{
+		"peer":      args[0],
+		"messageId": runner.MustParseInt64(args[1]),
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Message unpinned successfully!\n")
+	runner.PrintResult(result, func(any) {
+		fmt.Printf("Message unpinned successfully!\n")
+	})
 }

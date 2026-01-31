@@ -2,13 +2,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -34,8 +30,6 @@ func init() {
 }
 
 func runChats(_ *cobra.Command, _ []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-
 	// Validate and sanitize limit/offset
 	if chatsLimit < 1 {
 		chatsLimit = 1
@@ -47,63 +41,41 @@ func runChats(_ *cobra.Command, _ []string) {
 		chatsOffset = 0
 	}
 
-	client := ipc.NewClient(socketPath)
-	result, err := client.Call("get_chats", map[string]int{
+	runner := NewRunnerFromRoot(chatsJSON)
+	result := runner.CallWithParams("get_chats", map[string]any{
 		"limit":  chatsLimit,
 		"offset": chatsOffset,
 	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
 
-	if chatsJSON {
-		printChatsJSON(result)
-	} else {
-		printChats(result)
-	}
-}
+	runner.PrintResult(result, func(r any) {
+		rMap, ok := ToMap(r)
+		if !ok {
+			return
+		}
 
-// printChatsJSON prints the result as JSON.
-func printChatsJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
+		chats, _ := rMap["chats"].([]any)
+		limit := ExtractFloat64(rMap, "limit")
+		offset := ExtractFloat64(rMap, "offset")
+		count := ExtractFloat64(rMap, "count")
 
-// printChats prints chats in a human-readable format.
-func printChats(result any) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
-	}
+		fmt.Printf("Chats (limit: %.0f, offset: %.0f, count: %.0f):\n", limit, offset, count)
+		fmt.Println()
 
-	chats, _ := r["chats"].([]any)
-	limit := r["limit"].(float64)
-	offset := r["offset"].(float64)
-	count := r["count"].(float64)
-
-	fmt.Printf("Chats (limit: %.0f, offset: %.0f, count: %.0f):\n", limit, offset, count)
-	fmt.Println()
-
-	for _, chat := range chats {
-		printChat(chat)
-	}
+		for _, chat := range chats {
+			printChat(chat)
+		}
+	})
 }
 
 // printChat prints a single chat.
 func printChat(chat any) {
-	chatInfo, ok := chat.(map[string]any)
+	chatInfo, ok := ToMap(chat)
 	if !ok {
 		return
 	}
 
-	chatType, hasType := chatInfo["type"].(string)
-	if !hasType {
+	chatType := ExtractString(chatInfo, "type")
+	if chatType == "" {
 		return
 	}
 

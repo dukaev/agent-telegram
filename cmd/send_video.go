@@ -1,15 +1,11 @@
 // Package cmd provides CLI commands.
-//nolint:dupl // Similar to send-file but for different command
+//nolint:dupl // Similar structure to send-file but for different command
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -38,50 +34,22 @@ func init() {
 }
 
 func runSendVideo(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
+	runner := NewRunnerFromRoot(sendVideoJSON)
 	peer := args[0]
 	filePath := args[1]
 
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("send_video", map[string]any{
+	result := runner.CallWithParams("send_video", map[string]any{
 		"peer":    peer,
 		"file":    filePath,
 		"caption": sendVideoCaption,
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
 
-	if sendVideoJSON {
-		printSendVideoJSON(result)
-	} else {
-		printSendVideoResult(result)
-	}
-}
-
-// printSendVideoJSON prints the result as JSON.
-func printSendVideoJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
-
-// printSendVideoResult prints the result in a human-readable format.
-func printSendVideoResult(result any) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
-	}
-
-	id, _ := r["id"].(float64)
-	peer, _ := r["peer"].(string)
-
-	fmt.Printf("Video sent successfully!\n")
-	fmt.Printf("  Peer: @%s\n", peer)
-	fmt.Printf("  ID: %d\n", int64(id))
+	runner.PrintResult(result, func(r any) {
+		rMap, _ := r.(map[string]any)
+		id, _ := rMap["id"].(float64)
+		peer, _ := rMap["peer"].(string)
+		fmt.Printf("Video sent successfully!\n")
+		fmt.Printf("  Peer: @%s\n", peer)
+		fmt.Printf("  ID: %d\n", int64(id))
+	})
 }

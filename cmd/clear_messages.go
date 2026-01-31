@@ -2,15 +2,10 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -37,56 +32,27 @@ func init() {
 }
 
 func runClearMessages(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
+	runner := NewRunnerFromRoot(clearMessagesJSON)
 
 	idStrs := strings.Split(args[0], ",")
 	messageIDs := make([]int64, 0, len(idStrs))
 
 	for _, idStr := range idStrs {
-		id, err := strconv.ParseInt(strings.TrimSpace(idStr), 10, 64)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: invalid message ID '%s': %v\n", idStr, err)
-			os.Exit(1)
-		}
+		id := runner.MustParseInt64(strings.TrimSpace(idStr))
 		messageIDs = append(messageIDs, id)
 	}
 
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("clear_messages", map[string]any{
+	result := runner.CallWithParams("clear_messages", map[string]any{
 		"messageIds": messageIDs,
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	if clearMessagesJSON {
-		printClearMessagesJSON(result)
-	} else {
-		printClearMessagesResult(result)
-	}
-}
-
-// printClearMessagesJSON prints the result as JSON.
-func printClearMessagesJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
-
-// printClearMessagesResult prints the result in a human-readable format.
-func printClearMessagesResult(result any) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
-	}
-
-	cleared, _ := r["cleared"].(float64)
-
-	fmt.Printf("Messages cleared successfully!\n")
-	fmt.Printf("  Cleared: %d messages\n", int(cleared))
+	runner.PrintResult(result, func(result any) {
+		r, ok := result.(map[string]any)
+		if !ok {
+			fmt.Printf("Messages cleared successfully!\n")
+			return
+		}
+		cleared := ExtractFloat64(r, "cleared")
+		fmt.Printf("Messages cleared successfully!\n")
+		fmt.Printf("  Cleared: %d messages\n", int(cleared))
+	})
 }

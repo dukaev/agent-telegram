@@ -1,6 +1,5 @@
-// Package telegram provides Telegram client operations including authentication
-// and other Telegram API interactions.
-package telegram
+// Package tgauth provides Telegram authentication service for the agent-telegram application.
+package tgauth
 
 import (
 	"fmt"
@@ -11,16 +10,16 @@ import (
 	"agent-telegram/internal/config"
 
 	"github.com/gotd/td/session"
-	"github.com/gotd/td/telegram"
+	gottg "github.com/gotd/td/telegram"
 )
 
-// Service handles Telegram operations including authentication.
+// Service handles Telegram authentication operations.
 type Service struct {
 	cfg    *config.Config
 	logger *slog.Logger
 }
 
-// NewService creates a new Telegram service.
+// NewService creates a new Telegram auth service.
 func NewService(cfg *config.Config, logger *slog.Logger) *Service {
 	if logger == nil {
 		logger = slog.Default()
@@ -31,7 +30,7 @@ func NewService(cfg *config.Config, logger *slog.Logger) *Service {
 	}
 }
 
-// NewServiceFromEnv creates a new Telegram service from environment variables.
+// NewServiceFromEnv creates a new Telegram auth service from environment variables.
 func NewServiceFromEnv(logger *slog.Logger) (*Service, error) {
 	cfg, err := config.LoadFromEnv()
 	if err != nil {
@@ -41,7 +40,7 @@ func NewServiceFromEnv(logger *slog.Logger) (*Service, error) {
 }
 
 // CreateClient creates a new Telegram client for the given user ID.
-func (s *Service) CreateClient(userID int) (*telegram.Client, error) {
+func (s *Service) CreateClient(userID int) (*gottg.Client, error) {
 	// Create user session directory
 	sessionDir := filepath.Join(s.cfg.SessionPath, fmt.Sprintf("user_%d", userID))
 	if err := os.MkdirAll(sessionDir, 0700); err != nil {
@@ -53,7 +52,7 @@ func (s *Service) CreateClient(userID int) (*telegram.Client, error) {
 		Path: filepath.Join(sessionDir, "session.json"),
 	}
 
-	client := telegram.NewClient(s.cfg.AppID, s.cfg.AppHash, telegram.Options{
+	client := gottg.NewClient(s.cfg.AppID, s.cfg.AppHash, gottg.Options{
 		SessionStorage: sessionStorage,
 	})
 

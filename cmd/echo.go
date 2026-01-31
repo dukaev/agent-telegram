@@ -16,7 +16,7 @@ var echoCmd = &cobra.Command{
 	Short: "Echo message via IPC server",
 	Long:  `Send a message to the IPC server and have it echoed back.`,
 	Args:  cobra.ExactArgs(1),
-	Run: runEcho,
+	Run:   runEcho,
 }
 
 func init() {

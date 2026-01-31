@@ -2,13 +2,10 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -37,8 +34,6 @@ func init() {
 }
 
 func runUpdateProfile(cmd *cobra.Command, _ []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-
 	firstName, _ := cmd.Flags().GetString("first")
 	lastName, _ := cmd.Flags().GetString("last")
 	bio, _ := cmd.Flags().GetString("bio")
@@ -48,35 +43,13 @@ func runUpdateProfile(cmd *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("update_profile", map[string]any{
+	runner := NewRunnerFromRoot(updateProfileJSON)
+	result := runner.CallWithParams("update_profile", map[string]any{
 		"firstName": firstName,
 		"lastName":  lastName,
 		"bio":       bio,
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	if updateProfileJSON {
-		printUpdateProfileJSON(result)
-	} else {
-		printUpdateProfileResult(result)
-	}
-}
-
-// printUpdateProfileJSON prints the result as JSON.
-func printUpdateProfileJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
-
-// printUpdateProfileResult prints the result in a human-readable format.
-func printUpdateProfileResult(_ any) {
-	fmt.Printf("Profile updated successfully!\n")
+	runner.PrintResult(result, func(any) {
+		fmt.Printf("Profile updated successfully!\n")
+	})
 }

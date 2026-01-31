@@ -2,13 +2,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -30,34 +26,17 @@ func init() {
 }
 
 func runGetMe(_ *cobra.Command, _ []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
+	runner := NewRunnerFromRoot(getMeJSON)
+	result := runner.Call("get_me", nil)
 
-	client := ipc.NewClient(socketPath)
-	result, err := client.Call("get_me", nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	if getMeJSON {
-		data, err := json.MarshalIndent(result, "", "  ")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println(string(data))
-		return
-	}
-
-	printUserInfo(result)
+	runner.PrintResult(result, printUserInfo)
 }
 
 // printUserInfo prints user information in a human-readable format.
 func printUserInfo(result any) {
-	user, ok := result.(map[string]any)
+	user, ok := ToMap(result)
 	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
+		return
 	}
 
 	fmt.Printf("User Info:\n")

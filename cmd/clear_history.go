@@ -2,13 +2,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -37,50 +33,23 @@ func init() {
 }
 
 func runClearHistory(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
-	peer := args[0]
-
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("clear_history", map[string]any{
-		"peer":   peer,
+	runner := NewRunnerFromRoot(clearHistoryJSON)
+	result := runner.CallWithParams("clear_history", map[string]any{
+		"peer":   args[0],
 		"revoke": clearHistoryRevoke,
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
-
-	if clearHistoryJSON {
-		printClearHistoryJSON(result)
-	} else {
-		printClearHistoryResult(result)
-	}
-}
-
-// printClearHistoryJSON prints the result as JSON.
-func printClearHistoryJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
-
-// printClearHistoryResult prints the result in a human-readable format.
-func printClearHistoryResult(result any) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
-	}
-
-	peer, _ := r["peer"].(string)
-	revoke, _ := r["revoke"].(bool)
-
-	fmt.Printf("History cleared successfully!\n")
-	fmt.Printf("  Peer: @%s\n", peer)
-	if revoke {
-		fmt.Printf("  Revoke: true (deleted for both parties)\n")
-	}
+	runner.PrintResult(result, func(result any) {
+		r, ok := result.(map[string]any)
+		if !ok {
+			fmt.Printf("History cleared successfully!\n")
+			return
+		}
+		peer := ExtractString(r, "peer")
+		revoke, _ := r["revoke"].(bool)
+		fmt.Printf("History cleared successfully!\n")
+		fmt.Printf("  Peer: @%s\n", peer)
+		if revoke {
+			fmt.Printf("  Revoke: true (deleted for both parties)\n")
+		}
+	})
 }

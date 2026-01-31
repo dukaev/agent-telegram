@@ -2,13 +2,11 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
-	"agent-telegram/internal/ipc"
 	"agent-telegram/telegram"
 )
 
@@ -44,7 +42,7 @@ func init() {
 }
 
 func runSendLocation(_ *cobra.Command, args []string) {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
+	runner := NewRunnerFromRoot(sendLocationJSON)
 
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: peer is required\n")
@@ -68,22 +66,26 @@ func runSendLocation(_ *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	client := ipc.NewClient(socketPath)
-	result, rpcErr := client.Call("send_location", map[string]any{
+	result := runner.CallWithParams("send_location", map[string]any{
 		"peer":      peer,
 		"latitude":  lat,
 		"longitude": lon,
 	})
-	if rpcErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", rpcErr.Message)
-		os.Exit(1)
-	}
 
-	if sendLocationJSON {
-		printSendLocationJSON(result)
-	} else {
-		printSendLocationResult(result, locationName)
-	}
+	runner.PrintResult(result, func(r any) {
+		rMap, _ := r.(map[string]any)
+		id, _ := rMap["id"].(float64)
+		peer, _ := rMap["peer"].(string)
+		lat, _ := rMap["latitude"].(float64)
+		lon, _ := rMap["longitude"].(float64)
+		fmt.Printf("Location sent successfully!\n")
+		fmt.Printf("  Peer: @%s\n", peer)
+		if locationName != "" {
+			fmt.Printf("  Location: %s\n", locationName)
+		}
+		fmt.Printf("  Coordinates: %.6f, %.6f\n", lat, lon)
+		fmt.Printf("  ID: %d\n", int64(id))
+	})
 }
 
 // geocodeCity converts a city name to coordinates.
@@ -117,36 +119,4 @@ func parseCoordinates(args []string) (lat, lon float64, err error) {
 	}
 
 	return lat, lon, nil
-}
-
-// printSendLocationJSON prints the result as JSON.
-func printSendLocationJSON(result any) {
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
-}
-
-// printSendLocationResult prints the result in a human-readable format.
-func printSendLocationResult(result any, locationName string) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
-	}
-
-	id, _ := r["id"].(float64)
-	peer, _ := r["peer"].(string)
-	lat, _ := r["latitude"].(float64)
-	lon, _ := r["longitude"].(float64)
-
-	fmt.Printf("Location sent successfully!\n")
-	fmt.Printf("  Peer: @%s\n", peer)
-	if locationName != "" {
-		fmt.Printf("  Location: %s\n", locationName)
-	}
-	fmt.Printf("  Coordinates: %.6f, %.6f\n", lat, lon)
-	fmt.Printf("  ID: %d\n", int64(id))
 }
