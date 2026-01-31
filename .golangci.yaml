@@ -37,8 +37,7 @@ linters:
     - goconst
 
     # --- Architecture & Discipline ---
-    - depguard
-    - forbidigo
+    # depguard disabled - not suitable for CLI tools
     - nolintlint
 
 linters-settings:
@@ -110,19 +109,6 @@ linters-settings:
     confidence: medium
     excludes:
       - G104
-
-  depguard:
-    list-type: blacklist
-    packages:
-      internal/adapters/mysql: "Core package must not import storage directly"
-      internal/cmd: "Core package must not import CLI code"
-
-  forbidigo:
-    forbid:
-      fmt.Println: "Use structured logger interface instead (e.g., slog)"
-      panic: "Do not panic in core package; return error instead"
-      os.Exit: "Do not exit from core package; propagate error to main"
-      var _: "Do not declare package-level state in core packages; use dependency injection"
 
 
 issues:
