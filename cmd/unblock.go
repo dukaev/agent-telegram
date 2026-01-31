@@ -8,32 +8,42 @@ import (
 )
 
 var (
-	unblockJSON bool
+	unblockJSON     bool
+	unblockPeer     string
+	unblockUsername string
 )
 
 // unblockCmd represents the unblock command.
 var unblockCmd = &cobra.Command{
-	Use:   "unblock @peer",
+	Use:   "unblock",
 	Short: "Unblock a Telegram peer",
 	Long: `Unblock a Telegram user or chat.
 
 Unblocked peers will be able to send you messages again.
 
-Example: agent-telegram unblock @user`,
-	Args: cobra.ExactArgs(1),
+Use --peer @username or --username to specify the recipient.`,
+	Args: cobra.NoArgs,
 	Run:  runUnblock,
 }
 
 func init() {
 	unblockCmd.Flags().BoolVarP(&unblockJSON, "json", "j", false, "Output as JSON")
+	unblockCmd.Flags().StringVarP(&unblockPeer, "peer", "p", "", "Peer (e.g., @username)")
+	unblockCmd.Flags().StringVarP(&unblockUsername, "username", "u", "", "Username (without @)")
+	unblockCmd.MarkFlagsOneRequired("peer", "username")
+	unblockCmd.MarkFlagsMutuallyExclusive("peer", "username")
 	rootCmd.AddCommand(unblockCmd)
 }
 
 func runUnblock(_ *cobra.Command, args []string) {
 	runner := NewRunnerFromRoot(unblockJSON)
-	result := runner.CallWithParams("unblock", map[string]any{
-		"peer": args[0],
-	})
+	params := map[string]any{}
+	if unblockPeer != "" {
+		params["peer"] = unblockPeer
+	} else {
+		params["username"] = unblockUsername
+	}
+	result := runner.CallWithParams("unblock", params)
 	runner.PrintResult(result, func(result any) {
 		r, ok := result.(map[string]any)
 		if !ok {

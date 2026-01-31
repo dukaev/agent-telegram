@@ -11,15 +11,15 @@ import (
 )
 
 var (
-	sendLocationJSON bool
-	sendLocationCity string
+	sendLocationFlags SendFlags
+	sendLocationCity  string
 )
 
-// sendLocationCmd represents the send-location command.
-var sendLocationCmd = &cobra.Command{
-	Use:   "send-location @peer [latitude] [longitude]",
-	Short: "Send a location to a Telegram peer",
-	Long: `Send a location (geographical coordinates) to a Telegram user or chat.
+func init() {
+	sendLocationCmd := sendLocationFlags.NewCommand(CommandConfig{
+		Use:   "send-location [latitude] [longitude]",
+		Short: "Send a location to a Telegram peer",
+		Long: `Send a location (geographical coordinates) to a Telegram user or chat.
 
 You can specify coordinates directly or use --city flag to search by name.
 
@@ -27,29 +27,15 @@ Coordinates should be in decimal degrees:
   Latitude:  -90 to 90
   Longitude: -180 to 180
 
-Examples:
-  agent-telegram send-location @user 40.7128 -74.0060
-  agent-telegram send-location @user --city "New York"
-  agent-telegram send-location @user --city Paris`,
-	Run: runSendLocation,
-}
-
-func init() {
-	rootCmd.AddCommand(sendLocationCmd)
-
-	sendLocationCmd.Flags().BoolVarP(&sendLocationJSON, "json", "j", false, "Output as JSON")
+Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
+		Run: runSendLocation,
+	})
 	sendLocationCmd.Flags().StringVar(&sendLocationCity, "city", "", "Search by city/place name instead of coordinates")
+	rootCmd.AddCommand(sendLocationCmd)
 }
 
 func runSendLocation(_ *cobra.Command, args []string) {
-	runner := NewRunnerFromRoot(sendLocationJSON)
-
-	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: peer is required\n")
-		os.Exit(1)
-	}
-
-	peer := args[0]
+	runner := sendLocationFlags.NewRunner()
 
 	var lat, lon float64
 	var locationName string
@@ -66,11 +52,13 @@ func runSendLocation(_ *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	result := runner.CallWithParams("send_location", map[string]any{
-		"peer":      peer,
+	params := map[string]any{
 		"latitude":  lat,
 		"longitude": lon,
-	})
+	}
+	sendLocationFlags.AddToParams(params)
+
+	result := runner.CallWithParams("send_location", params)
 
 	runner.PrintResult(result, func(r any) {
 		rMap, _ := r.(map[string]any)
@@ -101,12 +89,12 @@ func geocodeCity(city string) (lat, lon float64, locationName string, err error)
 
 // parseCoordinates parses coordinates from command line arguments.
 func parseCoordinates(args []string) (lat, lon float64, err error) {
-	if len(args) < 3 {
+	if len(args) < 2 {
 		return 0, 0, fmt.Errorf("latitude and longitude required (or use --city flag)")
 	}
 
-	_, err1 := fmt.Sscanf(args[1], "%f", &lat)
-	_, err2 := fmt.Sscanf(args[2], "%f", &lon)
+	_, err1 := fmt.Sscanf(args[0], "%f", &lat)
+	_, err2 := fmt.Sscanf(args[1], "%f", &lon)
 	if err1 != nil || err2 != nil {
 		return 0, 0, fmt.Errorf("invalid coordinates. Use decimal degrees format")
 	}

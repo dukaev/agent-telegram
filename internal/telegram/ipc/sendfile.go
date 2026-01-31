@@ -13,9 +13,10 @@ import (
 
 // SendFileParams represents parameters for send_file request.
 type SendFileParams struct {
-	Peer    string `json:"peer"`
-	File    string `json:"file"`
-	Caption string `json:"caption,omitempty"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	File     string `json:"file"`
+	Caption  string `json:"caption,omitempty"`
 }
 
 // SendFileHandler returns a handler for send_file requests.
@@ -28,8 +29,8 @@ func SendFileHandler(client Client) func(json.RawMessage) (interface{}, error) {
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.File == "" {
 			return nil, fmt.Errorf("file is required")
@@ -41,9 +42,10 @@ func SendFileHandler(client Client) func(json.RawMessage) (interface{}, error) {
 		}
 
 		result, err := client.SendFile(context.Background(), telegram.SendFileParams{
-			Peer:    p.Peer,
-			File:    p.File,
-			Caption: p.Caption,
+			Peer:     p.Peer,
+			Username: p.Username,
+			File:     p.File,
+			Caption:  p.Caption,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to send file: %w", err)

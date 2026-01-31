@@ -12,7 +12,8 @@ import (
 
 // SendReplyParams represents parameters for send_reply request.
 type SendReplyParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Text      string `json:"text"`
 }
@@ -27,8 +28,8 @@ func SendReplyHandler(client Client) func(json.RawMessage) (interface{}, error) 
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -39,6 +40,7 @@ func SendReplyHandler(client Client) func(json.RawMessage) (interface{}, error) 
 
 		result, err := client.SendReply(context.Background(), telegram.SendReplyParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 			Text:      p.Text,
 		})
@@ -52,7 +54,8 @@ func SendReplyHandler(client Client) func(json.RawMessage) (interface{}, error) 
 
 // UpdateMessageParams represents parameters for update_message request.
 type UpdateMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Text      string `json:"text"`
 }
@@ -67,8 +70,8 @@ func UpdateMessageHandler(client Client) func(json.RawMessage) (interface{}, err
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -79,6 +82,7 @@ func UpdateMessageHandler(client Client) func(json.RawMessage) (interface{}, err
 
 		result, err := client.UpdateMessage(context.Background(), telegram.UpdateMessageParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 			Text:      p.Text,
 		})
@@ -92,7 +96,8 @@ func UpdateMessageHandler(client Client) func(json.RawMessage) (interface{}, err
 
 // DeleteMessageParams represents parameters for delete_message request.
 type DeleteMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -106,12 +111,16 @@ func DeleteMessageHandler(client Client) func(json.RawMessage) (interface{}, err
 			}
 		}
 
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
+		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
 		}
 
 		result, err := client.DeleteMessage(context.Background(), telegram.DeleteMessageParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 		})
 		if err != nil {

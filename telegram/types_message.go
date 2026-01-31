@@ -3,7 +3,8 @@ package telegram
 
 // SendReplyParams holds parameters for SendReply.
 type SendReplyParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Text      string `json:"text"`
 }
@@ -19,7 +20,8 @@ type SendReplyResult struct {
 
 // UpdateMessageParams holds parameters for UpdateMessage.
 type UpdateMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Text      string `json:"text"`
 }
@@ -32,7 +34,8 @@ type UpdateMessageResult struct {
 
 // DeleteMessageParams holds parameters for DeleteMessage.
 type DeleteMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -44,7 +47,8 @@ type DeleteMessageResult struct {
 
 // PinMessageParams holds parameters for PinMessage.
 type PinMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -56,7 +60,8 @@ type PinMessageResult struct {
 
 // UnpinMessageParams holds parameters for UnpinMessage.
 type UnpinMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -75,7 +80,8 @@ type InlineButton struct {
 
 // InspectInlineButtonsParams holds parameters for InspectInlineButtons.
 type InspectInlineButtonsParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Limit     int    `json:"limit,omitempty"`
 }
@@ -88,7 +94,8 @@ type InspectInlineButtonsResult struct {
 
 // PressInlineButtonParams holds parameters for PressInlineButton.
 type PressInlineButtonParams struct {
-	Peer        string `json:"peer"`
+	Peer        string `json:"peer,omitempty"`
+	Username    string `json:"username,omitempty"`
 	MessageID   int64  `json:"messageId"`
 	ButtonText  string `json:"buttonText,omitempty"`
 	ButtonIndex int    `json:"buttonIndex"`
@@ -102,7 +109,8 @@ type PressInlineButtonResult struct {
 
 // AddReactionParams holds parameters for AddReaction.
 type AddReactionParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Emoji     string `json:"emoji"`
 	Big       bool   `json:"big,omitempty"`
@@ -117,7 +125,8 @@ type AddReactionResult struct {
 
 // RemoveReactionParams holds parameters for RemoveReaction.
 type RemoveReactionParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -137,7 +146,8 @@ type Reaction struct {
 
 // ListReactionsParams holds parameters for ListReactions.
 type ListReactionsParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Limit     int    `json:"limit,omitempty"`
 }

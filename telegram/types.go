@@ -80,7 +80,8 @@ type GetUpdatesResult struct {
 
 // ClearMessagesParams holds parameters for ClearMessages.
 type ClearMessagesParams struct {
-	Peer      string  `json:"peer"`
+	Peer      string   `json:"peer,omitempty"`
+	Username  string   `json:"username,omitempty"`
 	MessageIDs []int64 `json:"messageIds"`
 }
 
@@ -93,8 +94,9 @@ type ClearMessagesResult struct {
 
 // ClearHistoryParams holds parameters for ClearHistory.
 type ClearHistoryParams struct {
-	Peer   string `json:"peer"`
-	Revoke bool   `json:"revoke,omitempty"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	Revoke   bool   `json:"revoke,omitempty"`
 }
 
 // ClearHistoryResult is the result of ClearHistory.

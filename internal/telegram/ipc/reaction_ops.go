@@ -12,7 +12,8 @@ import (
 
 // AddReactionParams represents parameters for add_reaction request.
 type AddReactionParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Emoji     string `json:"emoji"`
 	Big       bool   `json:"big,omitempty"`
@@ -28,8 +29,8 @@ func AddReactionHandler(client Client) func(json.RawMessage) (interface{}, error
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -40,6 +41,7 @@ func AddReactionHandler(client Client) func(json.RawMessage) (interface{}, error
 
 		result, err := client.AddReaction(context.Background(), telegram.AddReactionParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 			Emoji:     p.Emoji,
 			Big:       p.Big,
@@ -54,7 +56,8 @@ func AddReactionHandler(client Client) func(json.RawMessage) (interface{}, error
 
 // RemoveReactionParams represents parameters for remove_reaction request.
 type RemoveReactionParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -68,8 +71,8 @@ func RemoveReactionHandler(client Client) func(json.RawMessage) (interface{}, er
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -77,6 +80,7 @@ func RemoveReactionHandler(client Client) func(json.RawMessage) (interface{}, er
 
 		result, err := client.RemoveReaction(context.Background(), telegram.RemoveReactionParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 		})
 		if err != nil {
@@ -89,7 +93,8 @@ func RemoveReactionHandler(client Client) func(json.RawMessage) (interface{}, er
 
 // ListReactionsParams represents parameters for list_reactions request.
 type ListReactionsParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Limit     int    `json:"limit,omitempty"`
 }
@@ -104,8 +109,8 @@ func ListReactionsHandler(client Client) func(json.RawMessage) (interface{}, err
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -113,6 +118,7 @@ func ListReactionsHandler(client Client) func(json.RawMessage) (interface{}, err
 
 		result, err := client.ListReactions(context.Background(), telegram.ListReactionsParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 			Limit:     p.Limit,
 		})

@@ -8,20 +8,22 @@ import (
 )
 
 var (
-	clearHistoryJSON bool
-	clearHistoryRevoke bool
+	clearHistoryJSON     bool
+	clearHistoryRevoke   bool
+	clearHistoryPeer     string
+	clearHistoryUsername string
 )
 
 // clearHistoryCmd represents the clear-history command.
 var clearHistoryCmd = &cobra.Command{
-	Use:   "clear-history @peer",
+	Use:   "clear-history",
 	Short: "Clear all chat history with a peer",
 	Long: `Delete all message history with a Telegram user or chat.
 
 Use --revoke to also delete messages for the other participant (they won't be able to recover them).
 
-Example: agent-telegram clear-history @user --revoke`,
-	Args: cobra.ExactArgs(1),
+Use --peer @username or --username to specify the recipient.`,
+	Args: cobra.NoArgs,
 	Run:  runClearHistory,
 }
 
@@ -30,14 +32,23 @@ func init() {
 
 	clearHistoryCmd.Flags().BoolVarP(&clearHistoryJSON, "json", "j", false, "Output as JSON")
 	clearHistoryCmd.Flags().BoolVar(&clearHistoryRevoke, "revoke", false, "Delete for both parties")
+	clearHistoryCmd.Flags().StringVarP(&clearHistoryPeer, "peer", "p", "", "Peer (e.g., @username)")
+	clearHistoryCmd.Flags().StringVarP(&clearHistoryUsername, "username", "u", "", "Username (without @)")
+	clearHistoryCmd.MarkFlagsOneRequired("peer", "username")
+	clearHistoryCmd.MarkFlagsMutuallyExclusive("peer", "username")
 }
 
 func runClearHistory(_ *cobra.Command, args []string) {
 	runner := NewRunnerFromRoot(clearHistoryJSON)
-	result := runner.CallWithParams("clear_history", map[string]any{
-		"peer":   args[0],
+	params := map[string]any{
 		"revoke": clearHistoryRevoke,
-	})
+	}
+	if clearHistoryPeer != "" {
+		params["peer"] = clearHistoryPeer
+	} else {
+		params["username"] = clearHistoryUsername
+	}
+	result := runner.CallWithParams("clear_history", params)
 	runner.PrintResult(result, func(result any) {
 		r, ok := result.(map[string]any)
 		if !ok {

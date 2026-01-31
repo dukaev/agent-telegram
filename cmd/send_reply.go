@@ -5,37 +5,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	sendReplyJSON bool
-)
-
-// sendReplyCmd represents the send-reply command.
-var sendReplyCmd = &cobra.Command{
-	Use:   "send-reply @peer <message_id> <text>",
-	Short: "Reply to a Telegram message",
-	Long: `Send a reply to a specific message in a chat.
-
-Example: agent-telegram send-reply @user 123456 "Thanks!"`,
-	Args: cobra.ExactArgs(3),
-	Run:  runSendReply,
-}
+var sendReplyFlags SendFlags
 
 func init() {
-	sendReplyCmd.Flags().BoolVarP(&sendReplyJSON, "json", "j", false, "Output as JSON")
+	sendReplyCmd := sendReplyFlags.NewCommand(CommandConfig{
+		Use:   "send-reply <message_id> <text>",
+		Short: "Reply to a Telegram message",
+		Long: `Send a reply to a specific message in a chat.
+
+Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
+		Args: cobra.ExactArgs(2),
+		Run:  runSendReply,
+	})
 	rootCmd.AddCommand(sendReplyCmd)
 }
 
 func runSendReply(_ *cobra.Command, args []string) {
-	runner := NewRunnerFromRoot(sendReplyJSON)
-	peer := args[0]
-	messageID := runner.MustParseInt64(args[1])
-	text := args[2]
+	runner := sendReplyFlags.NewRunner()
+	messageID := runner.MustParseInt64(args[0])
+	text := args[1]
 
-	result := runner.CallWithParams("send_reply", map[string]any{
-		"peer":      peer,
+	params := map[string]any{
 		"messageId": messageID,
 		"text":      text,
-	})
+	}
+	sendReplyFlags.AddToParams(params)
+
+	result := runner.CallWithParams("send_reply", params)
 
 	runner.PrintResult(result, func(r any) {
 		FormatSuccess(r, "Reply")

@@ -12,8 +12,9 @@ import (
 
 // SendPhotoParams represents parameters for send_photo request.
 type SendPhotoParams struct {
-	Peer string `json:"peer"`
-	File string `json:"file"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	File     string `json:"file"`
 }
 
 // SendPhotoHandler returns a handler for send_photo requests.
@@ -27,8 +28,8 @@ func SendPhotoHandler(client Client) func(json.RawMessage) (interface{}, error) 
 		}
 
 		// Validate
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.File == "" {
 			return nil, fmt.Errorf("file is required")
@@ -40,8 +41,9 @@ func SendPhotoHandler(client Client) func(json.RawMessage) (interface{}, error) 
 		}
 
 		result, err := client.SendPhoto(context.Background(), telegram.SendPhotoParams{
-			Peer: p.Peer,
-			File: p.File,
+			Peer:     p.Peer,
+			Username: p.Username,
+			File:     p.File,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to send photo: %w", err)

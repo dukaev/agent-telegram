@@ -13,11 +13,13 @@ var (
 	sendPollAnonymous bool
 	sendPollQuiz      bool
 	sendPollCorrect   int
+	sendPollPeer      string
+	sendPollUsername  string
 )
 
 // sendPollCmd represents the send-poll command.
 var sendPollCmd = &cobra.Command{
-	Use:   "send-poll @peer <question> -o <option1> -o <option2> ...",
+	Use:   "send-poll <question> -o <option1> -o <option2> ...",
 	Short: "Send a poll to a Telegram peer",
 	Long: `Send a poll to a Telegram user or chat.
 
@@ -25,8 +27,8 @@ Provide options using -o flag. Minimum 2, maximum 10 options.
 
 For quiz mode, use --quiz and --correct <index> (0-based).
 
-Example: agent-telegram send-poll @user "Best framework?" -o "React" -o "Vue" -o "Angular"`,
-	Args: cobra.ExactArgs(2),
+Use --peer @username or --username to specify the recipient.`,
+	Args: cobra.ExactArgs(1),
 	Run:  runSendPoll,
 }
 
@@ -36,13 +38,16 @@ func init() {
 	sendPollCmd.Flags().BoolVar(&sendPollQuiz, "quiz", false, "Quiz mode")
 	sendPollCmd.Flags().IntVar(&sendPollCorrect, "correct", 0, "Correct answer index (for quiz)")
 	sendPollCmd.Flags().StringSliceP("options", "o", []string{}, "Poll options")
+	sendPollCmd.Flags().StringVarP(&sendPollPeer, "peer", "p", "", "Peer (e.g., @username)")
+	sendPollCmd.Flags().StringVarP(&sendPollUsername, "username", "u", "", "Username (without @)")
+	sendPollCmd.MarkFlagsOneRequired("peer", "username")
+	sendPollCmd.MarkFlagsMutuallyExclusive("peer", "username")
 	rootCmd.AddCommand(sendPollCmd)
 }
 
 func runSendPoll(cmd *cobra.Command, args []string) {
 	runner := NewRunnerFromRoot(sendPollJSON)
-	peer := args[0]
-	question := args[1]
+	question := args[0]
 
 	options, _ := cmd.Flags().GetStringSlice("options")
 
@@ -66,14 +71,20 @@ func runSendPoll(cmd *cobra.Command, args []string) {
 		optionMaps[i] = map[string]string{"text": opt}
 	}
 
-	result := runner.CallWithParams("send_poll", map[string]any{
-		"peer":       peer,
+	params := map[string]any{
 		"question":   question,
 		"options":    optionMaps,
 		"anonymous":  sendPollAnonymous,
 		"quiz":       sendPollQuiz,
 		"correctIdx": sendPollCorrect,
-	})
+	}
+	if sendPollPeer != "" {
+		params["peer"] = sendPollPeer
+	} else {
+		params["username"] = sendPollUsername
+	}
+
+	result := runner.CallWithParams("send_poll", params)
 
 	runner.PrintResult(result, func(r any) {
 		rMap, _ := r.(map[string]any)

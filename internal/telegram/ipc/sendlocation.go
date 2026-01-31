@@ -11,7 +11,8 @@ import (
 
 // SendLocationParams represents parameters for send_location request.
 type SendLocationParams struct {
-	Peer     string  `json:"peer"`
+	Peer     string  `json:"peer,omitempty"`
+	Username string  `json:"username,omitempty"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
@@ -27,8 +28,8 @@ func SendLocationHandler(client Client) func(json.RawMessage) (interface{}, erro
 		}
 
 		// Validate
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.Latitude < -90 || p.Latitude > 90 {
 			return nil, fmt.Errorf("latitude must be between -90 and 90")
@@ -38,7 +39,8 @@ func SendLocationHandler(client Client) func(json.RawMessage) (interface{}, erro
 		}
 
 		result, err := client.SendLocation(context.Background(), telegram.SendLocationParams{
-			Peer:     p.Peer,
+			Peer:      p.Peer,
+			Username:  p.Username,
 			Latitude:  p.Latitude,
 			Longitude: p.Longitude,
 		})

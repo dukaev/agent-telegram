@@ -7,46 +7,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	sendContactJSON bool
-)
+var sendContactFlags SendFlags
 
-// sendContactCmd represents the send-contact command.
-var sendContactCmd = &cobra.Command{
-	Use:   "send-contact @peer <phone> <firstName>",
-	Short: "Send a contact to a Telegram peer",
-	Long: `Send a contact to a Telegram user or chat.
+func init() {
+	sendContactCmd := sendContactFlags.NewCommand(CommandConfig{
+		Use:   "send-contact <phone> <firstName> [lastName]",
+		Short: "Send a contact to a Telegram peer",
+		Long: `Send a contact to a Telegram user or chat.
 
 The contact will be shared with the peer, who can then add it to their contacts.
 
-Example: agent-telegram send-contact @user +1234567890 "John"`,
-	Args: cobra.RangeArgs(3, 4),
-	Run:  runSendContact,
-}
-
-func init() {
+Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
+		Args: cobra.RangeArgs(2, 3),
+		Run:  runSendContact,
+	})
 	rootCmd.AddCommand(sendContactCmd)
-
-	sendContactCmd.Flags().BoolVarP(&sendContactJSON, "json", "j", false, "Output as JSON")
 }
 
 func runSendContact(_ *cobra.Command, args []string) {
-	runner := NewRunnerFromRoot(sendContactJSON)
-	peer := args[0]
-	phone := args[1]
-	firstName := args[2]
+	runner := sendContactFlags.NewRunner()
+	phone := args[0]
+	firstName := args[1]
 
 	lastName := ""
-	if len(args) > 3 {
-		lastName = args[3]
+	if len(args) > 2 {
+		lastName = args[2]
 	}
 
-	result := runner.CallWithParams("send_contact", map[string]any{
-		"peer":      peer,
+	params := map[string]any{
 		"phone":     phone,
 		"firstName": firstName,
 		"lastName":  lastName,
-	})
+	}
+	sendContactFlags.AddToParams(params)
+
+	result := runner.CallWithParams("send_contact", params)
 
 	runner.PrintResult(result, func(r any) {
 		rMap, _ := r.(map[string]any)

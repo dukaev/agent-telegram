@@ -8,19 +8,21 @@ import (
 )
 
 var (
-	blockJSON bool
+	blockJSON     bool
+	blockPeer     string
+	blockUsername string
 )
 
 // blockCmd represents the block command.
 var blockCmd = &cobra.Command{
-	Use:   "block @peer",
+	Use:   "block",
 	Short: "Block a Telegram peer",
 	Long: `Block a Telegram user or chat.
 
 Blocked peers will not be able to send you messages or see your online status.
 
-Example: agent-telegram block @user`,
-	Args: cobra.ExactArgs(1),
+Use --peer @username or --username to specify the recipient.`,
+	Args: cobra.NoArgs,
 	Run:  runBlock,
 }
 
@@ -28,13 +30,21 @@ func init() {
 	rootCmd.AddCommand(blockCmd)
 
 	blockCmd.Flags().BoolVarP(&blockJSON, "json", "j", false, "Output as JSON")
+	blockCmd.Flags().StringVarP(&blockPeer, "peer", "p", "", "Peer (e.g., @username)")
+	blockCmd.Flags().StringVarP(&blockUsername, "username", "u", "", "Username (without @)")
+	blockCmd.MarkFlagsOneRequired("peer", "username")
+	blockCmd.MarkFlagsMutuallyExclusive("peer", "username")
 }
 
 func runBlock(_ *cobra.Command, args []string) {
 	runner := NewRunnerFromRoot(blockJSON)
-	result := runner.CallWithParams("block", map[string]any{
-		"peer": args[0],
-	})
+	params := map[string]any{}
+	if blockPeer != "" {
+		params["peer"] = blockPeer
+	} else {
+		params["username"] = blockUsername
+	}
+	result := runner.CallWithParams("block", params)
 	runner.PrintResult(result, func(result any) {
 		r, ok := result.(map[string]any)
 		if !ok {

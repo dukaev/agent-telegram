@@ -11,7 +11,8 @@ import (
 
 // PinMessageParams represents parameters for pin_message request.
 type PinMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -25,8 +26,8 @@ func PinMessageHandler(client Client) func(json.RawMessage) (interface{}, error)
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -34,6 +35,7 @@ func PinMessageHandler(client Client) func(json.RawMessage) (interface{}, error)
 
 		result, err := client.PinMessage(context.Background(), telegram.PinMessageParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 		})
 		if err != nil {
@@ -46,7 +48,8 @@ func PinMessageHandler(client Client) func(json.RawMessage) (interface{}, error)
 
 // UnpinMessageParams represents parameters for unpin_message request.
 type UnpinMessageParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 }
 
@@ -60,8 +63,8 @@ func UnpinMessageHandler(client Client) func(json.RawMessage) (interface{}, erro
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -69,6 +72,7 @@ func UnpinMessageHandler(client Client) func(json.RawMessage) (interface{}, erro
 
 		result, err := client.UnpinMessage(context.Background(), telegram.UnpinMessageParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 		})
 		if err != nil {

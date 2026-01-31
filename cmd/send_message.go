@@ -5,36 +5,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	sendMessageJSON bool
-)
-
-// sendMessageCmd represents the send-message command.
-var sendMessageCmd = &cobra.Command{
-	Use:   "send-message @peer <message>",
-	Short: "Send a message to a Telegram peer",
-	Long: `Send a message to a Telegram user or chat by username.
-
-Supports sending to users, groups, and channels.`,
-	Args: cobra.MinimumNArgs(2),
-	Run:  runSendMessage,
-}
+var sendMessageFlags SendFlags
 
 func init() {
-	rootCmd.AddCommand(sendMessageCmd)
+	sendMessageCmd := sendMessageFlags.NewCommand(CommandConfig{
+		Use:   "send-message <message>",
+		Short: "Send a message to a Telegram peer",
+		Long: `Send a message to a Telegram user or chat.
 
-	sendMessageCmd.Flags().BoolVarP(&sendMessageJSON, "json", "j", false, "Output as JSON")
+Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
+		Args: cobra.ExactArgs(1),
+		Run:  runSendMessage,
+	})
+	rootCmd.AddCommand(sendMessageCmd)
 }
 
 func runSendMessage(_ *cobra.Command, args []string) {
-	runner := NewRunnerFromRoot(sendMessageJSON)
-	peer := args[0]
-	message := args[1]
+	runner := sendMessageFlags.NewRunner()
+	message := args[0]
 
-	result := runner.CallWithParams("send_message", map[string]any{
-		"peer":    peer,
-		"message": message,
-	})
+	params := map[string]any{"message": message}
+	sendMessageFlags.AddToParams(params)
+
+	result := runner.CallWithParams("send_message", params)
 
 	runner.PrintResult(result, func(r any) {
 		FormatSuccess(r, "Message")

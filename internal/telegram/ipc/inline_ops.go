@@ -12,7 +12,8 @@ import (
 
 // InspectInlineButtonsParams represents parameters for inspect_inline_buttons request.
 type InspectInlineButtonsParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	MessageID int64  `json:"messageId"`
 	Limit     int    `json:"limit,omitempty"`
 }
@@ -27,8 +28,8 @@ func InspectInlineButtonsHandler(client Client) func(json.RawMessage) (interface
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -36,6 +37,7 @@ func InspectInlineButtonsHandler(client Client) func(json.RawMessage) (interface
 
 		result, err := client.InspectInlineButtons(context.Background(), telegram.InspectInlineButtonsParams{
 			Peer:      p.Peer,
+			Username:  p.Username,
 			MessageID: p.MessageID,
 			Limit:     p.Limit,
 		})
@@ -49,7 +51,8 @@ func InspectInlineButtonsHandler(client Client) func(json.RawMessage) (interface
 
 // PressInlineButtonParams represents parameters for press_inline_button request.
 type PressInlineButtonParams struct {
-	Peer        string `json:"peer"`
+	Peer        string `json:"peer,omitempty"`
+	Username    string `json:"username,omitempty"`
 	MessageID   int64  `json:"messageId"`
 	ButtonText  string `json:"buttonText,omitempty"`
 	ButtonIndex int    `json:"buttonIndex"`
@@ -65,8 +68,8 @@ func PressInlineButtonHandler(client Client) func(json.RawMessage) (interface{},
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.MessageID == 0 {
 			return nil, fmt.Errorf("messageId is required")
@@ -77,6 +80,7 @@ func PressInlineButtonHandler(client Client) func(json.RawMessage) (interface{},
 
 		result, err := client.PressInlineButton(context.Background(), telegram.PressInlineButtonParams{
 			Peer:        p.Peer,
+			Username:    p.Username,
 			MessageID:   p.MessageID,
 			ButtonText:  p.ButtonText,
 			ButtonIndex: p.ButtonIndex,

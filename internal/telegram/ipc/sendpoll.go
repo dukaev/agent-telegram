@@ -16,7 +16,8 @@ type PollOption struct {
 
 // SendPollParams represents parameters for send_poll request.
 type SendPollParams struct {
-	Peer       string       `json:"peer"`
+	Peer       string       `json:"peer,omitempty"`
+	Username   string       `json:"username,omitempty"`
 	Question   string       `json:"question"`
 	Options    []PollOption `json:"options"`
 	Anonymous  bool         `json:"anonymous,omitempty"`
@@ -34,8 +35,8 @@ func SendPollHandler(client Client) func(json.RawMessage) (interface{}, error) {
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.Question == "" {
 			return nil, fmt.Errorf("question is required")
@@ -55,6 +56,7 @@ func SendPollHandler(client Client) func(json.RawMessage) (interface{}, error) {
 
 		result, err := client.SendPoll(context.Background(), telegram.SendPollParams{
 			Peer:       p.Peer,
+			Username:   p.Username,
 			Question:   p.Question,
 			Options:    options,
 			Anonymous:  p.Anonymous,
@@ -79,8 +81,8 @@ func SendChecklistHandler(client Client) func(json.RawMessage) (interface{}, err
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.Question == "" {
 			return nil, fmt.Errorf("question is required")
@@ -103,6 +105,7 @@ func SendChecklistHandler(client Client) func(json.RawMessage) (interface{}, err
 
 		result, err := client.SendPoll(context.Background(), telegram.SendPollParams{
 			Peer:       p.Peer,
+			Username:   p.Username,
 			Question:   p.Question,
 			Options:    options,
 			Anonymous:  false,

@@ -11,7 +11,8 @@ import (
 
 // UnblockPeerParams represents parameters for unblock request.
 type UnblockPeerParams struct {
-	Peer string `json:"peer"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
 }
 
 // UnblockPeerHandler returns a handler for unblock requests.
@@ -24,12 +25,13 @@ func UnblockPeerHandler(client Client) func(json.RawMessage) (interface{}, error
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 
 		result, err := client.UnblockPeer(context.Background(), telegram.UnblockPeerParams{
-			Peer: p.Peer,
+			Peer:     p.Peer,
+			Username: p.Username,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to unblock peer: %w", err)

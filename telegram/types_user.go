@@ -53,7 +53,8 @@ type UpdateAvatarResult struct {
 
 // BlockPeerParams holds parameters for BlockPeer.
 type BlockPeerParams struct {
-	Peer string `json:"peer"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
 }
 
 // BlockPeerResult is the result of BlockPeer.
@@ -64,7 +65,8 @@ type BlockPeerResult struct {
 
 // UnblockPeerParams holds parameters for UnblockPeer.
 type UnblockPeerParams struct {
-	Peer string `json:"peer"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
 }
 
 // UnblockPeerResult is the result of UnblockPeer.

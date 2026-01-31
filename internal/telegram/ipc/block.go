@@ -11,7 +11,8 @@ import (
 
 // BlockPeerParams represents parameters for block request.
 type BlockPeerParams struct {
-	Peer string `json:"peer"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
 }
 
 // BlockPeerHandler returns a handler for block requests.
@@ -24,12 +25,13 @@ func BlockPeerHandler(client Client) func(json.RawMessage) (interface{}, error) 
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 
 		result, err := client.BlockPeer(context.Background(), telegram.BlockPeerParams{
-			Peer: p.Peer,
+			Peer:     p.Peer,
+			Username: p.Username,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to block peer: %w", err)

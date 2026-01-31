@@ -9,21 +9,23 @@ import (
 )
 
 var (
-	sendChecklistJSON bool
+	sendChecklistJSON     bool
 	sendChecklistCorrect int
+	sendChecklistPeer     string
+	sendChecklistUsername string
 )
 
 // sendChecklistCmd represents the send-checklist command.
 var sendChecklistCmd = &cobra.Command{
-	Use:   "send-checklist @peer <question> -o <option1> -o <option2> ... -c <correct_index>",
+	Use:   "send-checklist <question> -o <option1> -o <option2> ... -c <correct_index>",
 	Short: "Send a quiz (checklist) to a Telegram peer",
 	Long: `Send a quiz with correct answer to a Telegram user or chat.
 
 Provide options using -o flag. Minimum 2, maximum 10 options.
 Use -c or --correct to specify the correct answer index (0-based).
 
-Example: agent-telegram send-checklist @user "What is 2+2?" -o "3" -o "4" -o "5" -c 1`,
-	Args: cobra.ExactArgs(2),
+Use --peer @username or --username to specify the recipient.`,
+	Args: cobra.ExactArgs(1),
 	Run:  runSendChecklist,
 }
 
@@ -31,13 +33,16 @@ func init() {
 	sendChecklistCmd.Flags().BoolVarP(&sendChecklistJSON, "json", "j", false, "Output as JSON")
 	sendChecklistCmd.Flags().IntVarP(&sendChecklistCorrect, "correct", "c", 0, "Correct answer index")
 	sendChecklistCmd.Flags().StringSliceP("options", "o", []string{}, "Quiz options")
+	sendChecklistCmd.Flags().StringVarP(&sendChecklistPeer, "peer", "p", "", "Peer (e.g., @username)")
+	sendChecklistCmd.Flags().StringVarP(&sendChecklistUsername, "username", "u", "", "Username (without @)")
+	sendChecklistCmd.MarkFlagsOneRequired("peer", "username")
+	sendChecklistCmd.MarkFlagsMutuallyExclusive("peer", "username")
 	rootCmd.AddCommand(sendChecklistCmd)
 }
 
 func runSendChecklist(cmd *cobra.Command, args []string) {
 	runner := NewRunnerFromRoot(sendChecklistJSON)
-	peer := args[0]
-	question := args[1]
+	question := args[0]
 
 	options, _ := cmd.Flags().GetStringSlice("options")
 
@@ -61,13 +66,19 @@ func runSendChecklist(cmd *cobra.Command, args []string) {
 		optionMaps[i] = map[string]string{"text": opt}
 	}
 
-	result := runner.CallWithParams("send_checklist", map[string]any{
-		"peer":       peer,
+	params := map[string]any{
 		"question":   question,
 		"options":    optionMaps,
 		"quiz":       true,
 		"correctIdx": sendChecklistCorrect,
-	})
+	}
+	if sendChecklistPeer != "" {
+		params["peer"] = sendChecklistPeer
+	} else {
+		params["username"] = sendChecklistUsername
+	}
+
+	result := runner.CallWithParams("send_checklist", params)
 
 	runner.PrintResult(result, func(r any) {
 		rMap, _ := r.(map[string]any)

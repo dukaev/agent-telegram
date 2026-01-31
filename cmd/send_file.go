@@ -1,5 +1,4 @@
 // Package cmd provides CLI commands.
-//nolint:dupl // Similar structure to send-video but for different command
 package cmd
 
 import (
@@ -8,39 +7,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	sendFileJSON   bool
-	sendFileCaption string
-)
-
-// sendFileCmd represents the send-file command.
-var sendFileCmd = &cobra.Command{
-	Use:   "send-file @peer <file>",
-	Short: "Send a file to a Telegram peer",
-	Long: `Send any file to a Telegram user or chat.
-
-Example: agent-telegram send-file @user /path/to/file.pdf`,
-	Args: cobra.ExactArgs(2),
-	Run:  runSendFile,
-}
+var sendFileFlags SendFlags
 
 func init() {
-	rootCmd.AddCommand(sendFileCmd)
+	sendFileCmd := sendFileFlags.NewCommand(CommandConfig{
+		Use:   "send-file <file>",
+		Short: "Send a file to a Telegram peer",
+		Long: `Send any file to a Telegram user or chat.
 
-	sendFileCmd.Flags().BoolVarP(&sendFileJSON, "json", "j", false, "Output as JSON")
-	sendFileCmd.Flags().StringVar(&sendFileCaption, "caption", "", "File caption")
+Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
+		Args:       cobra.ExactArgs(1),
+		Run:        runSendFile,
+		HasCaption: true,
+	})
+	rootCmd.AddCommand(sendFileCmd)
 }
 
 func runSendFile(_ *cobra.Command, args []string) {
-	runner := NewRunnerFromRoot(sendFileJSON)
-	peer := args[0]
-	filePath := args[1]
+	runner := sendFileFlags.NewRunner()
+	filePath := args[0]
 
-	result := runner.CallWithParams("send_file", map[string]any{
-		"peer":    peer,
-		"file":    filePath,
-		"caption": sendFileCaption,
-	})
+	params := map[string]any{"file": filePath}
+	sendFileFlags.AddToParams(params)
+
+	result := runner.CallWithParams("send_file", params)
 
 	runner.PrintResult(result, func(r any) {
 		rMap, _ := r.(map[string]any)

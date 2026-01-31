@@ -3,8 +3,9 @@ package telegram
 
 // SendMessageParams holds parameters for SendMessage.
 type SendMessageParams struct {
-	Peer    string `json:"peer"`
-	Message string `json:"message"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	Message  string `json:"message"`
 }
 
 // SendMessageResult is the result of SendMessage.
@@ -17,7 +18,8 @@ type SendMessageResult struct {
 
 // SendLocationParams holds parameters for SendLocation.
 type SendLocationParams struct {
-	Peer     string  `json:"peer"`
+	Peer     string  `json:"peer,omitempty"`
+	Username string  `json:"username,omitempty"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
@@ -33,9 +35,10 @@ type SendLocationResult struct {
 
 // SendPhotoParams holds parameters for SendPhoto.
 type SendPhotoParams struct {
-	Peer    string `json:"peer"`
-	File    string `json:"file"`
-	Caption string `json:"caption,omitempty"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	File     string `json:"file"`
+	Caption  string `json:"caption,omitempty"`
 }
 
 // SendPhotoResult is the result of SendPhoto.
@@ -48,7 +51,8 @@ type SendPhotoResult struct {
 
 // SendContactParams holds parameters for SendContact.
 type SendContactParams struct {
-	Peer      string `json:"peer"`
+	Peer      string `json:"peer,omitempty"`
+	Username  string `json:"username,omitempty"`
 	Phone     string `json:"phone"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName,omitempty"`
@@ -64,9 +68,10 @@ type SendContactResult struct {
 
 // SendFileParams holds parameters for SendFile.
 type SendFileParams struct {
-	Peer    string `json:"peer"`
-	File    string `json:"file"`
-	Caption string `json:"caption,omitempty"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	File     string `json:"file"`
+	Caption  string `json:"caption,omitempty"`
 }
 
 // SendFileResult is the result of SendFile.
@@ -84,7 +89,8 @@ type PollOption struct {
 
 // SendPollParams holds parameters for SendPoll.
 type SendPollParams struct {
-	Peer       string       `json:"peer"`
+	Peer       string       `json:"peer,omitempty"`
+	Username   string       `json:"username,omitempty"`
 	Question   string       `json:"question"`
 	Options    []PollOption `json:"options"`
 	Anonymous  bool         `json:"anonymous,omitempty"`
@@ -102,9 +108,10 @@ type SendPollResult struct {
 
 // SendVideoParams holds parameters for SendVideo.
 type SendVideoParams struct {
-	Peer    string `json:"peer"`
-	File    string `json:"file"`
-	Caption string `json:"caption,omitempty"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	File     string `json:"file"`
+	Caption  string `json:"caption,omitempty"`
 }
 
 // SendVideoResult is the result of SendVideo.

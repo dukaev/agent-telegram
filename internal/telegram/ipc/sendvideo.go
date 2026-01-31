@@ -13,9 +13,10 @@ import (
 
 // SendVideoParams represents parameters for send_video request.
 type SendVideoParams struct {
-	Peer    string `json:"peer"`
-	File    string `json:"file"`
-	Caption string `json:"caption,omitempty"`
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+	File     string `json:"file"`
+	Caption  string `json:"caption,omitempty"`
 }
 
 // SendVideoHandler returns a handler for send_video requests.
@@ -28,8 +29,8 @@ func SendVideoHandler(client Client) func(json.RawMessage) (interface{}, error) 
 			}
 		}
 
-		if p.Peer == "" {
-			return nil, fmt.Errorf("peer is required")
+		if p.Peer == "" && p.Username == "" {
+			return nil, fmt.Errorf("peer or username is required")
 		}
 		if p.File == "" {
 			return nil, fmt.Errorf("file is required")
@@ -41,9 +42,10 @@ func SendVideoHandler(client Client) func(json.RawMessage) (interface{}, error) 
 		}
 
 		result, err := client.SendVideo(context.Background(), telegram.SendVideoParams{
-			Peer:    p.Peer,
-			File:    p.File,
-			Caption: p.Caption,
+			Peer:     p.Peer,
+			Username: p.Username,
+			File:     p.File,
+			Caption:  p.Caption,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to send video: %w", err)
