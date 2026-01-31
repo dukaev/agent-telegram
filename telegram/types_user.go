@@ -79,16 +79,12 @@ type UpdateAvatarResult struct {
 
 // BlockPeerParams holds parameters for BlockPeer.
 type BlockPeerParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
+	PeerInfo
 }
 
 // Validate validates BlockPeerParams.
 func (p BlockPeerParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
-	}
-	return nil
+	return p.ValidatePeer()
 }
 
 // BlockPeerResult is the result of BlockPeer.
@@ -99,16 +95,12 @@ type BlockPeerResult struct {
 
 // UnblockPeerParams holds parameters for UnblockPeer.
 type UnblockPeerParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
+	PeerInfo
 }
 
 // Validate validates UnblockPeerParams.
 func (p UnblockPeerParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
-	}
-	return nil
+	return p.ValidatePeer()
 }
 
 // UnblockPeerResult is the result of UnblockPeer.

@@ -6,6 +6,46 @@ import (
 	"time"
 )
 
+// PeerInfo is a base type for parameters that need peer or username.
+type PeerInfo struct {
+	Peer     string `json:"peer,omitempty"`
+	Username string `json:"username,omitempty"`
+}
+
+// ValidatePeer validates that either peer or username is set.
+func (p PeerInfo) ValidatePeer() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	return nil
+}
+
+// MsgID is a base type for parameters that need a message ID.
+type MsgID struct {
+	MessageID int64 `json:"messageId"`
+}
+
+// ValidateMessageID validates that messageId is set.
+func (m MsgID) ValidateMessageID() error {
+	if m.MessageID == 0 {
+		return fmt.Errorf("messageId is required")
+	}
+	return nil
+}
+
+// RequiredText is a base type for parameters with a required text field.
+type RequiredText struct {
+	Text string `json:"text"`
+}
+
+// ValidateText validates that text is set.
+func (r RequiredText) ValidateText() error {
+	if r.Text == "" {
+		return fmt.Errorf("text is required")
+	}
+	return nil
+}
+
 // UpdateType represents the type of Telegram update.
 type UpdateType string
 
@@ -83,15 +123,14 @@ type GetUpdatesResult struct {
 
 // ClearMessagesParams holds parameters for ClearMessages.
 type ClearMessagesParams struct {
-	Peer      string   `json:"peer,omitempty"`
-	Username  string   `json:"username,omitempty"`
+	PeerInfo
 	MessageIDs []int64 `json:"messageIds"`
 }
 
 // Validate validates ClearMessagesParams.
 func (p ClearMessagesParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if len(p.MessageIDs) == 0 {
 		return fmt.Errorf("messageIds is required")
@@ -108,17 +147,13 @@ type ClearMessagesResult struct {
 
 // ClearHistoryParams holds parameters for ClearHistory.
 type ClearHistoryParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	Revoke   bool   `json:"revoke,omitempty"`
+	PeerInfo
+	Revoke bool `json:"revoke,omitempty"`
 }
 
 // Validate validates ClearHistoryParams.
 func (p ClearHistoryParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
-	}
-	return nil
+	return p.ValidatePeer()
 }
 
 // ClearHistoryResult is the result of ClearHistory.

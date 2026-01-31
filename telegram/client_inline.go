@@ -116,8 +116,8 @@ func (c *Client) PressInlineButton(
 
 	// First, inspect the buttons to find the callback data
 	inspectResult, err := c.InspectInlineButtons(ctx, InspectInlineButtonsParams{
-		Peer:      params.Peer,
-		MessageID: params.MessageID,
+		PeerInfo: params.PeerInfo,
+		MsgID:    params.MsgID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to inspect buttons: %w", err)

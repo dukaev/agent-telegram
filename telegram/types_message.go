@@ -5,19 +5,18 @@ import "fmt"
 
 // SendReplyParams holds parameters for SendReply.
 type SendReplyParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
-	Text      string `json:"text"`
+	PeerInfo
+	MsgID
+	Text string `json:"text"`
 }
 
 // Validate validates SendReplyParams.
 func (p SendReplyParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	if p.Text == "" {
 		return fmt.Errorf("text is required")
@@ -36,19 +35,18 @@ type SendReplyResult struct {
 
 // UpdateMessageParams holds parameters for UpdateMessage.
 type UpdateMessageParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
-	Text      string `json:"text"`
+	PeerInfo
+	MsgID
+	Text string `json:"text"`
 }
 
 // Validate validates UpdateMessageParams.
 func (p UpdateMessageParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	if p.Text == "" {
 		return fmt.Errorf("text is required")
@@ -64,18 +62,17 @@ type UpdateMessageResult struct {
 
 // DeleteMessageParams holds parameters for DeleteMessage.
 type DeleteMessageParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
+	PeerInfo
+	MsgID
 }
 
 // Validate validates DeleteMessageParams.
 func (p DeleteMessageParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -88,18 +85,17 @@ type DeleteMessageResult struct {
 
 // PinMessageParams holds parameters for PinMessage.
 type PinMessageParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
+	PeerInfo
+	MsgID
 }
 
 // Validate validates PinMessageParams.
 func (p PinMessageParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -112,18 +108,17 @@ type PinMessageResult struct {
 
 // UnpinMessageParams holds parameters for UnpinMessage.
 type UnpinMessageParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
+	PeerInfo
+	MsgID
 }
 
 // Validate validates UnpinMessageParams.
 func (p UnpinMessageParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -143,19 +138,18 @@ type InlineButton struct {
 
 // InspectInlineButtonsParams holds parameters for InspectInlineButtons.
 type InspectInlineButtonsParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
-	Limit     int    `json:"limit,omitempty"`
+	PeerInfo
+	MsgID
+	Limit int `json:"limit,omitempty"`
 }
 
 // Validate validates InspectInlineButtonsParams.
 func (p InspectInlineButtonsParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -168,20 +162,19 @@ type InspectInlineButtonsResult struct {
 
 // PressInlineButtonParams holds parameters for PressInlineButton.
 type PressInlineButtonParams struct {
-	Peer        string `json:"peer,omitempty"`
-	Username    string `json:"username,omitempty"`
-	MessageID   int64  `json:"messageId"`
+	PeerInfo
+	MsgID
 	ButtonText  string `json:"buttonText,omitempty"`
 	ButtonIndex int    `json:"buttonIndex"`
 }
 
 // Validate validates PressInlineButtonParams.
 func (p PressInlineButtonParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	if p.ButtonIndex < 0 {
 		return fmt.Errorf("buttonIndex must be >= 0")
@@ -197,20 +190,19 @@ type PressInlineButtonResult struct {
 
 // AddReactionParams holds parameters for AddReaction.
 type AddReactionParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
-	Emoji     string `json:"emoji"`
-	Big       bool   `json:"big,omitempty"`
+	PeerInfo
+	MsgID
+	Emoji string `json:"emoji"`
+	Big   bool   `json:"big,omitempty"`
 }
 
 // Validate validates AddReactionParams.
 func (p AddReactionParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	if p.Emoji == "" {
 		return fmt.Errorf("emoji is required")
@@ -221,24 +213,23 @@ func (p AddReactionParams) Validate() error {
 // AddReactionResult is the result of AddReaction.
 type AddReactionResult struct {
 	Success   bool  `json:"success"`
-	MessageID int64  `json:"messageId"`
+	MessageID int64 `json:"messageId"`
 	Emoji     string `json:"emoji"`
 }
 
 // RemoveReactionParams holds parameters for RemoveReaction.
 type RemoveReactionParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
+	PeerInfo
+	MsgID
 }
 
 // Validate validates RemoveReactionParams.
 func (p RemoveReactionParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -251,27 +242,26 @@ type RemoveReactionResult struct {
 
 // Reaction represents a reaction on a message.
 type Reaction struct {
-	Emoji      string `json:"emoji"`
-	Count      int    `json:"count"`
-	FromMe     bool   `json:"fromMe"`
-	UserIDs    []int64 `json:"userIds,omitempty"`
+	Emoji   string `json:"emoji"`
+	Count   int    `json:"count"`
+	FromMe  bool   `json:"fromMe"`
+	UserIDs []int64 `json:"userIds,omitempty"`
 }
 
 // ListReactionsParams holds parameters for ListReactions.
 type ListReactionsParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	MessageID int64  `json:"messageId"`
-	Limit     int    `json:"limit,omitempty"`
+	PeerInfo
+	MsgID
+	Limit int `json:"limit,omitempty"`
 }
 
 // Validate validates ListReactionsParams.
 func (p ListReactionsParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
+	if err := p.ValidateMessageID(); err != nil {
+		return err
 	}
 	return nil
 }

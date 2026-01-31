@@ -5,15 +5,14 @@ import "fmt"
 
 // SendMessageParams holds parameters for SendMessage.
 type SendMessageParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	Message  string `json:"message"`
+	PeerInfo
+	Message string `json:"message"`
 }
 
 // Validate validates SendMessageParams.
 func (p SendMessageParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if p.Message == "" {
 		return fmt.Errorf("message is required")
@@ -31,16 +30,15 @@ type SendMessageResult struct {
 
 // SendLocationParams holds parameters for SendLocation.
 type SendLocationParams struct {
-	Peer     string  `json:"peer,omitempty"`
-	Username string  `json:"username,omitempty"`
+	PeerInfo
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
 
 // Validate validates SendLocationParams.
 func (p SendLocationParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if p.Latitude < -90 || p.Latitude > 90 {
 		return fmt.Errorf("latitude must be between -90 and 90")
@@ -62,16 +60,15 @@ type SendLocationResult struct {
 
 // SendPhotoParams holds parameters for SendPhoto.
 type SendPhotoParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	File     string `json:"file"`
-	Caption  string `json:"caption,omitempty"`
+	PeerInfo
+	File    string `json:"file"`
+	Caption string `json:"caption,omitempty"`
 }
 
 // Validate validates SendPhotoParams.
 func (p SendPhotoParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if p.File == "" {
 		return fmt.Errorf("file is required")
@@ -89,17 +86,16 @@ type SendPhotoResult struct {
 
 // SendContactParams holds parameters for SendContact.
 type SendContactParams struct {
-	Peer      string `json:"peer,omitempty"`
-	Username  string `json:"username,omitempty"`
-	Phone     string `json:"phone"`
+	PeerInfo
+	Phone    string `json:"phone"`
 	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName,omitempty"`
+	LastName string `json:"lastName,omitempty"`
 }
 
 // Validate validates SendContactParams.
 func (p SendContactParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if p.Phone == "" {
 		return fmt.Errorf("phone is required")
@@ -120,16 +116,15 @@ type SendContactResult struct {
 
 // SendFileParams holds parameters for SendFile.
 type SendFileParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	File     string `json:"file"`
-	Caption  string `json:"caption,omitempty"`
+	PeerInfo
+	File    string `json:"file"`
+	Caption string `json:"caption,omitempty"`
 }
 
 // Validate validates SendFileParams.
 func (p SendFileParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if p.File == "" {
 		return fmt.Errorf("file is required")
@@ -152,19 +147,18 @@ type PollOption struct {
 
 // SendPollParams holds parameters for SendPoll.
 type SendPollParams struct {
-	Peer       string       `json:"peer,omitempty"`
-	Username   string       `json:"username,omitempty"`
-	Question   string       `json:"question"`
-	Options    []PollOption `json:"options"`
-	Anonymous  bool         `json:"anonymous,omitempty"`
-	Quiz       bool         `json:"quiz,omitempty"`
-	CorrectIdx int          `json:"correctIdx,omitempty"`
+	PeerInfo
+	Question    string       `json:"question"`
+	Options     []PollOption `json:"options"`
+	Anonymous   bool         `json:"anonymous,omitempty"`
+	Quiz        bool         `json:"quiz,omitempty"`
+	CorrectIdx  int          `json:"correctIdx,omitempty"`
 }
 
 // Validate validates SendPollParams.
 func (p SendPollParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if p.Question == "" {
 		return fmt.Errorf("question is required")
@@ -199,16 +193,15 @@ type SendPollResult struct {
 
 // SendVideoParams holds parameters for SendVideo.
 type SendVideoParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	File     string `json:"file"`
-	Caption  string `json:"caption,omitempty"`
+	PeerInfo
+	File    string `json:"file"`
+	Caption string `json:"caption,omitempty"`
 }
 
 // Validate validates SendVideoParams.
 func (p SendVideoParams) Validate() error {
-	if p.Peer == "" && p.Username == "" {
-		return fmt.Errorf("peer or username is required")
+	if err := p.ValidatePeer(); err != nil {
+		return err
 	}
 	if p.File == "" {
 		return fmt.Errorf("file is required")
