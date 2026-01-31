@@ -35,7 +35,7 @@ func init() {
 	rootCmd.AddCommand(unblockCmd)
 }
 
-func runUnblock(_ *cobra.Command, args []string) {
+func runUnblock(_ *cobra.Command, _ []string) {
 	runner := NewRunnerFromRoot(unblockJSON)
 	params := map[string]any{}
 	if unblockPeer != "" {

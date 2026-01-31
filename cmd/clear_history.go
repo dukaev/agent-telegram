@@ -38,7 +38,7 @@ func init() {
 	clearHistoryCmd.MarkFlagsMutuallyExclusive("peer", "username")
 }
 
-func runClearHistory(_ *cobra.Command, args []string) {
+func runClearHistory(_ *cobra.Command, _ []string) {
 	runner := NewRunnerFromRoot(clearHistoryJSON)
 	params := map[string]any{
 		"revoke": clearHistoryRevoke,

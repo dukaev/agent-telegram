@@ -1,4 +1,5 @@
 // Package ipc provides Telegram IPC handlers.
+//nolint:dupl // Handler pattern has expected similarity
 package ipc
 
 import (

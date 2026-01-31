@@ -1,4 +1,5 @@
 // Package cmd provides CLI commands.
+//nolint:dupl // Similar to send-video but different command
 package cmd
 
 import (

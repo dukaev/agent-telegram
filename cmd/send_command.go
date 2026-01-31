@@ -18,6 +18,7 @@ func (r *Recipient) String() string {
 	return r.value
 }
 
+// Set implements pflag.Value interface.
 func (r *Recipient) Set(s string) error {
 	if s == "" {
 		return fmt.Errorf("recipient cannot be empty")
@@ -26,6 +27,7 @@ func (r *Recipient) Set(s string) error {
 	return nil
 }
 
+// Type implements pflag.Value interface.
 func (r *Recipient) Type() string {
 	return "recipient"
 }
@@ -64,14 +66,14 @@ func (f *SendFlags) Register(cmd *cobra.Command) {
 	cmd.Flags().BoolVarP(&f.JSON, "json", "j", false, "Output as JSON")
 	cmd.Flags().VarP(&f.To, "to", "t", "Recipient (@username, username, or chat ID)")
 	cmd.Flags().StringVar(&f.Caption, "caption", "", "Caption")
-	cmd.MarkFlagRequired("to")
+	_ = cmd.MarkFlagRequired("to")
 }
 
 // RegisterWithoutCaption registers flags without caption option.
 func (f *SendFlags) RegisterWithoutCaption(cmd *cobra.Command) {
 	cmd.Flags().BoolVarP(&f.JSON, "json", "j", false, "Output as JSON")
 	cmd.Flags().VarP(&f.To, "to", "t", "Recipient (@username, username, or chat ID)")
-	cmd.MarkFlagRequired("to")
+	_ = cmd.MarkFlagRequired("to")
 }
 
 // AddToParams adds flags to params map.
@@ -89,11 +91,11 @@ func (f *SendFlags) NewRunner() *Runner {
 
 // CommandConfig holds configuration for creating a send command.
 type CommandConfig struct {
-	Use     string
-	Short   string
-	Long    string
-	Args    cobra.PositionalArgs
-	Run     func(*cobra.Command, []string)
+	Use        string
+	Short      string
+	Long       string
+	Args       cobra.PositionalArgs
+	Run        func(*cobra.Command, []string)
 	HasCaption bool
 }
 

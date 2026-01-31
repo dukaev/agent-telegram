@@ -36,7 +36,7 @@ func init() {
 	blockCmd.MarkFlagsMutuallyExclusive("peer", "username")
 }
 
-func runBlock(_ *cobra.Command, args []string) {
+func runBlock(_ *cobra.Command, _ []string) {
 	runner := NewRunnerFromRoot(blockJSON)
 	params := map[string]any{}
 	if blockPeer != "" {
