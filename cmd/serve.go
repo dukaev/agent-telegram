@@ -20,19 +20,21 @@ import (
 )
 
 var (
-	serveSocket  string
-	serveSession string
+	serveSocket   string
+	serveSession  string
+	serveForeground bool
 )
 
 // serveCmd represents the serve command.
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start IPC server with Telegram (Unix socket)",
+	Use:     "serve",
+	Short:   "Start IPC server with Telegram (Unix socket)",
 	Long: `Start the IPC server with a Telegram client in the background.
 
 The server listens on a Unix socket and handles requests from other commands.
 Telegram client runs in background and stays connected.`,
-	Run: runServe,
+	Run:     runServe,
+	GroupID: GroupIDServer,
 }
 
 func init() {
@@ -42,10 +44,18 @@ func init() {
 		"Path to Unix socket (default: /tmp/agent-telegram.sock)")
 	serveCmd.Flags().StringVarP(&serveSession, "session", "", "",
 		"Path to Telegram session file (default: ~/.agent-telegram/session.json)")
+	serveCmd.Flags().BoolVarP(&serveForeground, "foreground", "f", false,
+		"Run in foreground (default: background)")
 }
 
 func runServe(_ *cobra.Command, _ []string) {
 	_ = godotenv.Load()
+
+	if !serveForeground {
+		if err := daemonize(); err != nil {
+			log.Fatalf("Failed to daemonize: %v", err)
+		}
+	}
 
 	ctx := setupContext()
 	socketPath := getSocketPath()
@@ -169,4 +179,37 @@ func getEnv(keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// daemonize forks the process to run in background.
+func daemonize() error {
+	// Get the path to the current executable
+	exec, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Create log file
+	logFile, err := os.OpenFile("agent-telegram.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %w", err)
+	}
+
+	// Fork the process
+	attr := &os.ProcAttr{
+		Files: []*os.File{nil, logFile, logFile}, // stdin: nil, stdout: logFile, stderr: logFile
+	}
+
+	proc, err := os.StartProcess(exec, os.Args, attr)
+	if err != nil {
+		logFile.Close()
+		return fmt.Errorf("failed to start daemon process: %w", err)
+	}
+
+	// Parent process exits
+	fmt.Printf("Daemon started with PID %d\n", proc.Pid)
+	fmt.Println("Logs are being written to agent-telegram.log")
+	os.Exit(0)
+
+	return nil
 }

@@ -12,7 +12,7 @@ import (
 
 var (
 	deleteRevoke bool
-	deletePeer   cliutil.Recipient
+	deleteTo     cliutil.Recipient
 )
 
 // DeleteCmd represents the delete command.
@@ -25,15 +25,15 @@ var DeleteCmd = &cobra.Command{
 - Single message ID: delete one message
 - Comma-separated IDs: delete multiple messages
 
-Use --peer @username, --peer username, or --peer <chat_id> to specify the chat.
+Use --to @username, --to username, or --to <chat_id> to specify the chat.
 Use --revoke to also delete messages for the other participant (they won't be able to recover them).
 
 To clear all history with a peer, use the history command with --revoke flag.
 
 Examples:
-  agent-telegram delete --peer @user 123456
-  agent-telegram delete --peer @user 12345,12346,12347
-  agent-telegram delete --peer @user 12345 --revoke`,
+  agent-telegram delete --to @user 123456
+  agent-telegram delete --to @user 12345,12346,12347
+  agent-telegram delete --to @user 12345 --revoke`,
 	Args: cobra.MaximumNArgs(1),
 }
 
@@ -42,8 +42,8 @@ func AddDeleteCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(DeleteCmd)
 
 	DeleteCmd.Flags().BoolVar(&deleteRevoke, "revoke", false, "Delete for both parties")
-	DeleteCmd.Flags().VarP(&deletePeer, "peer", "p", "Peer (@username, username, or chat ID)")
-	_ = DeleteCmd.MarkFlagRequired("peer")
+	DeleteCmd.Flags().VarP(&deleteTo, "to", "t", "Recipient (@username, username, or chat ID)")
+	_ = DeleteCmd.MarkFlagRequired("to")
 
 	DeleteCmd.Run = func(_ *cobra.Command, args []string) {
 		if len(args) == 0 {
@@ -68,7 +68,7 @@ func AddDeleteCommand(rootCmd *cobra.Command) {
 			params := map[string]any{
 				"messageIds": messageIDs,
 			}
-			deletePeer.AddToParams(params)
+			deleteTo.AddToParams(params)
 
 			result := runner.CallWithParams("clear_messages", params)
 			runner.PrintResult(result, func(result any) {
@@ -87,7 +87,7 @@ func AddDeleteCommand(rootCmd *cobra.Command) {
 				"messageId": runner.MustParseInt64(arg),
 				"revoke":    deleteRevoke,
 			}
-			deletePeer.AddToParams(params)
+			deleteTo.AddToParams(params)
 
 			result := runner.CallWithParams("delete_message", params)
 			runner.PrintResult(result, func(any) {

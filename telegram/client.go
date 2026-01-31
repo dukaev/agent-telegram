@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"path/filepath"
 
 	"github.com/gotd/td/session"
@@ -35,6 +36,7 @@ type Client struct {
 	phone       string
 	sessionPath string
 	updateStore *UpdateStore
+	peerCache   sync.Map // username → InputPeerClass cache
 	// Domain clients
 	message  *message.Client
 	media    *media.Client
@@ -69,13 +71,13 @@ func NewClient(appID int, appHash, phone string) *Client {
 		appHash: appHash,
 		phone:   phone,
 	}
-	// Initialize domain clients
-	tc.message = message.NewClient(tc.client)
-	tc.media = media.NewClient(tc.client)
-	tc.chat = chat.NewClient(tc.client)
-	tc.user = user.NewClient(tc.client)
-	tc.pin = pin.NewClient(tc.client)
-	tc.reaction = reaction.NewClient(tc.client)
+	// Initialize domain clients (will be finalized when telegram client is set)
+	tc.message = message.NewClient(tc)
+	tc.media = media.NewClient(tc)
+	tc.chat = chat.NewClient(tc)
+	tc.user = user.NewClient(tc)
+	tc.pin = pin.NewClient(tc)
+	tc.reaction = reaction.NewClient(tc)
 	return tc
 }
 
@@ -129,12 +131,12 @@ func (c *Client) getSessionPath() (string, error) {
 
 // initDomainClients initializes all domain clients.
 func (c *Client) initDomainClients() {
-	c.message = message.NewClient(c.client)
-	c.media = media.NewClient(c.client)
-	c.chat = chat.NewClient(c.client)
-	c.user = user.NewClient(c.client)
-	c.pin = pin.NewClient(c.client)
-	c.reaction = reaction.NewClient(c.client)
+	c.message = message.NewClient(c)
+	c.media = media.NewClient(c)
+	c.chat = chat.NewClient(c)
+	c.user = user.NewClient(c)
+	c.pin = pin.NewClient(c)
+	c.reaction = reaction.NewClient(c)
 }
 
 // runClient is the main client run loop.
@@ -244,4 +246,74 @@ func (c *Client) GetUpdates(limit int) []types.StoredUpdate {
 // InspectReplyKeyboard inspects the reply keyboard from a chat.
 func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error) {
 	return c.message.InspectReplyKeyboard(ctx, params)
+}
+
+// ResolvePeer resolves a peer string to InputPeerClass with caching.
+// This method is shared across all domain clients to avoid duplicate API calls.
+func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error) {
+	// If peer starts with @, it's a username - resolve it with cache
+	if len(peer) > 0 && peer[0] == '@' {
+		// Check cache first
+		if cached, ok := c.peerCache.Load(peer); ok {
+			if inputPeer, ok := cached.(tg.InputPeerClass); ok {
+				return inputPeer, nil
+			}
+		}
+
+		// Not in cache, resolve from API
+		peerClass, err := c.client.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: peer[1:]})
+		if err != nil {
+			return nil, err
+		}
+
+		var inputPeer tg.InputPeerClass
+		switch p := peerClass.Peer.(type) {
+		case *tg.PeerUser:
+			inputPeer = &tg.InputPeerUser{
+				UserID:     p.UserID,
+				AccessHash: getAccessHashFromPeerClass(peerClass, p.UserID),
+			}
+		case *tg.PeerChat:
+			inputPeer = &tg.InputPeerChat{
+				ChatID: p.ChatID,
+			}
+		case *tg.PeerChannel:
+			inputPeer = &tg.InputPeerChannel{
+				ChannelID:  p.ChannelID,
+				AccessHash: getAccessHashFromPeerClass(peerClass, p.ChannelID),
+			}
+		default:
+			return nil, fmt.Errorf("unknown peer type")
+		}
+
+		// Store in cache
+		c.peerCache.Store(peer, inputPeer)
+		return inputPeer, nil
+	}
+
+	// Try to parse as user ID
+	// For now, just return empty peer (will be expanded later)
+	return &tg.InputPeerEmpty{}, nil
+}
+
+// getAccessHashFromPeerClass extracts access hash from the resolved peer.
+func getAccessHashFromPeerClass(peerClass *tg.ContactsResolvedPeer, id int64) int64 {
+	for _, chat := range peerClass.Chats {
+		switch c := chat.(type) {
+		case *tg.Channel:
+			if c.ID == id {
+				return c.AccessHash
+			}
+		case *tg.Chat:
+			if c.ID == id {
+				return 0
+			}
+		}
+	}
+	for _, user := range peerClass.Users {
+		if u, ok := user.(*tg.User); ok && u.ID == id {
+			return u.AccessHash
+		}
+	}
+	return 0
 }

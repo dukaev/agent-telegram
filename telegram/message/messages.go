@@ -23,7 +23,7 @@ func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams
 	}
 
 	// Resolve username to get input peer
-	inputPeer, err := resolvePeer(ctx, c.api, username)
+	inputPeer, err := c.resolvePeer(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve username @%s: %w", username, err)
 	}

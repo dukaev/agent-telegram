@@ -35,7 +35,7 @@ var (
 // SendCmd represents the unified send command.
 var SendCmd = &cobra.Command{
 	GroupID: "messaging",
-	Use:   "send [message]",
+	Use:     "send [message]",
 	Short: "Send a message or media to a Telegram peer",
 	Long: `Send a message or media to a Telegram user or chat.
 

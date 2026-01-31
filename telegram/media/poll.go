@@ -3,10 +3,10 @@ package media
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/telegram/message"
 	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
 )
@@ -17,56 +17,47 @@ func (c *Client) SendPoll(ctx context.Context, params types.SendPollParams) (*ty
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
 
-	sender := message.NewSender(c.api)
-
-	var result tg.UpdatesClass
-	if params.Quiz {
-		// Create quiz (poll with correct answer)
-		if len(params.Options) < 2 {
-			return nil, fmt.Errorf("at least 2 options are required")
+	// Build poll answers with random option bytes
+	answers := make([]tg.PollAnswer, len(params.Options))
+	optionBytes := make([][]byte, len(params.Options))
+	for i, opt := range params.Options {
+		optionBytes[i] = make([]byte, 8)
+		if _, err := rand.Read(optionBytes[i]); err != nil {
+			return nil, fmt.Errorf("failed to generate option bytes: %w", err)
 		}
-
-		// Build answer options
-		answerOpts := make([]message.PollAnswerOption, len(params.Options))
-		for i, opt := range params.Options {
-			if i == params.CorrectIdx {
-				answerOpts[i] = message.CorrectPollAnswer(opt.Text)
-			} else {
-				answerOpts[i] = message.PollAnswer(opt.Text)
-			}
+		answers[i] = tg.PollAnswer{
+			Text:   tg.TextWithEntities{Text: opt.Text},
+			Option: optionBytes[i],
 		}
-
-		result, err = sender.To(inputPeer).Media(ctx, message.Poll(
-			params.Question,
-			answerOpts[0],
-			answerOpts[1],
-			answerOpts[2:]...,
-		))
-	} else {
-		// Create regular poll
-		if len(params.Options) < 2 {
-			return nil, fmt.Errorf("at least 2 options are required")
-		}
-
-		// Build answer options
-		answerOpts := make([]message.PollAnswerOption, len(params.Options))
-		for i, opt := range params.Options {
-			answerOpts[i] = message.PollAnswer(opt.Text)
-		}
-
-		result, err = sender.To(inputPeer).Media(ctx, message.Poll(
-			params.Question,
-			answerOpts[0],
-			answerOpts[1],
-			answerOpts[2:]...,
-		))
 	}
 
+	// Create the poll media
+	poll := &tg.InputMediaPoll{
+		Poll: tg.Poll{
+			ID:       0,
+			Question: tg.TextWithEntities{Text: params.Question},
+			Closed:   false,
+			Quiz:     params.Quiz,
+			Answers:  answers,
+		},
+	}
+
+	// Set correct answers for quiz
+	if params.Quiz && params.CorrectIdx >= 0 && params.CorrectIdx < len(optionBytes) {
+		poll.SetCorrectAnswers([][]byte{optionBytes[params.CorrectIdx]})
+	}
+
+	// Send the poll
+	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+		Peer:     inputPeer,
+		Media:    poll,
+		RandomID: time.Now().UnixNano(),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to send poll: %w", err)
 	}

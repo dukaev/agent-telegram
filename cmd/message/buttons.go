@@ -17,9 +17,12 @@ var (
 // InspectButtonsCmd represents the inspect-inline-buttons command.
 var InspectButtonsCmd = &cobra.Command{
 	GroupID: "message",
-	Use:   "inspect-buttons <message_id>",
-	Short: "Inspect inline buttons in a message",
+	Use:     "inspect-buttons <message_id>",
+	Short:   "Inspect inline buttons in a message",
 	Long: `List all inline buttons in a message.
+
+Inline buttons are interactive buttons that appear attached to a specific message,
+commonly used by bots for user interaction.
 
 Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
 	Args: cobra.ExactArgs(1),
@@ -52,8 +55,8 @@ var (
 // PressButtonCmd represents the press-inline-button command.
 var PressButtonCmd = &cobra.Command{
 	GroupID: "message",
-	Use:   "press-button <message_id> <button_index>",
-	Short: "Press an inline button in a message",
+	Use:     "press-button <message_id> <button_index>",
+	Short:   "Press an inline button in a message (bot only)",
 	Long: `Press an inline button by its index.
 
 Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,

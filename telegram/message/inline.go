@@ -114,7 +114,7 @@ func (c *Client) PressInlineButton(
 	}
 
 	// Resolve peer for the callback request
-	peer, err := resolvePeer(ctx, c.api, params.Peer)
+	peer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer: %w", err)
 	}

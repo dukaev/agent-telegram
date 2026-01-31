@@ -5,21 +5,25 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
 )
 
 // Client provides message operations.
 type Client struct {
-	api      *tg.Client
-	telegram *telegram.Client
+	api *tg.Client
+	parent ParentClient
+}
+
+// ParentClient is an interface for accessing parent client methods.
+type ParentClient interface {
+	ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error)
 }
 
 // NewClient creates a new message client.
-func NewClient(tc *telegram.Client) *Client {
+func NewClient(tc ParentClient) *Client {
 	return &Client{
-		telegram: tc,
+		parent: tc,
 	}
 }
 
@@ -68,38 +72,12 @@ func extractMessageID(result tg.UpdatesClass) int64 {
 	return 0
 }
 
-// resolvePeer resolves a peer string to InputPeerClass.
-func resolvePeer(ctx context.Context, api *tg.Client, peer string) (tg.InputPeerClass, error) {
-	// If peer starts with @, it's a username - resolve it
-	if len(peer) > 0 && peer[0] == '@' {
-		peerClass, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: peer[1:]})
-		if err != nil {
-			return nil, err
-		}
-
-		switch p := peerClass.Peer.(type) {
-		case *tg.PeerUser:
-			return &tg.InputPeerUser{
-				UserID:     p.UserID,
-				AccessHash: getAccessHash(peerClass, p.UserID),
-			}, nil
-		case *tg.PeerChat:
-			return &tg.InputPeerChat{
-				ChatID: p.ChatID,
-			}, nil
-		case *tg.PeerChannel:
-			return &tg.InputPeerChannel{
-				ChannelID:  p.ChannelID,
-				AccessHash: getAccessHash(peerClass, p.ChannelID),
-			}, nil
-		default:
-			return nil, nil
-		}
+// resolvePeer resolves a peer string to InputPeerClass using the parent client's cache.
+func (c *Client) resolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error) {
+	if c.parent == nil {
+		return nil, fmt.Errorf("parent client not set")
 	}
-
-	// Try to parse as user ID
-	// For now, just return empty peer (will be expanded later)
-	return &tg.InputPeerEmpty{}, nil
+	return c.parent.ResolvePeer(ctx, peer)
 }
 
 // getAccessHash extracts access hash from the resolved peer.

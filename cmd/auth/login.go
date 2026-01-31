@@ -27,16 +27,16 @@ var (
 
 // LoginCmd represents the login command.
 var LoginCmd = &cobra.Command{
-	GroupID: "auth",
-	Use:   "login",
-	Short: "Interactive login with Telegram authentication",
+	GroupID: "server",
+	Use:     "login",
+	Short:   "Interactive login with Telegram authentication",
 	Long: `Interactively login to Telegram using authentication code.
 
 This will guide you through the login process:
   1. Enter your phone number
   2. Enter the verification code sent to Telegram
   3. Enter 2FA password if enabled`,
-	Run: runLogin,
+	Run:     runLogin,
 }
 
 // AddLoginCommand adds the login command to the root command.

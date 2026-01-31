@@ -17,7 +17,7 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 	}
 
 	// Resolve username to get input peer
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer @%s: %w", params.Peer, err)
 	}
@@ -49,7 +49,7 @@ func (c *Client) SendReply(ctx context.Context, params types.SendReplyParams) (*
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

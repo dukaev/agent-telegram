@@ -41,6 +41,7 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 	registerHandler(srv, "list_reactions", ListReactionsHandler(client))
 	registerHandler(srv, "clear_messages", ClearMessagesHandler(client))
 	registerHandler(srv, "clear_history", ClearHistoryHandler(client))
+	registerHandler(srv, "pin_chat", Handler(client.PinChat, "pin chat"))
 	registerHandler(srv, "block", BlockPeerHandler(client))
 	registerHandler(srv, "unblock", UnblockPeerHandler(client))
 	registerHandler(srv, "inspect_reply_keyboard", InspectReplyKeyboardHandler(client))

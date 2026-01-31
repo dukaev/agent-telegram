@@ -65,6 +65,7 @@ type Client interface {
 	UpdateAvatar(ctx context.Context, params types.UpdateAvatarParams) (*types.UpdateAvatarResult, error)
 	ClearMessages(ctx context.Context, params types.ClearMessagesParams) (*types.ClearMessagesResult, error)
 	ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error)
+	PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error)
 	BlockPeer(ctx context.Context, params types.BlockPeerParams) (*types.BlockPeerResult, error)
 	UnblockPeer(ctx context.Context, params types.UnblockPeerParams) (*types.UnblockPeerResult, error)
 	InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error)

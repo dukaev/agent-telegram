@@ -44,7 +44,7 @@ func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryPara
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -61,5 +61,36 @@ func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryPara
 		Success: true,
 		Peer:    params.Peer,
 		Revoke:  params.Revoke,
+	}, nil
+}
+
+// PinChat pins or unpins a chat in the dialog list.
+func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error) {
+	if c.api == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create InputDialogPeer from InputPeer
+	dialogPeer := &tg.InputDialogPeer{
+		Peer: inputPeer,
+	}
+
+	_, err = c.api.MessagesToggleDialogPin(ctx, &tg.MessagesToggleDialogPinRequest{
+		Pinned: !params.Disable,
+		Peer:   dialogPeer,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to toggle dialog pin: %w", err)
+	}
+
+	return &types.PinChatResult{
+		Success: true,
+		Peer:    params.Peer,
+		Pinned:  !params.Disable,
 	}, nil
 }

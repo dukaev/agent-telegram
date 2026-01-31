@@ -16,7 +16,7 @@ func (c *Client) SendContact(ctx context.Context, params types.SendContactParams
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

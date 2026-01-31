@@ -120,6 +120,11 @@ func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryPara
 	return c.chat.ClearHistory(ctx, params)
 }
 
+// PinChat pins or unpins a chat in the dialog list.
+func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error) {
+	return c.chat.PinChat(ctx, params)
+}
+
 // BlockPeer blocks a peer.
 func (c *Client) BlockPeer(ctx context.Context, params types.BlockPeerParams) (*types.BlockPeerResult, error) {
 	return c.user.BlockPeer(ctx, params)

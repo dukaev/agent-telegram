@@ -27,6 +27,7 @@ var (
 	GroupIDChat      = "chat"
 	GroupIDGet       = "get"
 	GroupIDSystem    = "system"
+	GroupIDServer    = "server"
 )
 
 // RootCmd represents the base command when called without any subcommands.
@@ -53,6 +54,16 @@ func Execute() {
 }
 
 func init() {
+	// Add command groups
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDServer, Title: "Server"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDAuth, Title: "Authentication"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessaging, Title: "Messaging"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessage, Title: "Manage Messages"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDUser, Title: "User"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDChat, Title: "Chat"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDGet, Title: "Get"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDSystem, Title: "System"})
+
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
 }

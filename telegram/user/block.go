@@ -15,7 +15,7 @@ func (c *Client) BlockPeer(ctx context.Context, params types.BlockPeerParams) (*
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (c *Client) UnblockPeer(ctx context.Context, params types.UnblockPeerParams
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

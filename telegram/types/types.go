@@ -210,3 +210,21 @@ type ForwardMessageResult struct {
 	Success   bool  `json:"success"`
 	MessageID int64 `json:"id"`
 }
+
+// PinChatParams holds parameters for PinChat (pin chat in dialog list).
+type PinChatParams struct {
+	PeerInfo
+	Disable bool `json:"disable"` // true to unpin, false to pin
+}
+
+// Validate validates PinChatParams.
+func (p PinChatParams) Validate() error {
+	return p.ValidatePeer()
+}
+
+// PinChatResult is the result of PinChat.
+type PinChatResult struct {
+	Success bool   `json:"success"`
+	Peer    string `json:"peer"`
+	Pinned  bool   `json:"pinned"`
+}

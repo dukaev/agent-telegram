@@ -22,7 +22,7 @@ func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo
 	}
 
 	// Resolve peer
-	inputPeer, err := resolvePeer(ctx, c.api, peer)
+	inputPeer, err := c.resolvePeer(ctx, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer: %w", err)
 	}

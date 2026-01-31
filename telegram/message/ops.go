@@ -4,6 +4,7 @@ package message
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
@@ -17,7 +18,7 @@ func (c *Client) UpdateMessage(
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
+	inputPeer, err := c.resolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -67,12 +68,12 @@ func (c *Client) ForwardMessage(
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	fromPeer, err := resolvePeer(ctx, c.api, params.FromPeer)
+	fromPeer, err := c.resolvePeer(ctx, params.FromPeer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve fromPeer: %w", err)
 	}
 
-	toPeer, err := resolvePeer(ctx, c.api, params.ToPeer)
+	toPeer, err := c.resolvePeer(ctx, params.ToPeer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve toPeer: %w", err)
 	}
@@ -81,6 +82,7 @@ func (c *Client) ForwardMessage(
 		FromPeer: fromPeer,
 		ID:       []int{int(params.MessageID)},
 		ToPeer:   toPeer,
+		RandomID: []int64{time.Now().UnixNano()},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to forward message: %w", err)

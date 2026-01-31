@@ -110,7 +110,7 @@ func (c *Client) SendLocation(ctx context.Context, params types.SendLocationPara
 	peer := strings.TrimPrefix(params.Peer, "@")
 
 	// Resolve username to get input peer
-	inputPeer, err := resolvePeer(ctx, c.api, peer)
+	inputPeer, err := c.resolvePeer(ctx, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer @%s: %w", peer, err)
 	}

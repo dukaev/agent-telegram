@@ -18,7 +18,7 @@ func (c *Client) SendDocument(
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := resolvePeer(ctx, c.api, peer)
+	inputPeer, err := c.resolvePeer(ctx, peer)
 	if err != nil {
 		return nil, err
 	}
