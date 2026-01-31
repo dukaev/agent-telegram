@@ -92,7 +92,6 @@ func convertDialogsToResult(
 		}
 
 		chatInfo := map[string]any{
-			"peer":              dialog.Peer,
 			"unread_count":      dialog.UnreadCount,
 			"read_inbox_max_id": dialog.ReadInboxMaxID,
 			"read_outbox_max_id": dialog.ReadOutboxMaxID,
@@ -145,6 +144,13 @@ func populateUserInfo(p *tg.PeerUser, chatInfo map[string]any, userMap map[int64
 	if user.Bot {
 		chatInfo["bot"] = true
 	}
+
+	// Add string peer for API usage
+	if user.Username != "" {
+		chatInfo["peer"] = "@" + user.Username
+	} else {
+		chatInfo["peer"] = fmt.Sprintf("user%d", user.ID)
+	}
 }
 
 // populateGroupInfo populates group chat information.
@@ -163,6 +169,9 @@ func populateGroupInfo(p *tg.PeerChat, chatInfo map[string]any, chatMap map[int6
 	chatInfo["chat_id"] = chat.ID
 	chatInfo["title"] = chat.Title
 	chatInfo["participants_count"] = chat.ParticipantsCount
+
+	// Add string peer for API usage (use negative chat ID as peer)
+	chatInfo["peer"] = fmt.Sprintf("-%d", chat.ID)
 }
 
 // populateChannelInfo populates channel chat information.
@@ -182,4 +191,12 @@ func populateChannelInfo(p *tg.PeerChannel, chatInfo map[string]any, chatMap map
 	chatInfo["title"] = channel.Title
 	chatInfo["username"] = channel.Username
 	chatInfo["megagroup"] = channel.Megagroup
+
+	// Add string peer for API usage
+	if channel.Username != "" {
+		chatInfo["peer"] = "@" + channel.Username
+	} else {
+		// Use negative channel ID as peer (channel IDs are marked with -100 prefix)
+		chatInfo["peer"] = fmt.Sprintf("-100%d", channel.ID)
+	}
 }

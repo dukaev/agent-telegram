@@ -113,6 +113,12 @@ func (c *Client) PressInlineButton(
 		return nil, fmt.Errorf("client not initialized")
 	}
 
+	// Resolve peer for the callback request
+	peer, err := resolvePeer(ctx, c.api, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
 	// First, inspect the buttons to find the callback data
 	inspectResult, err := c.InspectInlineButtons(ctx, types.InspectInlineButtonsParams{
 		PeerInfo: params.PeerInfo,
@@ -130,8 +136,8 @@ func (c *Client) PressInlineButton(
 
 	// Press the button using the callback data
 	_, err = c.api.MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
-		Peer:  &tg.InputPeerUser{},
-		MsgID: int(params.MessageID),
+		Peer:  peer,
+		MsgID: int(params.MsgID.MessageID),
 		Data:  []byte(button.Data),
 	})
 	if err != nil {
@@ -140,6 +146,6 @@ func (c *Client) PressInlineButton(
 
 	return &types.PressInlineButtonResult{
 		Success:   true,
-		MessageID: params.MessageID,
+		MessageID: params.MsgID.MessageID,
 	}, nil
 }

@@ -2,6 +2,7 @@
 package telegram
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -97,7 +98,7 @@ func NewStoredUpdate(updateType types.UpdateType, data map[string]interface{}) t
 }
 
 // MessageData extracts message data from tg.MessageClass.
-func MessageData(msg tg.MessageClass) map[string]interface{} {
+func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface{} {
 	data := map[string]interface{}{}
 
 	if m, ok := msg.(*tg.Message); ok {
@@ -107,6 +108,8 @@ func MessageData(msg tg.MessageClass) map[string]interface{} {
 		data["out"] = m.Out
 		if m.FromID != nil {
 			data["from_id"] = m.FromID
+			// Add sender name
+			data["from_name"] = getSenderName(entities, m.FromID)
 		}
 		if m.PeerID != nil {
 			data["peer_id"] = m.PeerID
@@ -117,6 +120,75 @@ func MessageData(msg tg.MessageClass) map[string]interface{} {
 		if m.Media != nil {
 			data["media"] = m.Media
 		}
+		// Add inline buttons if present
+		if m.ReplyMarkup != nil {
+			data["buttons"] = extractButtonsData(m.ReplyMarkup)
+		}
 	}
 	return data
+}
+
+// extractButtonsData extracts button data from ReplyMarkup.
+func extractButtonsData(markup tg.ReplyMarkupClass) []map[string]interface{} {
+	rm, ok := markup.(*tg.ReplyInlineMarkup)
+	if !ok {
+		return nil
+	}
+
+	var result []map[string]interface{}
+	for _, row := range rm.Rows {
+		for _, button := range row.Buttons {
+			btnData := map[string]interface{}{"index": len(result)}
+			switch b := button.(type) {
+			case *tg.KeyboardButtonURL:
+				btnData["text"] = b.Text
+				btnData["type"] = "url"
+				btnData["data"] = b.URL
+			case *tg.KeyboardButtonCallback:
+				btnData["text"] = b.Text
+				btnData["type"] = "callback"
+				btnData["data"] = string(b.Data)
+			case *tg.KeyboardButtonSwitchInline:
+				btnData["text"] = b.Text
+				btnData["type"] = "switch_inline"
+				btnData["data"] = b.Query
+			case *tg.KeyboardButtonGame:
+				btnData["text"] = b.Text
+				btnData["type"] = "game"
+			case *tg.KeyboardButtonBuy:
+				btnData["text"] = b.Text
+				btnData["type"] = "buy"
+			case *tg.KeyboardButtonURLAuth:
+				btnData["text"] = b.Text
+				btnData["type"] = "url_auth"
+				btnData["data"] = b.URL
+			}
+			result = append(result, btnData)
+		}
+	}
+	return result
+}
+
+// getSenderName gets the name of a sender from their peer ID.
+func getSenderName(entities tg.Entities, fromID tg.PeerClass) string {
+	switch p := fromID.(type) {
+	case *tg.PeerUser:
+		if user, ok := entities.Users[p.UserID]; ok {
+			name := user.FirstName
+			if user.LastName != "" {
+				name += " " + user.LastName
+			}
+			if name == "" && user.Username != "" {
+				name = "@" + user.Username
+			}
+			if name == "" {
+				name = fmt.Sprintf("user:%d", user.ID)
+			}
+			if user.Bot {
+				name += " (bot)"
+			}
+			return name
+		}
+	}
+	return ""
 }

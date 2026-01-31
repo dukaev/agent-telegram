@@ -16,8 +16,11 @@ func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	// Clean username (remove @ prefix)
-	username := strings.TrimPrefix(params.Username, "@")
+	// Ensure username has @ prefix for resolvePeer
+	username := params.Username
+	if !strings.HasPrefix(username, "@") {
+		username = "@" + username
+	}
 
 	// Resolve username to get input peer
 	inputPeer, err := resolvePeer(ctx, c.api, username)
@@ -55,6 +58,6 @@ func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams
 		Limit:    params.Limit,
 		Offset:   params.Offset,
 		Count:    len(messageResults),
-		Username: username,
+		Username: strings.TrimPrefix(params.Username, "@"),
 	}, nil
 }

@@ -58,3 +58,38 @@ func (c *Client) DeleteMessage(
 		MessageID: params.MessageID,
 	}, nil
 }
+
+// ForwardMessage forwards a message to another peer.
+func (c *Client) ForwardMessage(
+	ctx context.Context, params types.ForwardMessageParams,
+) (*types.ForwardMessageResult, error) {
+	if c.api == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
+	fromPeer, err := resolvePeer(ctx, c.api, params.FromPeer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve fromPeer: %w", err)
+	}
+
+	toPeer, err := resolvePeer(ctx, c.api, params.ToPeer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve toPeer: %w", err)
+	}
+
+	result, err := c.api.MessagesForwardMessages(ctx, &tg.MessagesForwardMessagesRequest{
+		FromPeer: fromPeer,
+		ID:       []int{int(params.MessageID)},
+		ToPeer:   toPeer,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to forward message: %w", err)
+	}
+
+	newMsgID := extractMessageID(result)
+
+	return &types.ForwardMessageResult{
+		Success:   true,
+		MessageID: newMsgID,
+	}, nil
+}

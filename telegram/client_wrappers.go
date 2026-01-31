@@ -46,6 +46,13 @@ func (c *Client) DeleteMessage(
 	return c.message.DeleteMessage(ctx, params)
 }
 
+// ForwardMessage forwards a message to another peer.
+func (c *Client) ForwardMessage(
+	ctx context.Context, params types.ForwardMessageParams,
+) (*types.ForwardMessageResult, error) {
+	return c.message.ForwardMessage(ctx, params)
+}
+
 // PinMessage pins a message.
 func (c *Client) PinMessage(ctx context.Context, params types.PinMessageParams) (*types.PinMessageResult, error) {
 	return c.pin.PinMessage(ctx, params)

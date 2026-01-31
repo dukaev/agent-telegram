@@ -18,6 +18,15 @@ import (
 
 var (
 	version = "dev"
+
+	// Command Group IDs
+	GroupIDAuth      = "auth"
+	GroupIDMessaging = "messaging"
+	GroupIDMessage   = "message"
+	GroupIDUser      = "user"
+	GroupIDChat      = "chat"
+	GroupIDGet       = "get"
+	GroupIDSystem    = "system"
 )
 
 // RootCmd represents the base command when called without any subcommands.

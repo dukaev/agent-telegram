@@ -23,6 +23,7 @@ var (
 
 // OpenCmd represents the open command.
 var OpenCmd = &cobra.Command{
+	GroupID: "get",
 	Use:   "open @username",
 	Short: "Open and view messages from a Telegram user/chat",
 	Long: `Open and view messages from a Telegram user or chat by username.
@@ -68,11 +69,8 @@ func runOpen(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if OpenJSON {
-		printMessagesJSON(result)
-	} else {
-		printMessages(result)
-	}
+	// Always output JSON
+	printMessagesJSON(result)
 }
 
 // printMessagesJSON prints the result as JSON.

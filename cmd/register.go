@@ -2,60 +2,43 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"agent-telegram/cmd/auth"
-	"agent-telegram/cmd/chat"
 	"agent-telegram/cmd/get"
 	"agent-telegram/cmd/message"
 	"agent-telegram/cmd/send"
-	"agent-telegram/cmd/sys"
 	"agent-telegram/cmd/user"
 )
 
 func init() {
 	// Auth commands
 	auth.AddLoginCommand(RootCmd)
-	auth.AddOpenCommand(RootCmd)
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDAuth, Title: "Authentication"})
 
 	// Get commands
-	get.AddMeCommand(RootCmd)
 	get.AddUserInfoCommand(RootCmd)
 	get.AddUpdatesCommand(RootCmd)
 	get.AddChatsCommand(RootCmd)
+	auth.AddOpenCommand(RootCmd)
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDGet, Title: "Information / Query"})
 
 	// Send commands
-	send.AddMessageCommand(RootCmd)
-	send.AddReplyCommand(RootCmd)
-	send.AddPhotoCommand(RootCmd)
-	send.AddVideoCommand(RootCmd)
-	send.AddFileCommand(RootCmd)
-	send.AddContactCommand(RootCmd)
-	send.AddLocationCommand(RootCmd)
-	send.AddPollCommand(RootCmd)
+	send.AddSendCommand(RootCmd)
 	send.AddChecklistCommand(RootCmd)
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessaging, Title: "Send Messages"})
 
 	// Message commands
 	message.AddDeleteCommand(RootCmd)
 	message.AddUpdateCommand(RootCmd)
+	message.AddForwardCommand(RootCmd)
 	message.AddPinCommand(RootCmd)
-	message.AddUnpinCommand(RootCmd)
 	message.AddInspectButtonsCommand(RootCmd)
 	message.AddPressButtonCommand(RootCmd)
-	message.AddAddReactionCommand(RootCmd)
-	message.AddRemoveReactionCommand(RootCmd)
-	message.AddListReactionsCommand(RootCmd)
+	message.AddInspectKeyboardCommand(RootCmd)
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessage, Title: "Manage Messages"})
 
 	// User commands
 	user.AddBlockCommand(RootCmd)
-	user.AddUnblockCommand(RootCmd)
-	user.AddProfileCommand(RootCmd)
-	user.AddAvatarCommand(RootCmd)
-
-	// Chat commands
-	chat.AddClearCommand(RootCmd)
-	chat.AddHistoryCommand(RootCmd)
-
-	// Sys commands
-	sys.AddPingCommand(RootCmd)
-	sys.AddEchoCommand(RootCmd)
-	sys.AddStatusCommand(RootCmd)
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDUser, Title: "User Management"})
 }

@@ -72,12 +72,32 @@ type StoredUpdate struct {
 
 // MessageResult represents a single message result.
 type MessageResult struct {
-	ID       int64  `json:"id"`
-	Date     int64  `json:"date"`
-	Text     string `json:"text,omitempty"`
-	FromID   string `json:"fromId,omitempty"`
-	FromName string `json:"fromName,omitempty"`
-	Out      bool   `json:"out"`
+	ID             int64           `json:"id"`
+	Date           int64           `json:"date"`
+	Text           string          `json:"text,omitempty"`
+	FromID         string          `json:"fromId,omitempty"`
+	FromName       string          `json:"fromName,omitempty"`
+	Out            bool            `json:"out"`
+	Buttons        []InlineButton  `json:"buttons,omitempty"`
+
+	// Additional message fields
+	PeerID         string          `json:"peerId,omitempty"`        // Chat where message was sent
+	EditDate       int64           `json:"editDate,omitempty"`      // When message was edited
+	Media          map[string]any  `json:"media,omitempty"`         // Media attachment (photo, document, etc.)
+	Views          int             `json:"views,omitempty"`         // View count for channel posts
+	Forwards       int             `json:"forwards,omitempty"`      // Forward counter
+	ReplyTo        map[string]any  `json:"replyTo,omitempty"`       // Reply information
+	FwdFrom        map[string]any  `json:"fwdFrom,omitempty"`       // Forwarded from
+	Reactions      []map[string]any `json:"reactions,omitempty"`    // Reactions to message
+	Entities       []map[string]any `json:"entities,omitempty"`     // Message entities (formatting)
+	Pinned         bool            `json:"pinned,omitempty"`        // Whether message is pinned
+	ViaBotID       int64           `json:"viaBotId,omitempty"`      // ID of inline bot
+	PostAuthor     string          `json:"postAuthor,omitempty"`    // Author of channel post
+	GroupedID      int64           `json:"groupedId,omitempty"`     // Album/media group ID
+	TTLPeriod      int             `json:"ttlPeriod,omitempty"`     // Time to live
+	Mentioned      bool            `json:"mentioned,omitempty"`     // Whether we were mentioned
+	Silent         bool            `json:"silent,omitempty"`        // Silent message (no notification)
+	Post           bool            `json:"post,omitempty"`          // Channel post
 }
 
 // GetMessagesParams holds parameters for GetMessages.
@@ -112,6 +132,7 @@ type GetChatsResult struct {
 
 // GetUpdatesParams holds parameters for GetUpdates.
 type GetUpdatesParams struct {
+	PeerInfo
 	Limit int `json:"limit"`
 }
 
@@ -161,4 +182,31 @@ type ClearHistoryResult struct {
 	Success bool   `json:"success"`
 	Peer    string `json:"peer"`
 	Revoke  bool   `json:"revoke"`
+}
+
+// ForwardMessageParams holds parameters for ForwardMessage.
+type ForwardMessageParams struct {
+	FromPeer string `json:"fromPeer"`
+	MessageID int64 `json:"messageId"`
+	ToPeer   string `json:"toPeer"`
+}
+
+// Validate validates ForwardMessageParams.
+func (p ForwardMessageParams) Validate() error {
+	if p.FromPeer == "" {
+		return fmt.Errorf("fromPeer is required")
+	}
+	if p.MessageID == 0 {
+		return fmt.Errorf("messageId is required")
+	}
+	if p.ToPeer == "" {
+		return fmt.Errorf("toPeer is required")
+	}
+	return nil
+}
+
+// ForwardMessageResult is the result of ForwardMessage.
+type ForwardMessageResult struct {
+	Success   bool  `json:"success"`
+	MessageID int64 `json:"id"`
 }

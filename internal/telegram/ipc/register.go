@@ -2,9 +2,12 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 
 	"agent-telegram/internal/ipc"
+	"agent-telegram/telegram/types"
 )
 
 // RegisterHandlers registers all Telegram IPC handlers.
@@ -25,12 +28,14 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 	registerHandler(srv, "send_reply", SendReplyHandler(client))
 	registerHandler(srv, "update_message", UpdateMessageHandler(client))
 	registerHandler(srv, "delete_message", DeleteMessageHandler(client))
+	registerHandler(srv, "forward_message", ForwardMessageHandler(client))
 	registerHandler(srv, "update_profile", UpdateProfileHandler(client))
 	registerHandler(srv, "update_avatar", UpdateAvatarHandler(client))
 	registerHandler(srv, "pin_message", PinMessageHandler(client))
 	registerHandler(srv, "unpin_message", UnpinMessageHandler(client))
 	registerHandler(srv, "inspect_inline_buttons", InspectInlineButtonsHandler(client))
 	registerHandler(srv, "press_inline_button", PressInlineButtonHandler(client))
+	registerHandler(srv, "inspect_reply_keyboard", InspectReplyKeyboardHandler(client))
 	registerHandler(srv, "add_reaction", AddReactionHandler(client))
 	registerHandler(srv, "remove_reaction", RemoveReactionHandler(client))
 	registerHandler(srv, "list_reactions", ListReactionsHandler(client))
@@ -38,6 +43,27 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 	registerHandler(srv, "clear_history", ClearHistoryHandler(client))
 	registerHandler(srv, "block", BlockPeerHandler(client))
 	registerHandler(srv, "unblock", UnblockPeerHandler(client))
+	registerHandler(srv, "inspect_reply_keyboard", InspectReplyKeyboardHandler(client))
+}
+
+// InspectReplyKeyboardHandler returns a handler for inspecting reply keyboard requests.
+func InspectReplyKeyboardHandler(client Client) func(json.RawMessage) (interface{}, error) {
+	return func(params json.RawMessage) (interface{}, error) {
+		var p types.PeerInfo
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, fmt.Errorf("invalid params: %w", err)
+		}
+		if err := p.ValidatePeer(); err != nil {
+			return nil, err
+		}
+
+		result, err := client.InspectReplyKeyboard(context.Background(), p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to inspect reply keyboard: %w", err)
+		}
+
+		return result, nil
+	}
 }
 
 // registerHandler registers a single handler with error wrapping.

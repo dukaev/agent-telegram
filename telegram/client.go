@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -57,7 +58,7 @@ func (c codeAuth) Code(_ context.Context, _ *tg.AuthSentCode) (string, error) {
 }
 
 func (c codeAuth) AcceptTOS(_ context.Context, _ tg.HelpTermsOfService) error {
-	fmt.Println("Accepted TOS")
+	slog.Info("Accepted TOS")
 	return nil
 }
 
@@ -155,7 +156,7 @@ func (c *Client) runClient(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Logged in as: %s (@%s)\n", userInfo.FirstName, userInfo.Username)
+	slog.Info("Logged in", "first_name", userInfo.FirstName, "username", userInfo.Username)
 
 	// Set API for domain clients
 	c.setDomainAPIs()
@@ -238,4 +239,9 @@ func (c *Client) GetUpdates(limit int) []types.StoredUpdate {
 		return []types.StoredUpdate{}
 	}
 	return c.updateStore.Get(limit)
+}
+
+// InspectReplyKeyboard inspects the reply keyboard from a chat.
+func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error) {
+	return c.message.InspectReplyKeyboard(ctx, params)
 }

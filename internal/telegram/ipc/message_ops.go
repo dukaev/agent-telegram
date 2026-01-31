@@ -17,3 +17,8 @@ func UpdateMessageHandler(client Client) func(json.RawMessage) (any, error) {
 func DeleteMessageHandler(client Client) func(json.RawMessage) (any, error) {
 	return Handler(client.DeleteMessage, "delete message")
 }
+
+// ForwardMessageHandler returns a handler for forward_message requests.
+func ForwardMessageHandler(client Client) func(json.RawMessage) (any, error) {
+	return Handler(client.ForwardMessage, "forward message")
+}

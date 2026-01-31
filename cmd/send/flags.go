@@ -2,65 +2,16 @@
 package send
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
 )
 
-// Recipient represents a message recipient.
-// Accepts: @username, username (without @), or chat ID (numeric).
-type Recipient struct {
-	value string
-}
-
-func (r *Recipient) String() string {
-	return r.value
-}
-
-// Set implements pflag.Value interface.
-func (r *Recipient) Set(s string) error {
-	if s == "" {
-		return fmt.Errorf("recipient cannot be empty")
-	}
-	r.value = s
-	return nil
-}
-
-// Type implements pflag.Value interface.
-func (r *Recipient) Type() string {
-	return "recipient"
-}
-
-// Peer returns normalized peer for API.
-// @user → @user
-// username → @username
-// 123456789 → 123456789 (chat ID)
-func (r *Recipient) Peer() string {
-	if r.value == "" {
-		return ""
-	}
-	if strings.HasPrefix(r.value, "@") {
-		return r.value
-	}
-	if r.value[0] >= '0' && r.value[0] <= '9' {
-		return r.value
-	}
-	return "@" + r.value
-}
-
-// AddToParams adds normalized peer to parameters.
-func (r *Recipient) AddToParams(params map[string]any) {
-	params["peer"] = r.Peer()
-}
-
 // SendFlags holds common flags for all send commands.
 //revive:disable:exported stutter
 type SendFlags struct {
 	JSON    bool
-	To      Recipient
+	To      cliutil.Recipient
 	Caption string
 	cmd     *cobra.Command
 }

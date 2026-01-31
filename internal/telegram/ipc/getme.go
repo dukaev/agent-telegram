@@ -49,6 +49,7 @@ type Client interface {
 		ctx context.Context, params types.UpdateMessageParams,
 	) (*types.UpdateMessageResult, error)
 	DeleteMessage(ctx context.Context, params types.DeleteMessageParams) (*types.DeleteMessageResult, error)
+	ForwardMessage(ctx context.Context, params types.ForwardMessageParams) (*types.ForwardMessageResult, error)
 	PinMessage(ctx context.Context, params types.PinMessageParams) (*types.PinMessageResult, error)
 	UnpinMessage(ctx context.Context, params types.UnpinMessageParams) (*types.UnpinMessageResult, error)
 	InspectInlineButtons(
@@ -66,4 +67,5 @@ type Client interface {
 	ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error)
 	BlockPeer(ctx context.Context, params types.BlockPeerParams) (*types.BlockPeerResult, error)
 	UnblockPeer(ctx context.Context, params types.UnblockPeerParams) (*types.UnblockPeerResult, error)
+	InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error)
 }

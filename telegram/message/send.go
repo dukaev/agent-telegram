@@ -4,7 +4,6 @@ package message
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/gotd/td/tg"
@@ -17,13 +16,10 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	// Clean peer (remove @ prefix)
-	peer := strings.TrimPrefix(params.Peer, "@")
-
 	// Resolve username to get input peer
-	inputPeer, err := resolvePeer(ctx, c.api, peer)
+	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer @%s: %w", peer, err)
+		return nil, fmt.Errorf("failed to resolve peer @%s: %w", params.Peer, err)
 	}
 
 	// Send message
@@ -43,7 +39,7 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 		ID:      msgID,
 		Date:    time.Now().Unix(),
 		Message: params.Message,
-		Peer:    peer,
+		Peer:    params.Peer,
 	}, nil
 }
 

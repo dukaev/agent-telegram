@@ -15,6 +15,7 @@ var (
 
 // ChecklistCmd represents the send-checklist command.
 var ChecklistCmd = &cobra.Command{
+	GroupID: "messaging",
 	Use:   "send-checklist <question> -o <option1> -o <option2> ... -c <correct_index>",
 	Short: "Send a quiz (checklist) to a Telegram peer",
 	Long: `Send a quiz with correct answer to a Telegram user or chat.
