@@ -60,9 +60,8 @@ Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
 func AddSendCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(SendCmd)
 
-	// Recipient flag (already in SendFlags)
-	SendCmd.Flags().VarP(&sendFlags.To, "to", "t", "Recipient (@username, username, or chat ID)")
-	_ = SendCmd.MarkFlagRequired("to")
+	// Register common flags (sets sendFlags.cmd)
+	sendFlags.Register(SendCmd)
 
 	// Content type flags (mutually exclusive)
 	SendCmd.Flags().StringVar(&sendFile, "file", "", "Send file (auto-detect type)")
@@ -86,12 +85,6 @@ func AddSendCommand(rootCmd *cobra.Command) {
 	SendCmd.Flags().StringVar(&sendContact, "contact", "", "Send contact (phone number)")
 	SendCmd.Flags().StringVar(&sendFirstName, "first-name", "", "Contact first name")
 	SendCmd.Flags().StringVar(&sendLastName, "last-name", "", "Contact last name")
-
-	// Caption flag (already in SendFlags)
-	SendCmd.Flags().StringVar(&sendFlags.Caption, "caption", "", "Caption for media")
-
-	// JSON output
-	SendCmd.Flags().BoolVarP(&sendFlags.JSON, "json", "j", false, "Output as JSON")
 
 	SendCmd.Run = func(cmd *cobra.Command, args []string) {
 		runner := sendFlags.NewRunner()
@@ -171,7 +164,12 @@ func buildSendParams(args []string) (string, map[string]any) {
 	case pollQuestion != "":
 		params["question"] = pollQuestion
 		if len(pollOptions) > 0 {
-			params["options"] = pollOptions
+			// Convert []string to []map[string]string for PollOption
+			optionMaps := make([]map[string]string, len(pollOptions))
+			for i, opt := range pollOptions {
+				optionMaps[i] = map[string]string{"text": opt}
+			}
+			params["options"] = optionMaps
 		}
 		return "send_poll", params
 

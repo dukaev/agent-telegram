@@ -79,8 +79,14 @@ func filterByPeer(updates []types.StoredUpdate, peer, username string) []types.S
 
 // peerMatches checks if an update's peer matches the filter value.
 func peerMatches(data map[string]any, filterValue string) bool {
-	// Try to match against peer ID (format: user:123, chat:123, channel:123)
-	if peer, ok := data["peer"].(string); ok {
+	// Check inside message data for peer info
+	msg, ok := data["message"].(map[string]any)
+	if !ok {
+		return false
+	}
+
+	// Check peer field in message (format: user:123, chat:123, channel:123)
+	if peer, ok := msg["peer"].(string); ok {
 		// If filter is numeric, compare with ID portion
 		if isNumeric(filterValue) {
 			parts := strings.Split(peer, ":")
@@ -88,27 +94,17 @@ func peerMatches(data map[string]any, filterValue string) bool {
 				return true
 			}
 		}
-	}
-
-	// Try to match against peer_name (display name or username)
-	if peerName, ok := data["peer_name"].(string); ok {
 		// Case-insensitive partial match for username
-		if strings.Contains(strings.ToLower(peerName), strings.ToLower(filterValue)) {
+		if strings.Contains(strings.ToLower(peer), strings.ToLower(filterValue)) {
 			return true
 		}
 	}
 
-	// Check inside message data for peer info
-	if msg, ok := data["message"].(map[string]any); ok {
-		// Check peerId field in message
-		if peerID, ok := msg["peerId"].(string); ok {
-			// If filter is numeric, compare with ID portion
-			if isNumeric(filterValue) {
-				parts := strings.Split(peerID, ":")
-				if len(parts) == 2 && parts[1] == filterValue {
-					return true
-				}
-			}
+	// Try to match against from_name (display name or username)
+	if fromName, ok := msg["from_name"].(string); ok {
+		// Case-insensitive partial match for username
+		if strings.Contains(strings.ToLower(fromName), strings.ToLower(filterValue)) {
+			return true
 		}
 	}
 

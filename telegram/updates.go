@@ -106,26 +106,40 @@ func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface
 		data["text"] = m.Message
 		data["date"] = m.Date
 		data["out"] = m.Out
+
+		// Simplify from_id to string format
 		if m.FromID != nil {
-			data["from_id"] = m.FromID
-			// Add sender name
-			data["from_name"] = getSenderName(entities, m.FromID)
+			data["from"] = formatPeerClass(m.FromID)
+			if name := getSenderName(entities, m.FromID); name != "" {
+				data["from_name"] = name
+			}
 		}
+
+		// Simplify peer_id to string format
 		if m.PeerID != nil {
-			data["peer_id"] = m.PeerID
+			data["peer"] = formatPeerClass(m.PeerID)
 		}
-		if m.ReplyTo != nil {
-			data["reply_to"] = m.ReplyTo
-		}
-		if m.Media != nil {
-			data["media"] = m.Media
-		}
+
 		// Add inline buttons if present
 		if m.ReplyMarkup != nil {
 			data["buttons"] = extractButtonsData(m.ReplyMarkup)
 		}
 	}
 	return data
+}
+
+// formatPeerClass converts a PeerClass to a simple string representation.
+func formatPeerClass(p tg.PeerClass) string {
+	switch v := p.(type) {
+	case *tg.PeerUser:
+		return fmt.Sprintf("user:%d", v.UserID)
+	case *tg.PeerChat:
+		return fmt.Sprintf("chat:%d", v.ChatID)
+	case *tg.PeerChannel:
+		return fmt.Sprintf("channel:%d", v.ChannelID)
+	default:
+		return ""
+	}
 }
 
 // extractButtonsData extracts button data from ReplyMarkup.

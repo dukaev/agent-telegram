@@ -31,6 +31,10 @@ Thumbs.db
 # Build output
 /bin/
 /dist/
+/tmp/
+
+# Air
+build-errors.log
 
 # Environment files
 .env

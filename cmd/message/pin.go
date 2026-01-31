@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	pinMessagePeer cliutil.Recipient
-	pinDisable     bool
+	pinMessageTo cliutil.Recipient
+	pinDisable   bool
 )
 
 // PinCmd represents the pin command.
@@ -22,7 +22,7 @@ var PinCmd = &cobra.Command{
 	Long: `Pin or unpin a message in a chat.
 
 Use --disable to unpin a previously pinned message.
-Use --peer @username, --peer username, or --peer <chat_id> to specify the recipient.`,
+Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -30,16 +30,16 @@ Use --peer @username, --peer username, or --peer <chat_id> to specify the recipi
 func AddPinCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(PinCmd)
 
-	PinCmd.Flags().VarP(&pinMessagePeer, "peer", "p", "Peer (@username, username, or chat ID)")
+	PinCmd.Flags().VarP(&pinMessageTo, "to", "t", "Recipient (@username, username, or chat ID)")
 	PinCmd.Flags().BoolVarP(&pinDisable, "disable", "d", false, "Unpin the message")
-	_ = PinCmd.MarkFlagRequired("peer")
+	_ = PinCmd.MarkFlagRequired("to")
 
 	PinCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(PinCmd, false)
 		params := map[string]any{
 			"messageId": runner.MustParseInt64(args[0]),
 		}
-		pinMessagePeer.AddToParams(params)
+		pinMessageTo.AddToParams(params)
 
 		var method string
 		var successMsg string

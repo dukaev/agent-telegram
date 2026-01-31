@@ -11,7 +11,7 @@ import (
 
 var (
 	blockJSON    bool
-	blockPeer    cliutil.Recipient
+	blockTo      cliutil.Recipient
 	blockDisable bool
 )
 
@@ -25,7 +25,7 @@ var BlockCmd = &cobra.Command{
 Blocked peers will not be able to send you messages or see your online status.
 
 Use --disable to unblock a peer.
-Use --peer @username, --peer username, or --peer <chat_id> to specify the recipient.`,
+Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
 	Args: cobra.NoArgs,
 }
 
@@ -34,14 +34,14 @@ func AddBlockCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(BlockCmd)
 
 	BlockCmd.Flags().BoolVarP(&blockJSON, "json", "j", false, "Output as JSON")
-	BlockCmd.Flags().VarP(&blockPeer, "peer", "p", "Peer (@username, username, or chat ID)")
+	BlockCmd.Flags().VarP(&blockTo, "to", "t", "Recipient (@username, username, or chat ID)")
 	BlockCmd.Flags().BoolVarP(&blockDisable, "disable", "d", false, "Unblock the peer")
-	_ = BlockCmd.MarkFlagRequired("peer")
+	_ = BlockCmd.MarkFlagRequired("to")
 
 	BlockCmd.Run = func(*cobra.Command, []string) {
 		runner := cliutil.NewRunnerFromCmd(BlockCmd, blockJSON)
 		params := map[string]any{}
-		blockPeer.AddToParams(params)
+		blockTo.AddToParams(params)
 
 		var method string
 		var successMsg string

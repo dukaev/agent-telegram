@@ -2,7 +2,9 @@
 package get
 
 import (
-	"fmt"
+	"encoding/json"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -11,19 +13,21 @@ import (
 
 var (
 	// ChatsLimit is the number of chats to return.
-	ChatsLimit  int
+	ChatsLimit int
 	// ChatsOffset is the offset for pagination.
 	ChatsOffset int
-	// ChatsJSON enables JSON output.
-	ChatsJSON   bool
+	// ChatsSearch filters chats by title or username.
+	ChatsSearch string
+	// ChatsType filters chats by type (user, chat, channel).
+	ChatsType string
 )
 
 // ChatsCmd represents the chats command.
 var ChatsCmd = &cobra.Command{
 	GroupID: "get",
-	Use:   "chats",
-	Short: "List Telegram chats",
-	Long:  `List all Telegram chats with optional pagination.`,
+	Use:     "chats",
+	Short:   "List Telegram chats",
+	Long:    `List all Telegram chats with optional pagination and filtering.`,
 }
 
 // AddChatsCommand adds the chats command to the root command.
@@ -32,7 +36,9 @@ func AddChatsCommand(rootCmd *cobra.Command) {
 
 	ChatsCmd.Flags().IntVarP(&ChatsLimit, "limit", "l", 10, "Number of chats to return (max 100)")
 	ChatsCmd.Flags().IntVarP(&ChatsOffset, "offset", "o", 0, "Offset for pagination")
-	ChatsCmd.Flags().BoolVarP(&ChatsJSON, "json", "j", true, "Output as JSON (default: true)")
+	ChatsCmd.Flags().StringVarP(&ChatsSearch, "search", "q", "", "Filter by title or username (case-insensitive)")
+	ChatsCmd.Flags().StringVarP(&ChatsType, "type", "t", "", "Filter by type: user, chat, channel, or bot")
+
 	ChatsCmd.Run = func(*cobra.Command, []string) {
 		// Validate and sanitize limit/offset
 		if ChatsLimit < 1 {
@@ -45,120 +51,125 @@ func AddChatsCommand(rootCmd *cobra.Command) {
 			ChatsOffset = 0
 		}
 
-		runner := cliutil.NewRunnerFromCmd(ChatsCmd, ChatsJSON)
+		runner := cliutil.NewRunnerFromCmd(ChatsCmd, true) // Always JSON
 		result := runner.CallWithParams("get_chats", map[string]any{
 			"limit":  ChatsLimit,
 			"offset": ChatsOffset,
 		})
 
-		runner.PrintResult(result, func(r any) {
-			rMap, ok := cliutil.ToMap(r)
-			if !ok {
-				return
-			}
-
-			chats, _ := rMap["chats"].([]any)
-			limit := cliutil.ExtractFloat64(rMap, "limit")
-			offset := cliutil.ExtractFloat64(rMap, "offset")
-			count := cliutil.ExtractFloat64(rMap, "count")
-
-			fmt.Printf("Chats (limit: %.0f, offset: %.0f, count: %.0f):\n", limit, offset, count)
-			fmt.Println()
-
-			for _, chat := range chats {
-				printChat(chat)
-			}
-		})
+		filteredResult := filterChatsResult(result)
+		json.NewEncoder(os.Stdout).Encode(filteredResult)
 	}
 }
 
-// printChat prints a single chat.
-func printChat(chat any) {
-	chatInfo, ok := cliutil.ToMap(chat)
+// filterChatsResult filters and transforms the chats result.
+func filterChatsResult(result any) any {
+	rMap, ok := result.(map[string]any)
 	if !ok {
-		return
+		return result
 	}
 
-	chatType := cliutil.ExtractString(chatInfo, "type")
-	if chatType == "" {
-		return
-	}
+	chats, _ := rMap["chats"].([]any)
+	var filteredChats []any
 
-	printChatByType(chatType, chatInfo)
-	printUnreadCount(chatInfo)
-}
+	searchLower := strings.ToLower(ChatsSearch)
 
-// printChatByType prints chat info based on its type.
-func printChatByType(chatType string, info map[string]any) {
-	switch chatType {
-	case "user":
-		printUserChat(info)
-	case "chat":
-		printGroupChat(info)
-	case "channel":
-		printChannelChat(info)
-	}
-}
-
-// printUserChat prints a user chat.
-func printUserChat(info map[string]any) {
-	name := buildUserName(info)
-	fmt.Printf("  %s", name)
-	if _, isBot := info["bot"].(bool); isBot {
-		fmt.Print(" ")
-	}
-	fmt.Println()
-}
-
-// buildUserName builds a display name from user info.
-func buildUserName(info map[string]any) string {
-	var name string
-	if fn, ok := info["first_name"].(string); ok {
-		name = fn
-		if ln, ok := info["last_name"].(string); ok && ln != "" {
-			name += " " + ln
+	for _, chat := range chats {
+		chatInfo, ok := chat.(map[string]any)
+		if !ok {
+			continue
 		}
-	}
-	if name == "" {
-		if un, ok := info["username"].(string); ok {
-			name = "@" + un
+
+		chatType := cliutil.ExtractString(chatInfo, "type")
+		if chatType == "" {
+			continue
 		}
+
+		// Filter by type if specified
+		if ChatsType != "" {
+			// Special case for "bot" type - filter users that are bots
+			if ChatsType == "bot" {
+				isBot, _ := chatInfo["bot"].(bool)
+				if chatType != "user" || !isBot {
+					continue
+				}
+			} else if chatType != ChatsType {
+				continue
+			}
+		}
+
+		// Filter by search term if specified
+		if ChatsSearch != "" {
+			title := cliutil.ExtractString(chatInfo, "title")
+			username := cliutil.ExtractString(chatInfo, "peer")
+			if !containsSearch(title, username, searchLower) {
+				continue
+			}
+		}
+
+		// Build simplified chat object with only requested fields
+		simplified := map[string]any{
+			"type": chatType,
+		}
+
+		// Add channel_id for channels
+		if channelID, ok := chatInfo["channel_id"].(int64); ok && channelID != 0 {
+			simplified["channel_id"] = channelID
+		}
+		if channelID, ok := chatInfo["channel_id"].(float64); ok && channelID != 0 {
+			simplified["channel_id"] = int64(channelID)
+		}
+
+		// Add chat_id for groups
+		if chatID, ok := chatInfo["chat_id"].(int64); ok && chatID != 0 {
+			simplified["channel_id"] = chatID
+		}
+		if chatID, ok := chatInfo["chat_id"].(float64); ok && chatID != 0 {
+			simplified["channel_id"] = int64(chatID)
+		}
+
+		// Add user_id for users
+		if userID, ok := chatInfo["user_id"].(int64); ok && userID != 0 {
+			simplified["channel_id"] = userID
+		}
+		if userID, ok := chatInfo["user_id"].(float64); ok && userID != 0 {
+			simplified["channel_id"] = int64(userID)
+		}
+
+		// Add peer
+		if peer := cliutil.ExtractString(chatInfo, "peer"); peer != "" {
+			simplified["peer"] = peer
+		}
+
+		// Add title
+		if title := cliutil.ExtractString(chatInfo, "title"); title != "" {
+			simplified["title"] = title
+		}
+
+		// Add username (from peer field or username field)
+		if username := cliutil.ExtractString(chatInfo, "username"); username != "" {
+			simplified["username"] = username
+		}
+
+		filteredChats = append(filteredChats, simplified)
 	}
-	return name
+
+	return map[string]any{
+		"chats":  filteredChats,
+		"limit":  cliutil.ExtractFloat64(rMap, "limit"),
+		"offset": cliutil.ExtractFloat64(rMap, "offset"),
+		"count":  len(filteredChats),
+		"total":  cliutil.ExtractFloat64(rMap, "count"),
+	}
 }
 
-// printGroupChat prints a group chat.
-func printGroupChat(info map[string]any) {
-	title, ok := info["title"].(string)
-	if !ok {
-		return
+// containsSearch checks if the title or username contains the search term.
+func containsSearch(title, username, searchLower string) bool {
+	if title != "" && strings.Contains(strings.ToLower(title), searchLower) {
+		return true
 	}
-	fmt.Printf("  %s", title)
-	if count, ok := info["participants_count"].(int); ok {
-		fmt.Printf(" (%d members)", count)
+	if username != "" && strings.Contains(strings.ToLower(username), searchLower) {
+		return true
 	}
-	fmt.Println()
-}
-
-// printChannelChat prints a channel chat.
-func printChannelChat(info map[string]any) {
-	title, ok := info["title"].(string)
-	if !ok {
-		return
-	}
-	fmt.Printf("  %s", title)
-	if username, ok := info["username"].(string); ok && username != "" {
-		fmt.Printf(" (@%s)", username)
-	}
-	if megagroup, ok := info["megagroup"].(bool); ok && megagroup {
-		fmt.Print(" (group)")
-	}
-	fmt.Println()
-}
-
-// printUnreadCount prints unread count if any.
-func printUnreadCount(info map[string]any) {
-	if unread, ok := info["unread_count"].(int); ok && unread > 0 {
-		fmt.Printf("     %d unread\n", unread)
-	}
+	return false
 }

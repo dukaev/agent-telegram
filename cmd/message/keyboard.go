@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	inspectKeyboardPeer cliutil.Recipient
+	inspectKeyboardTo cliutil.Recipient
 )
 
 // InspectKeyboardCmd represents the inspect-keyboard command.
@@ -24,7 +24,7 @@ var InspectKeyboardCmd = &cobra.Command{
 Reply keyboard buttons are the buttons shown at the bottom of the chat interface,
 different from inline buttons that appear with messages.
 
-Use --peer @username, --peer username, or --peer <chat_id> to specify the chat.`,
+Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
 	Args: cobra.NoArgs,
 }
 
@@ -32,14 +32,14 @@ Use --peer @username, --peer username, or --peer <chat_id> to specify the chat.`
 func AddInspectKeyboardCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(InspectKeyboardCmd)
 
-	InspectKeyboardCmd.Flags().VarP(&inspectKeyboardPeer, "peer", "p", "Peer (@username, username, or chat ID)")
-	_ = InspectKeyboardCmd.MarkFlagRequired("peer")
+	InspectKeyboardCmd.Flags().VarP(&inspectKeyboardTo, "to", "t", "Recipient (@username, username, or chat ID)")
+	_ = InspectKeyboardCmd.MarkFlagRequired("to")
 
 	InspectKeyboardCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(InspectKeyboardCmd, true) // Always JSON
 
 		params := map[string]any{}
-		inspectKeyboardPeer.AddToParams(params)
+		inspectKeyboardTo.AddToParams(params)
 
 		result := runner.CallWithParams("inspect_reply_keyboard", params)
 
