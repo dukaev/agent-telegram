@@ -10,20 +10,6 @@ import (
 	"github.com/gotd/td/tg"
 )
 
-// GetMeParams represents parameters for get_me request.
-type GetMeParams struct{}
-
-// GetMeResult represents the result of get_me request.
-type GetMeResult struct {
-	ID        int64  `json:"id"`
-	Username  string `json:"username"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Phone     string `json:"phone"`
-	Verified  bool   `json:"verified"`
-	Bot       bool   `json:"bot"`
-}
-
 // GetMeHandler returns a handler for get_me requests.
 func GetMeHandler(client Client) func(json.RawMessage) (interface{}, error) {
 	return func(_ json.RawMessage) (interface{}, error) {
@@ -32,7 +18,7 @@ func GetMeHandler(client Client) func(json.RawMessage) (interface{}, error) {
 			return nil, fmt.Errorf("failed to get user: %w", err)
 		}
 
-		return GetMeResult{
+		return telegram.GetMeResult{
 			ID:        user.ID,
 			Username:  user.Username,
 			FirstName: user.FirstName,
@@ -50,4 +36,14 @@ type Client interface {
 	GetChats(ctx context.Context, limit, offset int) ([]map[string]interface{}, error)
 	GetUpdates(limit int) []telegram.StoredUpdate
 	GetMessages(ctx context.Context, params telegram.GetMessagesParams) (*telegram.GetMessagesResult, error)
+	SendMessage(ctx context.Context, params telegram.SendMessageParams) (*telegram.SendMessageResult, error)
+	SendLocation(ctx context.Context, params telegram.SendLocationParams) (*telegram.SendLocationResult, error)
+	SendPhoto(ctx context.Context, params telegram.SendPhotoParams) (*telegram.SendPhotoResult, error)
+	SendContact(ctx context.Context, params telegram.SendContactParams) (*telegram.SendContactResult, error)
+	SendFile(ctx context.Context, params telegram.SendFileParams) (*telegram.SendFileResult, error)
+	SendPoll(ctx context.Context, params telegram.SendPollParams) (*telegram.SendPollResult, error)
+	SendVideo(ctx context.Context, params telegram.SendVideoParams) (*telegram.SendVideoResult, error)
+	ClearMessages(ctx context.Context, params telegram.ClearMessagesParams) (*telegram.ClearMessagesResult, error)
+	ClearHistory(ctx context.Context, params telegram.ClearHistoryParams) (*telegram.ClearHistoryResult, error)
+	BlockPeer(ctx context.Context, params telegram.BlockPeerParams) (*telegram.BlockPeerResult, error)
 }

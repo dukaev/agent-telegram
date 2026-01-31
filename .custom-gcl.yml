@@ -1,0 +1,5 @@
+version: v2.8.0
+plugins:
+  - module: github.com/agent-telegram/lint
+    import: github.com/agent-telegram/lint/fileprefix
+    path: ./internal/lint

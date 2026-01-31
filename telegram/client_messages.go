@@ -5,35 +5,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gotd/td/tg"
 )
-
-// GetMessagesParams holds parameters for GetMessages.
-type GetMessagesParams struct {
-	Username string
-	Limit    int
-	Offset   int
-}
-
-// MessageResult represents a single message result.
-type MessageResult struct {
-	ID       int64  `json:"id"`
-	Date     int64  `json:"date"`
-	Text     string `json:"text,omitempty"`
-	FromID   string `json:"fromId,omitempty"`
-	FromName string `json:"fromName,omitempty"`
-	Out      bool   `json:"out"`
-}
-
-// GetMessagesResult is the result of GetMessages.
-type GetMessagesResult struct {
-	Messages []MessageResult `json:"messages"`
-	Limit    int             `json:"limit"`
-	Offset   int             `json:"offset"`
-	Count    int             `json:"count"`
-	Username string          `json:"username"`
-}
 
 // GetMessages returns messages from a dialog with the given username.
 func (c *Client) GetMessages(ctx context.Context, params GetMessagesParams) (*GetMessagesResult, error) {
@@ -77,56 +52,6 @@ func (c *Client) GetMessages(ctx context.Context, params GetMessagesParams) (*Ge
 		Count:    len(messageResults),
 		Username: username,
 	}, nil
-}
-
-// resolveUsername resolves a username to an InputPeerClass.
-func (c *Client) resolveUsername(ctx context.Context, api *tg.Client, username string) (tg.InputPeerClass, error) {
-	// Search for the user/channel
-	peerClass, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
-	if err != nil {
-		return nil, err
-	}
-
-	switch p := peerClass.Peer.(type) {
-	case *tg.PeerUser:
-		return &tg.InputPeerUser{
-			UserID:     p.UserID,
-			AccessHash: getAccessHash(peerClass, p.UserID),
-		}, nil
-	case *tg.PeerChat:
-		return &tg.InputPeerChat{
-			ChatID: p.ChatID,
-		}, nil
-	case *tg.PeerChannel:
-		return &tg.InputPeerChannel{
-			ChannelID:  p.ChannelID,
-			AccessHash: getAccessHash(peerClass, p.ChannelID),
-		}, nil
-	default:
-		return nil, fmt.Errorf("unsupported peer type: %T", p)
-	}
-}
-
-// getAccessHash extracts access hash from the resolved peer.
-func getAccessHash(peerClass *tg.ContactsResolvedPeer, id int64) int64 {
-	for _, chat := range peerClass.Chats {
-		switch c := chat.(type) {
-		case *tg.Channel:
-			if c.ID == id {
-				return c.AccessHash
-			}
-		case *tg.Chat:
-			if c.ID == id {
-				return 0
-			}
-		}
-	}
-	for _, user := range peerClass.Users {
-		if u, ok := user.(*tg.User); ok && u.ID == id {
-			return u.AccessHash
-		}
-	}
-	return 0
 }
 
 // extractMessagesData extracts messages and users from the response.
@@ -191,4 +116,52 @@ func buildUserDisplayName(user *tg.User) string {
 		name = fmt.Sprintf("user_%d", user.ID)
 	}
 	return name
+}
+
+// SendMessage sends a message to a peer.
+func (c *Client) SendMessage(ctx context.Context, params SendMessageParams) (*SendMessageResult, error) {
+	if c.client == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
+	api := c.client.API()
+
+	// Clean peer (remove @ prefix)
+	peer := strings.TrimPrefix(params.Peer, "@")
+
+	// Resolve username to get input peer
+	inputPeer, err := c.resolveUsername(ctx, api, peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer @%s: %w", peer, err)
+	}
+
+	// Send message
+	result, err := api.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+		Peer:    inputPeer,
+		Message: params.Message,
+		RandomID: time.Now().UnixNano(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to send message: %w", err)
+	}
+
+	// Extract message ID from response
+	var msgID int64
+	switch r := result.(type) {
+	case *tg.Updates:
+		if len(r.Updates) > 0 {
+			if msg, ok := r.Updates[0].(*tg.UpdateMessageID); ok {
+				msgID = int64(msg.ID)
+			}
+		}
+	case *tg.UpdateShortSentMessage:
+		msgID = int64(r.ID)
+	}
+
+	return &SendMessageResult{
+		ID:      msgID,
+		Date:    time.Now().Unix(),
+		Message: params.Message,
+		Peer:    peer,
+	}, nil
 }

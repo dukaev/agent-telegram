@@ -4,3 +4,6 @@ pre-commit:
     golangci-lint:
       run: golangci-lint run --fix {all_files}
       glob: "*.go"
+    fileprefix:
+      run: ./bin/custom-gcl run -c .golangci.custom.yaml ./...
+      glob: "*.go"

@@ -34,6 +34,7 @@ func (m CodeStep) Init() tea.Cmd {
 }
 
 // Update handles messages.
+//nolint:dupl // Similar to PhoneStep.Update - different loader message and input type
 func (m CodeStep) Update(msg tea.Msg) (CodeStep, tea.Cmd) {
 	if cmd, ok := components.HandleQuitKeys(msg); ok {
 		return m, cmd

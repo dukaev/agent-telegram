@@ -8,30 +8,6 @@ import (
 	"github.com/gotd/td/tg"
 )
 
-// UpdateType represents the type of Telegram update.
-type UpdateType string
-
-const (
-	// UpdateTypeNewMessage is a new message update.
-	UpdateTypeNewMessage UpdateType = "new_message"
-	// UpdateTypeEditMessage is an edited message update.
-	UpdateTypeEditMessage UpdateType = "edit_message"
-	// UpdateTypeNewChat is a new chat update.
-	UpdateTypeNewChat UpdateType = "new_chat"
-	// UpdateTypeDelete is a delete update.
-	UpdateTypeDelete UpdateType = "delete"
-	// UpdateTypeOther is an other type update.
-	UpdateTypeOther UpdateType = "other"
-)
-
-// StoredUpdate represents a stored Telegram update.
-type StoredUpdate struct {
-	ID        int64                      `json:"id"`
-	Type      UpdateType                 `json:"type"`
-	Timestamp time.Time                  `json:"timestamp"`
-	Data      map[string]interface{}     `json:"data"`
-}
-
 // UpdateStore stores Telegram updates in memory.
 type UpdateStore struct {
 	mu      sync.RWMutex

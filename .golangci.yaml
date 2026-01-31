@@ -20,6 +20,7 @@ linters:
     - prealloc
     - errchkjson
     - durationcheck
+    - dupl
 
     # --- Style & Consistency ---
     - revive
@@ -52,7 +53,7 @@ linters-settings:
       - diagnostic
       - performance
       - style
-      - opinionated
+      - experimental      # NEW: экспериментальные проверки
     enabled-checks:
       - all                 # Включает все доступные проверки
 
@@ -78,12 +79,22 @@ linters-settings:
     # Пропускать строки с тегами
     tab-width: 2
 
+  # NEW: Находим дублирование кода
+  dupl:
+    threshold: 100
+
+  # Exclude external API JSON tags from tagliatelle
+  tagliatelle:
+    excluded:
+      - display_name  # External API format (Nominatim)
+
   revive:
     rules:
       # NOTE: file-length-limit is configured separately via .revive.toml
       # and run as a standalone check in the lint target (see Makefile)
       - name: exported
-        disabled: false
+        severity: warning
+        # NEW: проверять что публичные методы не возвращают внутренние типы
       - name: package-comments
         disabled: false
       - name: var-naming
@@ -96,6 +107,8 @@ linters-settings:
         severity: error
       - name: dot-imports
         severity: error
+      - name: unused-parameter
+        severity: error  # Ловит _
       - name: import-blacklist
         arguments:
           - internal/cmd

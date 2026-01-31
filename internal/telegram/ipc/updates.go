@@ -8,21 +8,10 @@ import (
 	"agent-telegram/telegram"
 )
 
-// GetUpdatesParams represents parameters for get_updates request.
-type GetUpdatesParams struct {
-	Limit int `json:"limit"`
-}
-
-// GetUpdatesResult represents the result of get_updates request.
-type GetUpdatesResult struct {
-	Updates []telegram.StoredUpdate `json:"updates"`
-	Count   int                     `json:"count"`
-}
-
 // GetUpdatesHandler returns a handler for get_updates requests.
 func GetUpdatesHandler(client Client) func(json.RawMessage) (interface{}, error) {
 	return func(params json.RawMessage) (interface{}, error) {
-		var p GetUpdatesParams
+		var p telegram.GetUpdatesParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
@@ -39,7 +28,7 @@ func GetUpdatesHandler(client Client) func(json.RawMessage) (interface{}, error)
 
 		updates := client.GetUpdates(p.Limit)
 
-		return GetUpdatesResult{
+		return telegram.GetUpdatesResult{
 			Updates: updates,
 			Count:   len(updates),
 		}, nil

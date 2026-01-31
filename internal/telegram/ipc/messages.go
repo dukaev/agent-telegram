@@ -9,17 +9,10 @@ import (
 	"agent-telegram/telegram"
 )
 
-// GetMessagesParams represents parameters for get_messages request.
-type GetMessagesParams struct {
-	Username string `json:"username"`
-	Limit    int    `json:"limit"`
-	Offset   int    `json:"offset"`
-}
-
 // GetMessagesHandler returns a handler for get_messages requests.
 func GetMessagesHandler(client Client) func(json.RawMessage) (interface{}, error) {
 	return func(params json.RawMessage) (interface{}, error) {
-		var p GetMessagesParams
+		var p telegram.GetMessagesParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
@@ -42,11 +35,7 @@ func GetMessagesHandler(client Client) func(json.RawMessage) (interface{}, error
 			p.Offset = 0
 		}
 
-		result, err := client.GetMessages(context.Background(), telegram.GetMessagesParams{
-			Username: p.Username,
-			Limit:    p.Limit,
-			Offset:   p.Offset,
-		})
+		result, err := client.GetMessages(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get messages: %w", err)
 		}
