@@ -1,4 +1,5 @@
 // Package cmd provides CLI commands.
+//nolint:dupl // Similar to send-video but for different command
 package cmd
 
 import (
@@ -12,7 +13,8 @@ import (
 )
 
 var (
-	sendFileJSON bool
+	sendFileJSON   bool
+	sendFileCaption string
 )
 
 // sendFileCmd represents the send-file command.

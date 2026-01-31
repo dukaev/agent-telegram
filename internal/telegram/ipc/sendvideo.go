@@ -1,4 +1,5 @@
 // Package ipc provides Telegram IPC handlers.
+//nolint:dupl // Similar to send-file but for different command
 package ipc
 
 import (
