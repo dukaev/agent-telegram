@@ -1,5 +1,4 @@
 // Package chat provides commands for managing chats.
-// revive:disable:duplicated-code // Mute and archive commands follow the same pattern with different operations
 package chat
 
 import (

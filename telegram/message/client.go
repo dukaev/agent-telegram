@@ -95,7 +95,7 @@ func extractMessagesData(messagesClass tg.MessagesMessagesClass) ([]tg.MessageCl
 }
 
 // convertMessagesToResult converts messages to the result format.
-//nolint:gocognit // Function requires extracting multiple message fields
+//nolint:gocognit,funlen // Function requires extracting multiple message fields
 func convertMessagesToResult(messages []tg.MessageClass, userMap map[int64]tg.UserClass) []types.MessageResult {
 	result := make([]types.MessageResult, 0, len(messages))
 	for _, msgClass := range messages {

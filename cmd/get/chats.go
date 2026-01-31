@@ -64,7 +64,7 @@ func AddChatsCommand(rootCmd *cobra.Command) {
 }
 
 // filterChatsResult filters and transforms the chats result.
-//nolint:gocognit // Function requires filtering by multiple criteria
+//nolint:gocognit,funlen // Function requires filtering by multiple criteria
 func filterChatsResult(result any) any {
 	rMap, ok := result.(map[string]any)
 	if !ok {

@@ -42,6 +42,7 @@ func AddForwardCommand(rootCmd *cobra.Command) {
 		result := runner.CallWithParams("forward_message", params)
 
 		// Output as JSON
-		json.NewEncoder(os.Stdout).Encode(result)
+		//nolint:errchkjson // Output to stdout, error handling not required
+		_ = json.NewEncoder(os.Stdout).Encode(result)
 	}
 }

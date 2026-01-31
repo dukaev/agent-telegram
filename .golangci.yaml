@@ -20,7 +20,7 @@ linters:
     - prealloc
     - errchkjson
     - durationcheck
-    - dupl
+    # dupl disabled - commands with similar patterns trigger false positives
 
     # --- Style & Consistency ---
     - revive

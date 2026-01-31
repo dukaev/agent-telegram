@@ -42,6 +42,7 @@ func AddUpdatesCommand(rootCmd *cobra.Command) {
 		GetUpdatesTo.AddToParams(params)
 		result := runner.CallWithParams("get_updates", params)
 		// Output as JSON
+		//nolint:errchkjson // Output to stdout, error handling not required
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 	}
 }

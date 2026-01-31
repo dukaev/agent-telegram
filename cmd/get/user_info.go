@@ -52,6 +52,7 @@ func AddUserInfoCommand(rootCmd *cobra.Command) {
 		}
 
 		// Output as JSON
-		json.NewEncoder(os.Stdout).Encode(result)
+		//nolint:errchkjson // Output to stdout, error handling not required
+		_ = json.NewEncoder(os.Stdout).Encode(result)
 	}
 }

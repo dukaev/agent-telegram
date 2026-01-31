@@ -23,12 +23,18 @@ var (
 	GroupIDAuth = "auth"
 	// GroupIDMessaging is the command group ID for messaging commands.
 	GroupIDMessaging = "messaging"
-	GroupIDMessage   = "message"
-	GroupIDUser      = "user"
-	GroupIDChat      = "chat"
-	GroupIDGet       = "get"
-	GroupIDSystem    = "system"
-	GroupIDServer    = "server"
+	// GroupIDMessage is the command group ID for message management commands.
+	GroupIDMessage = "message"
+	// GroupIDUser is the command group ID for user commands.
+	GroupIDUser = "user"
+	// GroupIDChat is the command group ID for chat commands.
+	GroupIDChat = "chat"
+	// GroupIDGet is the command group ID for get commands.
+	GroupIDGet = "get"
+	// GroupIDSystem is the command group ID for system commands.
+	GroupIDSystem = "system"
+	// GroupIDServer is the command group ID for server commands.
+	GroupIDServer = "server"
 )
 
 // RootCmd represents the base command when called without any subcommands.
