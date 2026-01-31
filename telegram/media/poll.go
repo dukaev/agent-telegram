@@ -1,5 +1,5 @@
-// Package telegram provides Telegram client poll functionality.
-package telegram
+// Package media provides Telegram poll operations.
+package media
 
 import (
 	"context"
@@ -8,17 +8,16 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // SendPoll sends a poll to a peer.
-func (c *Client) SendPoll(ctx context.Context, params SendPollParams) (*SendPollResult, error) {
-	if c.client == nil {
+func (c *Client) SendPoll(ctx context.Context, params types.SendPollParams) (*types.SendPollResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	api := c.client.API()
-
-	inputPeer, err := resolvePeer(ctx, api, params.Peer)
+	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -41,9 +40,7 @@ func (c *Client) SendPoll(ctx context.Context, params SendPollParams) (*SendPoll
 
 	// Create poll
 	poll := tg.Poll{
-		Question: tg.TextWithEntities{
-			Text: params.Question,
-		},
+		Question:     tg.TextWithEntities{Text: params.Question},
 		Answers:      answers,
 		PublicVoters: !params.Anonymous,
 		Quiz:         params.Quiz,
@@ -59,7 +56,7 @@ func (c *Client) SendPoll(ctx context.Context, params SendPollParams) (*SendPoll
 		mediaPoll.SetCorrectAnswers([][]byte{answers[params.CorrectIdx].Option})
 	}
 
-	result, err := api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    mediaPoll,
 		RandomID: time.Now().UnixNano(),
@@ -69,7 +66,7 @@ func (c *Client) SendPoll(ctx context.Context, params SendPollParams) (*SendPoll
 	}
 
 	msgID := extractMessageID(result)
-	return &SendPollResult{
+	return &types.SendPollResult{
 		ID:       msgID,
 		Date:     time.Now().Unix(),
 		Peer:     params.Peer,

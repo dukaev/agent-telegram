@@ -1,5 +1,5 @@
-// Package telegram provides Telegram client dialog functionality.
-package telegram
+// Package chat provides Telegram dialog operations.
+package chat
 
 import (
 	"context"
@@ -9,14 +9,12 @@ import (
 )
 
 // GetChats returns the list of dialogs/chats with pagination.
-func (c *Client) GetChats(ctx context.Context, limit, _ int) ([]map[string]interface{}, error) {
-	if c.client == nil {
+func (c *Client) GetChats(ctx context.Context, limit, _ int) ([]map[string]any, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	api := c.client.API()
-
-	dialogsClass, err := api.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
+	dialogsClass, err := c.api.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
 		Limit:      limit,
 		OffsetDate: 0,
 		OffsetID:   0,
@@ -94,9 +92,9 @@ func convertDialogsToResult(
 		}
 
 		chatInfo := map[string]any{
-			"peer":               dialog.Peer,
-			"unread_count":       dialog.UnreadCount,
-			"read_inbox_max_id":  dialog.ReadInboxMaxID,
+			"peer":              dialog.Peer,
+			"unread_count":      dialog.UnreadCount,
+			"read_inbox_max_id": dialog.ReadInboxMaxID,
 			"read_outbox_max_id": dialog.ReadOutboxMaxID,
 		}
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"agent-telegram/telegram"
+		"agent-telegram/telegram/types"
 )
 
 // UpdateProfileParams represents parameters for update_profile request.
@@ -31,7 +31,7 @@ func UpdateProfileHandler(client Client) func(json.RawMessage) (interface{}, err
 			return nil, fmt.Errorf("firstName is required")
 		}
 
-		result, err := client.UpdateProfile(context.Background(), telegram.UpdateProfileParams{
+		result, err := client.UpdateProfile(context.Background(), types.UpdateProfileParams{
 			FirstName: p.FirstName,
 			LastName:  p.LastName,
 			Bio:       p.Bio,
@@ -68,7 +68,7 @@ func UpdateAvatarHandler(client Client) func(json.RawMessage) (interface{}, erro
 			return nil, fmt.Errorf("file not found: %s", p.File)
 		}
 
-		result, err := client.UpdateAvatar(context.Background(), telegram.UpdateAvatarParams{
+		result, err := client.UpdateAvatar(context.Background(), types.UpdateAvatarParams{
 			File: p.File,
 		})
 		if err != nil {

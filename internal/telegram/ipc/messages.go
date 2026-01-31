@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"agent-telegram/telegram"
+		"agent-telegram/telegram/types"
 )
 
 // GetMessagesHandler returns a handler for get_messages requests.
 func GetMessagesHandler(client Client) func(json.RawMessage) (interface{}, error) {
 	return func(params json.RawMessage) (interface{}, error) {
-		var p telegram.GetMessagesParams
+		var p types.GetMessagesParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)

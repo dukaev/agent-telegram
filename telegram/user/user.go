@@ -1,25 +1,23 @@
-// Package telegram provides Telegram client user functionality.
-package telegram
+// Package user provides Telegram user info operations.
+package user
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // GetUserInfo gets information about a user by username.
-func (c *Client) GetUserInfo(ctx context.Context, params GetUserInfoParams) (*GetUserInfoResult, error) {
-	if c.client == nil {
+func (c *Client) GetUserInfo(ctx context.Context, params types.GetUserInfoParams) (*types.GetUserInfoResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	api := c.client.API()
+	username := trimUsernamePrefix(params.Username)
 
-	username := params.Username
-	username = trimUsernamePrefix(username)
-
-	resolvedPeer, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+	resolvedPeer, err := c.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 		Username: username,
 	})
 	if err != nil {
@@ -39,7 +37,7 @@ func (c *Client) GetUserInfo(ctx context.Context, params GetUserInfoParams) (*Ge
 	}
 
 	// Get full user info to get bio
-	fullUser, err := api.UsersGetFullUser(ctx, &tg.InputUser{
+	fullUser, err := c.api.UsersGetFullUser(ctx, &tg.InputUser{
 		UserID:     user.ID,
 		AccessHash: getAccessHash(resolvedPeer, user.ID),
 	})
@@ -49,7 +47,7 @@ func (c *Client) GetUserInfo(ctx context.Context, params GetUserInfoParams) (*Ge
 
 	bio := fullUser.FullUser.About
 
-	return &GetUserInfoResult{
+	return &types.GetUserInfoResult{
 		ID:        user.ID,
 		Username:  user.Username,
 		FirstName: user.FirstName,
@@ -59,12 +57,4 @@ func (c *Client) GetUserInfo(ctx context.Context, params GetUserInfoParams) (*Ge
 		Verified:  user.Verified,
 		Bot:       user.Bot,
 	}, nil
-}
-
-// trimUsernamePrefix removes the @ prefix from username.
-func trimUsernamePrefix(username string) string {
-	if len(username) > 0 && username[0] == '@' {
-		return username[1:]
-	}
-	return username
 }

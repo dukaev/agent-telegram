@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"agent-telegram/telegram"
+		"agent-telegram/telegram/types"
 )
 
 // GetChatsHandler returns a handler for get_chats requests.
 func GetChatsHandler(client Client) func(json.RawMessage) (interface{}, error) {
 	return func(params json.RawMessage) (interface{}, error) {
-		var p telegram.GetChatsParams
+		var p types.GetChatsParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
@@ -32,7 +32,7 @@ func GetChatsHandler(client Client) func(json.RawMessage) (interface{}, error) {
 			return nil, fmt.Errorf("failed to get chats: %w", err)
 		}
 
-		return telegram.GetChatsResult{
+		return types.GetChatsResult{
 			Chats:  chats,
 			Limit:  p.Limit,
 			Offset: p.Offset,

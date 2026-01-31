@@ -1,32 +1,31 @@
-// Package telegram provides Telegram client inline button functionality.
-package telegram
+// Package message provides Telegram inline button operations.
+package message
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // InspectInlineButtons inspects inline buttons in a message.
 func (c *Client) InspectInlineButtons(
-	ctx context.Context, params InspectInlineButtonsParams,
-) (*InspectInlineButtonsResult, error) {
-	if c.client == nil {
+	ctx context.Context, params types.InspectInlineButtonsParams,
+) (*types.InspectInlineButtonsResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	api := c.client.API()
-
 	// Get messages to find the one with inline buttons
-	messages, err := api.MessagesGetMessages(ctx, []tg.InputMessageClass{
+	messages, err := c.api.MessagesGetMessages(ctx, []tg.InputMessageClass{
 		&tg.InputMessageID{ID: int(params.MessageID)},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get message: %w", err)
 	}
 
-	var buttons []InlineButton
+	var buttons []types.InlineButton
 
 	// Extract buttons from the message
 	switch m := messages.(type) {
@@ -48,53 +47,53 @@ func (c *Client) InspectInlineButtons(
 		}
 	}
 
-	return &InspectInlineButtonsResult{
+	return &types.InspectInlineButtonsResult{
 		MessageID: params.MessageID,
 		Buttons:   buttons,
 	}, nil
 }
 
 // extractButtons extracts inline buttons from ReplyMarkup.
-func extractButtons(markup tg.ReplyMarkupClass) []InlineButton {
+func extractButtons(markup tg.ReplyMarkupClass) []types.InlineButton {
 	rm, ok := markup.(*tg.ReplyInlineMarkup)
 	if !ok {
 		return nil
 	}
 
-	var result []InlineButton
+	var result []types.InlineButton
 	for _, row := range rm.Rows {
 		for _, button := range row.Buttons {
 			switch b := button.(type) {
 			case *tg.KeyboardButtonURL:
-				result = append(result, InlineButton{
+				result = append(result, types.InlineButton{
 					Text:  b.Text,
 					Data:  b.URL,
 					Index: len(result),
 				})
 			case *tg.KeyboardButtonCallback:
-				result = append(result, InlineButton{
+				result = append(result, types.InlineButton{
 					Text:  b.Text,
 					Data:  string(b.Data),
 					Index: len(result),
 				})
 			case *tg.KeyboardButtonSwitchInline:
-				result = append(result, InlineButton{
+				result = append(result, types.InlineButton{
 					Text:  b.Text,
 					Data:  b.Query,
 					Index: len(result),
 				})
 			case *tg.KeyboardButtonGame:
-				result = append(result, InlineButton{
+				result = append(result, types.InlineButton{
 					Text:  b.Text,
 					Index: len(result),
 				})
 			case *tg.KeyboardButtonBuy:
-				result = append(result, InlineButton{
+				result = append(result, types.InlineButton{
 					Text:  b.Text,
 					Index: len(result),
 				})
 			case *tg.KeyboardButtonURLAuth:
-				result = append(result, InlineButton{
+				result = append(result, types.InlineButton{
 					Text:  b.Text,
 					Data:  b.URL,
 					Index: len(result),
@@ -108,14 +107,14 @@ func extractButtons(markup tg.ReplyMarkupClass) []InlineButton {
 
 // PressInlineButton presses an inline button.
 func (c *Client) PressInlineButton(
-	ctx context.Context, params PressInlineButtonParams,
-) (*PressInlineButtonResult, error) {
-	if c.client == nil {
+	ctx context.Context, params types.PressInlineButtonParams,
+) (*types.PressInlineButtonResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
 	// First, inspect the buttons to find the callback data
-	inspectResult, err := c.InspectInlineButtons(ctx, InspectInlineButtonsParams{
+	inspectResult, err := c.InspectInlineButtons(ctx, types.InspectInlineButtonsParams{
 		PeerInfo: params.PeerInfo,
 		MsgID:    params.MsgID,
 	})
@@ -130,8 +129,7 @@ func (c *Client) PressInlineButton(
 	button := inspectResult.Buttons[params.ButtonIndex]
 
 	// Press the button using the callback data
-	api := c.client.API()
-	_, err = api.MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
+	_, err = c.api.MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
 		Peer:  &tg.InputPeerUser{},
 		MsgID: int(params.MessageID),
 		Data:  []byte(button.Data),
@@ -140,7 +138,7 @@ func (c *Client) PressInlineButton(
 		return nil, fmt.Errorf("failed to press button: %w", err)
 	}
 
-	return &PressInlineButtonResult{
+	return &types.PressInlineButtonResult{
 		Success:   true,
 		MessageID: params.MessageID,
 	}, nil

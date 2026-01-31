@@ -1,19 +1,40 @@
-// Package telegram provides Telegram client peer resolution utilities.
-package telegram
+// Package chat provides Telegram chat operations.
+package chat
 
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
 )
 
-// resolveUsername resolves a username to an InputPeerClass.
-func (c *Client) resolveUsername(ctx context.Context, api *tg.Client, username string) (tg.InputPeerClass, error) {
-	// Search for the user/channel
-	peerClass, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
+// Client provides chat operations.
+type Client struct {
+	api      *tg.Client
+	telegram *telegram.Client
+}
+
+// NewClient creates a new chat client.
+func NewClient(tc *telegram.Client) *Client {
+	return &Client{
+		telegram: tc,
+	}
+}
+
+// SetAPI sets the API client (called when the telegram client is initialized).
+func (c *Client) SetAPI(api *tg.Client) {
+	c.api = api
+}
+
+// resolvePeer resolves peer from username.
+func resolvePeer(ctx context.Context, api *tg.Client, peer string) (tg.InputPeerClass, error) {
+	peer = strings.TrimPrefix(peer, "@")
+
+	peerClass, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: peer})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve peer @%s: %w", peer, err)
 	}
 
 	switch p := peerClass.Peer.(type) {

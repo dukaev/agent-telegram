@@ -1,20 +1,21 @@
-// Package telegram provides Telegram client clear functionality.
-package telegram
+// Package chat provides Telegram clear operations.
+package chat
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // ClearMessages clears specific messages.
-func (c *Client) ClearMessages(ctx context.Context, params ClearMessagesParams) (*ClearMessagesResult, error) {
-	if c.client == nil {
+func (c *Client) ClearMessages(
+	ctx context.Context, params types.ClearMessagesParams,
+) (*types.ClearMessagesResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
-
-	api := c.client.API()
 
 	// Convert int64 slice to int slice for API
 	ids := make([]int, len(params.MessageIDs))
@@ -22,7 +23,7 @@ func (c *Client) ClearMessages(ctx context.Context, params ClearMessagesParams) 
 		ids[i] = int(id)
 	}
 
-	_, err := api.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
+	_, err := c.api.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
 		ID:     ids,
 		Revoke: true,
 	})
@@ -30,7 +31,7 @@ func (c *Client) ClearMessages(ctx context.Context, params ClearMessagesParams) 
 		return nil, fmt.Errorf("failed to clear messages: %w", err)
 	}
 
-	return &ClearMessagesResult{
+	return &types.ClearMessagesResult{
 		Success: true,
 		Cleared: len(ids),
 		Peer:    params.Peer,
@@ -38,19 +39,17 @@ func (c *Client) ClearMessages(ctx context.Context, params ClearMessagesParams) 
 }
 
 // ClearHistory clears all chat history for a peer.
-func (c *Client) ClearHistory(ctx context.Context, params ClearHistoryParams) (*ClearHistoryResult, error) {
-	if c.client == nil {
+func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	api := c.client.API()
-
-	inputPeer, err := resolvePeer(ctx, api, params.Peer)
+	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = api.MessagesDeleteHistory(ctx, &tg.MessagesDeleteHistoryRequest{
+	_, err = c.api.MessagesDeleteHistory(ctx, &tg.MessagesDeleteHistoryRequest{
 		Peer:   inputPeer,
 		Revoke: params.Revoke,
 	})
@@ -58,7 +57,7 @@ func (c *Client) ClearHistory(ctx context.Context, params ClearHistoryParams) (*
 		return nil, fmt.Errorf("failed to clear history: %w", err)
 	}
 
-	return &ClearHistoryResult{
+	return &types.ClearHistoryResult{
 		Success: true,
 		Peer:    params.Peer,
 		Revoke:  params.Revoke,

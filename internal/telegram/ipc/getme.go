@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"agent-telegram/telegram"
+		"agent-telegram/telegram/types"
 	"github.com/gotd/td/tg"
 )
 
@@ -18,7 +18,7 @@ func GetMeHandler(client Client) func(json.RawMessage) (interface{}, error) {
 			return nil, fmt.Errorf("failed to get user: %w", err)
 		}
 
-		return telegram.GetMeResult{
+		return types.GetMeResult{
 			ID:        user.ID,
 			Username:  user.Username,
 			FirstName: user.FirstName,
@@ -34,36 +34,36 @@ func GetMeHandler(client Client) func(json.RawMessage) (interface{}, error) {
 type Client interface {
 	GetMe(ctx context.Context) (*tg.User, error)
 	GetChats(ctx context.Context, limit, offset int) ([]map[string]interface{}, error)
-	GetUpdates(limit int) []telegram.StoredUpdate
-	GetMessages(ctx context.Context, params telegram.GetMessagesParams) (*telegram.GetMessagesResult, error)
-	GetUserInfo(ctx context.Context, params telegram.GetUserInfoParams) (*telegram.GetUserInfoResult, error)
-	SendMessage(ctx context.Context, params telegram.SendMessageParams) (*telegram.SendMessageResult, error)
-	SendLocation(ctx context.Context, params telegram.SendLocationParams) (*telegram.SendLocationResult, error)
-	SendPhoto(ctx context.Context, params telegram.SendPhotoParams) (*telegram.SendPhotoResult, error)
-	SendContact(ctx context.Context, params telegram.SendContactParams) (*telegram.SendContactResult, error)
-	SendFile(ctx context.Context, params telegram.SendFileParams) (*telegram.SendFileResult, error)
-	SendPoll(ctx context.Context, params telegram.SendPollParams) (*telegram.SendPollResult, error)
-	SendVideo(ctx context.Context, params telegram.SendVideoParams) (*telegram.SendVideoResult, error)
-	SendReply(ctx context.Context, params telegram.SendReplyParams) (*telegram.SendReplyResult, error)
+	GetUpdates(limit int) []types.StoredUpdate
+	GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error)
+	GetUserInfo(ctx context.Context, params types.GetUserInfoParams) (*types.GetUserInfoResult, error)
+	SendMessage(ctx context.Context, params types.SendMessageParams) (*types.SendMessageResult, error)
+	SendLocation(ctx context.Context, params types.SendLocationParams) (*types.SendLocationResult, error)
+	SendPhoto(ctx context.Context, params types.SendPhotoParams) (*types.SendPhotoResult, error)
+	SendContact(ctx context.Context, params types.SendContactParams) (*types.SendContactResult, error)
+	SendFile(ctx context.Context, params types.SendFileParams) (*types.SendFileResult, error)
+	SendPoll(ctx context.Context, params types.SendPollParams) (*types.SendPollResult, error)
+	SendVideo(ctx context.Context, params types.SendVideoParams) (*types.SendVideoResult, error)
+	SendReply(ctx context.Context, params types.SendReplyParams) (*types.SendReplyResult, error)
 	UpdateMessage(
-		ctx context.Context, params telegram.UpdateMessageParams,
-	) (*telegram.UpdateMessageResult, error)
-	DeleteMessage(ctx context.Context, params telegram.DeleteMessageParams) (*telegram.DeleteMessageResult, error)
-	PinMessage(ctx context.Context, params telegram.PinMessageParams) (*telegram.PinMessageResult, error)
-	UnpinMessage(ctx context.Context, params telegram.UnpinMessageParams) (*telegram.UnpinMessageResult, error)
+		ctx context.Context, params types.UpdateMessageParams,
+	) (*types.UpdateMessageResult, error)
+	DeleteMessage(ctx context.Context, params types.DeleteMessageParams) (*types.DeleteMessageResult, error)
+	PinMessage(ctx context.Context, params types.PinMessageParams) (*types.PinMessageResult, error)
+	UnpinMessage(ctx context.Context, params types.UnpinMessageParams) (*types.UnpinMessageResult, error)
 	InspectInlineButtons(
-		ctx context.Context, params telegram.InspectInlineButtonsParams,
-	) (*telegram.InspectInlineButtonsResult, error)
+		ctx context.Context, params types.InspectInlineButtonsParams,
+	) (*types.InspectInlineButtonsResult, error)
 	PressInlineButton(
-		ctx context.Context, params telegram.PressInlineButtonParams,
-	) (*telegram.PressInlineButtonResult, error)
-	AddReaction(ctx context.Context, params telegram.AddReactionParams) (*telegram.AddReactionResult, error)
-	RemoveReaction(ctx context.Context, params telegram.RemoveReactionParams) (*telegram.RemoveReactionResult, error)
-	ListReactions(ctx context.Context, params telegram.ListReactionsParams) (*telegram.ListReactionsResult, error)
-	UpdateProfile(ctx context.Context, params telegram.UpdateProfileParams) (*telegram.UpdateProfileResult, error)
-	UpdateAvatar(ctx context.Context, params telegram.UpdateAvatarParams) (*telegram.UpdateAvatarResult, error)
-	ClearMessages(ctx context.Context, params telegram.ClearMessagesParams) (*telegram.ClearMessagesResult, error)
-	ClearHistory(ctx context.Context, params telegram.ClearHistoryParams) (*telegram.ClearHistoryResult, error)
-	BlockPeer(ctx context.Context, params telegram.BlockPeerParams) (*telegram.BlockPeerResult, error)
-	UnblockPeer(ctx context.Context, params telegram.UnblockPeerParams) (*telegram.UnblockPeerResult, error)
+		ctx context.Context, params types.PressInlineButtonParams,
+	) (*types.PressInlineButtonResult, error)
+	AddReaction(ctx context.Context, params types.AddReactionParams) (*types.AddReactionResult, error)
+	RemoveReaction(ctx context.Context, params types.RemoveReactionParams) (*types.RemoveReactionResult, error)
+	ListReactions(ctx context.Context, params types.ListReactionsParams) (*types.ListReactionsResult, error)
+	UpdateProfile(ctx context.Context, params types.UpdateProfileParams) (*types.UpdateProfileResult, error)
+	UpdateAvatar(ctx context.Context, params types.UpdateAvatarParams) (*types.UpdateAvatarResult, error)
+	ClearMessages(ctx context.Context, params types.ClearMessagesParams) (*types.ClearMessagesResult, error)
+	ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error)
+	BlockPeer(ctx context.Context, params types.BlockPeerParams) (*types.BlockPeerResult, error)
+	UnblockPeer(ctx context.Context, params types.UnblockPeerParams) (*types.UnblockPeerResult, error)
 }

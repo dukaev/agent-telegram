@@ -1,5 +1,5 @@
-// Package telegram provides Telegram client contact functionality.
-package telegram
+// Package media provides Telegram contact operations.
+package media
 
 import (
 	"context"
@@ -7,17 +7,16 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // SendContact sends a contact to a peer.
-func (c *Client) SendContact(ctx context.Context, params SendContactParams) (*SendContactResult, error) {
-	if c.client == nil {
+func (c *Client) SendContact(ctx context.Context, params types.SendContactParams) (*types.SendContactResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	api := c.client.API()
-
-	inputPeer, err := resolvePeer(ctx, api, params.Peer)
+	inputPeer, err := resolvePeer(ctx, c.api, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +27,7 @@ func (c *Client) SendContact(ctx context.Context, params SendContactParams) (*Se
 		LastName:    params.LastName,
 	}
 
-	result, err := api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    contact,
 		RandomID: time.Now().UnixNano(),
@@ -38,7 +37,7 @@ func (c *Client) SendContact(ctx context.Context, params SendContactParams) (*Se
 	}
 
 	msgID := extractMessageID(result)
-	return &SendContactResult{
+	return &types.SendContactResult{
 		ID:    msgID,
 		Date:  time.Now().Unix(),
 		Peer:  params.Peer,

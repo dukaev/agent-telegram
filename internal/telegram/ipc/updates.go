@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"agent-telegram/telegram"
+		"agent-telegram/telegram/types"
 )
 
 // GetUpdatesHandler returns a handler for get_updates requests.
 func GetUpdatesHandler(client Client) func(json.RawMessage) (interface{}, error) {
 	return func(params json.RawMessage) (interface{}, error) {
-		var p telegram.GetUpdatesParams
+		var p types.GetUpdatesParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
@@ -28,7 +28,7 @@ func GetUpdatesHandler(client Client) func(json.RawMessage) (interface{}, error)
 
 		updates := client.GetUpdates(p.Limit)
 
-		return telegram.GetUpdatesResult{
+		return types.GetUpdatesResult{
 			Updates: updates,
 			Count:   len(updates),
 		}, nil

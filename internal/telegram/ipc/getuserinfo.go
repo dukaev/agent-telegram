@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"agent-telegram/telegram"
+		"agent-telegram/telegram/types"
 )
 
 // GetUserInfoParams represents parameters for get_user_info request.
@@ -28,7 +28,7 @@ func GetUserInfoHandler(client Client) func(json.RawMessage) (interface{}, error
 			return nil, fmt.Errorf("username is required")
 		}
 
-		result, err := client.GetUserInfo(context.Background(), telegram.GetUserInfoParams{
+		result, err := client.GetUserInfo(context.Background(), types.GetUserInfoParams{
 			Username: p.Username,
 		})
 		if err != nil {

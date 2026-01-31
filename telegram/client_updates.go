@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // RegisterUpdateHandlers registers update handlers on the dispatcher.
@@ -20,7 +21,7 @@ func (c *Client) RegisterUpdateHandlers(dispatcher tg.UpdateDispatcher) {
 		if msg, ok := update.Message.(*tg.Message); ok && msg.PeerID != nil {
 			peer = peerToString(msg.PeerID)
 		}
-		c.updateStore.Add(NewStoredUpdate(UpdateTypeNewMessage, map[string]any{
+		c.updateStore.Add(NewStoredUpdate(types.UpdateTypeNewMessage, map[string]any{
 			"message": MessageData(update.Message),
 			"peer":    peer,
 		}))
@@ -33,7 +34,7 @@ func (c *Client) RegisterUpdateHandlers(dispatcher tg.UpdateDispatcher) {
 		if msg, ok := update.Message.(*tg.Message); ok && msg.PeerID != nil {
 			peer = peerToString(msg.PeerID)
 		}
-		c.updateStore.Add(NewStoredUpdate(UpdateTypeEditMessage, map[string]any{
+		c.updateStore.Add(NewStoredUpdate(types.UpdateTypeEditMessage, map[string]any{
 			"message": MessageData(update.Message),
 			"peer":    peer,
 		}))

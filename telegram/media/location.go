@@ -1,5 +1,5 @@
-// Package telegram provides Telegram client location functionality.
-package telegram
+// Package media provides Telegram location operations.
+package media
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // GeoCoder handles geocoding requests.
@@ -100,18 +101,16 @@ func (g *GeoCoder) Geocode(city string) (*GeocodeResult, error) {
 }
 
 // SendLocation sends a location to a peer.
-func (c *Client) SendLocation(ctx context.Context, params SendLocationParams) (*SendLocationResult, error) {
-	if c.client == nil {
+func (c *Client) SendLocation(ctx context.Context, params types.SendLocationParams) (*types.SendLocationResult, error) {
+	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
-
-	api := c.client.API()
 
 	// Clean peer (remove @ prefix)
 	peer := strings.TrimPrefix(params.Peer, "@")
 
 	// Resolve username to get input peer
-	inputPeer, err := c.resolveUsername(ctx, api, peer)
+	inputPeer, err := resolvePeer(ctx, c.api, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer @%s: %w", peer, err)
 	}
@@ -125,7 +124,7 @@ func (c *Client) SendLocation(ctx context.Context, params SendLocationParams) (*
 	}
 
 	// Send location using MessagesSendMedia
-	result, err := api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    geoPoint,
 		RandomID: time.Now().UnixNano(),
@@ -135,19 +134,9 @@ func (c *Client) SendLocation(ctx context.Context, params SendLocationParams) (*
 	}
 
 	// Extract message ID from response
-	var msgID int64
-	switch r := result.(type) {
-	case *tg.Updates:
-		if len(r.Updates) > 0 {
-			if msg, ok := r.Updates[0].(*tg.UpdateMessageID); ok {
-				msgID = int64(msg.ID)
-			}
-		}
-	case *tg.UpdateShortSentMessage:
-		msgID = int64(r.ID)
-	}
+	msgID := extractMessageID(result)
 
-	return &SendLocationResult{
+	return &types.SendLocationResult{
 		ID:        msgID,
 		Date:      time.Now().Unix(),
 		Peer:      peer,

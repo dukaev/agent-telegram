@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // UpdateStore stores Telegram updates in memory.
 type UpdateStore struct {
 	mu      sync.RWMutex
-	updates []StoredUpdate
+	updates []types.StoredUpdate
 	nextID  int64
 	limit   int
 }
@@ -22,14 +23,14 @@ func NewUpdateStore(limit int) *UpdateStore {
 		limit = 1000
 	}
 	return &UpdateStore{
-		updates: make([]StoredUpdate, 0, limit),
+		updates: make([]types.StoredUpdate, 0, limit),
 		nextID:  1,
 		limit:   limit,
 	}
 }
 
 // Add adds a new update to the store.
-func (s *UpdateStore) Add(update StoredUpdate) {
+func (s *UpdateStore) Add(update types.StoredUpdate) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -48,7 +49,7 @@ func (s *UpdateStore) Add(update StoredUpdate) {
 }
 
 // Get pops and returns updates (newest first, removes from store).
-func (s *UpdateStore) Get(limit int) []StoredUpdate {
+func (s *UpdateStore) Get(limit int) []types.StoredUpdate {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -62,7 +63,7 @@ func (s *UpdateStore) Get(limit int) []StoredUpdate {
 
 	total := len(s.updates)
 	if total == 0 {
-		return []StoredUpdate{}
+		return []types.StoredUpdate{}
 	}
 
 	// Determine how many to return
@@ -73,7 +74,7 @@ func (s *UpdateStore) Get(limit int) []StoredUpdate {
 
 	// Take from the end (newest)
 	start := total - count
-	result := make([]StoredUpdate, count)
+	result := make([]types.StoredUpdate, count)
 	copy(result, s.updates[start:])
 
 	// Reverse to have newest first
@@ -87,9 +88,9 @@ func (s *UpdateStore) Get(limit int) []StoredUpdate {
 	return result
 }
 
-// NewStoredUpdate creates a new StoredUpdate from raw data.
-func NewStoredUpdate(updateType UpdateType, data map[string]interface{}) StoredUpdate {
-	return StoredUpdate{
+// NewStoredUpdate creates a new types.StoredUpdate from raw data.
+func NewStoredUpdate(updateType types.UpdateType, data map[string]interface{}) types.StoredUpdate {
+	return types.StoredUpdate{
 		Type: updateType,
 		Data: data,
 	}

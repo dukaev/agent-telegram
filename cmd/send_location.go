@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"agent-telegram/telegram"
+	"agent-telegram/telegram/media"
 )
 
 var (
@@ -78,7 +78,7 @@ func runSendLocation(_ *cobra.Command, args []string) {
 
 // geocodeCity converts a city name to coordinates.
 func geocodeCity(city string) (lat, lon float64, locationName string, err error) {
-	geocoder := telegram.NewGeoCoder()
+	geocoder := media.NewGeoCoder()
 	result, err := geocoder.Geocode(city)
 	if err != nil {
 		return 0, 0, "", err

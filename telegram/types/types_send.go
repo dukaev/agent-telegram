@@ -1,5 +1,5 @@
-// Package telegram provides common types for Telegram client send operations.
-package telegram
+// Package types provides common types for Telegram client send operations.
+package types // revive:disable:var-naming
 
 import "fmt"
 
