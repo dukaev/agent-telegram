@@ -36,7 +36,7 @@ Telegram client runs in background and stays connected.`,
 }
 
 func init() {
-	rootCmd.AddCommand(serveCmd)
+	RootCmd.AddCommand(serveCmd)
 
 	serveCmd.Flags().StringVarP(&serveSocket, "socket", "s", "",
 		"Path to Unix socket (default: /tmp/agent-telegram.sock)")
@@ -78,7 +78,7 @@ func setupContext() context.Context {
 
 // getSocketPath returns the socket path from flags or default.
 func getSocketPath() string {
-	socketPath, _ := rootCmd.Flags().GetString("socket")
+	socketPath, _ := RootCmd.Flags().GetString("socket")
 	if serveSocket != "" {
 		socketPath = serveSocket
 	}

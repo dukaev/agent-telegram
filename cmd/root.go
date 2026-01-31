@@ -5,14 +5,23 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	// Import subpackages to trigger their init() registration
+	_ "agent-telegram/cmd/auth"
+	_ "agent-telegram/cmd/chat"
+	_ "agent-telegram/cmd/get"
+	_ "agent-telegram/cmd/message"
+	_ "agent-telegram/cmd/send"
+	_ "agent-telegram/cmd/sys"
+	_ "agent-telegram/cmd/user"
 )
 
 var (
 	version = "dev"
 )
 
-// rootCmd represents the base command when called without any subcommands.
-var rootCmd = &cobra.Command{
+// RootCmd represents the base command when called without any subcommands.
+var RootCmd = &cobra.Command{
 	Use:   "agent-telegram",
 	Short: "Telegram IPC agent CLI",
 	Long: `agent-telegram is a CLI tool for interacting with Telegram via IPC server.
@@ -26,9 +35,9 @@ It provides commands to:
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+// This is called by main.main(). It only needs to happen once to the RootCmd.
 func Execute() {
-	err := rootCmd.Execute()
+	err := RootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
@@ -36,5 +45,6 @@ func Execute() {
 
 func init() {
 	// Global flags
-	rootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
+	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
 }
+

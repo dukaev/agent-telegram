@@ -63,14 +63,6 @@ func (m LoginModel) handleAuthErrorMsg(err steps.AuthError) (tea.Model, tea.Cmd)
 	return m, tea.Quit
 }
 
-func (m LoginModel) handleKeyMsgMsg(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if keyMsg.String() == "ctrl+c" || keyMsg.String() == "q" {
-		m.quitting = true
-		return m, tea.Quit
-	}
-	return m, nil
-}
-
 // transitionFromPhone handles transition from phone step.
 func (m LoginModel) transitionFromPhone(msg auth.Result) (tea.Model, tea.Cmd) {
 	if msg.Success {

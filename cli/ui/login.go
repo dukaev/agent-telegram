@@ -77,10 +77,6 @@ func NewLoginModel(ctx context.Context, authService *auth.Service) LoginModel {
 				check:  func(msg tea.Msg) bool { _, ok := msg.(steps.AuthError); return ok },
 				handle: func(m LoginModel, msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleAuthErrorMsg(msg.(steps.AuthError)) },
 			},
-			{
-				check:  func(msg tea.Msg) bool { _, ok := msg.(tea.KeyMsg); return ok },
-				handle: func(m LoginModel, msg tea.Msg) (tea.Model, tea.Cmd) { return m.handleKeyMsgMsg(msg.(tea.KeyMsg)) },
-			},
 		},
 	}
 	return m
@@ -98,6 +94,14 @@ func (m LoginModel) Init() tea.Cmd {
 func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.quitting {
 		return m, tea.Quit
+	}
+
+	// Handle quit keys at top level
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if keyMsg.String() == "ctrl+c" || keyMsg.String() == "q" {
+			m.quitting = true
+			return m, tea.Quit
+		}
 	}
 
 	// Find handler for this message type
