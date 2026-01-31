@@ -190,7 +190,7 @@ func daemonize() error {
 	}
 
 	// Create log file
-	logFile, err := os.OpenFile("agent-telegram.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	logFile, err := os.OpenFile("agent-telegram.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create log file: %w", err)
 	}
@@ -202,7 +202,7 @@ func daemonize() error {
 
 	proc, err := os.StartProcess(exec, os.Args, attr)
 	if err != nil {
-		logFile.Close()
+		_ = logFile.Close()
 		return fmt.Errorf("failed to start daemon process: %w", err)
 	}
 

@@ -58,11 +58,13 @@ func AddChatsCommand(rootCmd *cobra.Command) {
 		})
 
 		filteredResult := filterChatsResult(result)
-		json.NewEncoder(os.Stdout).Encode(filteredResult)
+		//nolint:errchkjson // Output to stdout, error handling not required
+		_ = json.NewEncoder(os.Stdout).Encode(filteredResult)
 	}
 }
 
 // filterChatsResult filters and transforms the chats result.
+//nolint:gocognit // Function requires filtering by multiple criteria
 func filterChatsResult(result any) any {
 	rMap, ok := result.(map[string]any)
 	if !ok {

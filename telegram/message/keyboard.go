@@ -10,7 +10,7 @@ import (
 )
 
 // InspectReplyKeyboard inspects the reply keyboard from a chat.
-func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error) {
+func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error) { //nolint:funlen
 	if c.api == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}

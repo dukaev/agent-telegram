@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -81,74 +80,4 @@ func printMessagesJSON(result any) {
 		os.Exit(1)
 	}
 	fmt.Println(string(data))
-}
-
-// printMessages prints messages in a human-readable format.
-func printMessages(result any) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: invalid response type\n")
-		os.Exit(1)
-	}
-
-	messages, _ := r["messages"].([]any)
-	limit := r["limit"].(float64)
-	offset := r["offset"].(float64)
-	count := r["count"].(float64)
-	username := r["username"].(string)
-
-	fmt.Printf("Messages from @%s (limit: %.0f, offset: %.0f, count: %.0f):\n", username, limit, offset, count)
-	fmt.Println()
-
-	if len(messages) == 0 {
-		fmt.Println("  No messages found.")
-		return
-	}
-
-	for _, msg := range messages {
-		printMessage(msg)
-	}
-}
-
-// printMessage prints a single message.
-func printMessage(msg any) {
-	msgInfo, ok := msg.(map[string]any)
-	if !ok {
-		return
-	}
-
-	id, _ := msgInfo["id"].(float64)
-	date, _ := msgInfo["date"].(float64)
-	text, _ := msgInfo["text"].(string)
-	out, _ := msgInfo["out"].(bool)
-	fromName, hasFrom := msgInfo["from_name"].(string)
-
-	// Format date
-	tm := time.Unix(int64(date), 0)
-	dateStr := tm.Format("2006-01-02 15:04:05")
-
-	// Print direction arrow
-	dir := "←"
-	if out {
-		dir = "→"
-	}
-
-	// Print header
-	fmt.Printf("[%d] %s ", int64(id), dateStr)
-
-	switch {
-	case hasFrom && fromName != "":
-		fmt.Printf("%s %s: ", dir, fromName)
-	case out:
-		fmt.Printf("%s You: ", dir)
-	default:
-		fmt.Printf("%s: ", dir)
-	}
-
-	// Print text
-	if text != "" {
-		fmt.Println(text)
-	} else {
-		fmt.Println("(empty or media message)")
-	}
 }

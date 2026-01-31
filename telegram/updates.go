@@ -98,6 +98,7 @@ func NewStoredUpdate(updateType types.UpdateType, data map[string]interface{}) t
 }
 
 // MessageData extracts message data from tg.MessageClass.
+//nolint:nestif // Function requires extracting multiple nested message fields
 func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface{} {
 	data := map[string]interface{}{}
 
@@ -184,9 +185,9 @@ func extractButtonsData(markup tg.ReplyMarkupClass) []map[string]interface{} {
 }
 
 // getSenderName gets the name of a sender from their peer ID.
+//nolint:nestif // Function requires multiple nested checks to extract user name
 func getSenderName(entities tg.Entities, fromID tg.PeerClass) string {
-	switch p := fromID.(type) {
-	case *tg.PeerUser:
+	if p, ok := fromID.(*tg.PeerUser); ok {
 		if user, ok := entities.Users[p.UserID]; ok {
 			name := user.FirstName
 			if user.LastName != "" {

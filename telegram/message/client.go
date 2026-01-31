@@ -80,28 +80,6 @@ func (c *Client) resolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 	return c.parent.ResolvePeer(ctx, peer)
 }
 
-// getAccessHash extracts access hash from the resolved peer.
-func getAccessHash(peerClass *tg.ContactsResolvedPeer, id int64) int64 {
-	for _, chat := range peerClass.Chats {
-		switch c := chat.(type) {
-		case *tg.Channel:
-			if c.ID == id {
-				return c.AccessHash
-			}
-		case *tg.Chat:
-			if c.ID == id {
-				return 0
-			}
-		}
-	}
-	for _, user := range peerClass.Users {
-		if u, ok := user.(*tg.User); ok && u.ID == id {
-			return u.AccessHash
-		}
-	}
-	return 0
-}
-
 // extractMessagesData extracts messages and users from the response.
 func extractMessagesData(messagesClass tg.MessagesMessagesClass) ([]tg.MessageClass, []tg.UserClass) {
 	switch m := messagesClass.(type) {
@@ -117,6 +95,7 @@ func extractMessagesData(messagesClass tg.MessagesMessagesClass) ([]tg.MessageCl
 }
 
 // convertMessagesToResult converts messages to the result format.
+//nolint:gocognit // Function requires extracting multiple message fields
 func convertMessagesToResult(messages []tg.MessageClass, userMap map[int64]tg.UserClass) []types.MessageResult {
 	result := make([]types.MessageResult, 0, len(messages))
 	for _, msgClass := range messages {
@@ -280,8 +259,7 @@ func convertMedia(media tg.MessageMediaClass) map[string]any {
 // convertReplyHeader converts reply header to map.
 func convertReplyHeader(replyHeader tg.MessageReplyHeaderClass) map[string]any {
 	result := make(map[string]any)
-	switch r := replyHeader.(type) {
-	case *tg.MessageReplyHeader:
+	if r, ok := replyHeader.(*tg.MessageReplyHeader); ok {
 		result["reply_to_msg_id"] = r.ReplyToMsgID
 		if r.ForumTopic {
 			result["forum_topic"] = true

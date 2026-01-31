@@ -7,11 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	updateMessageID int64
-	updateText      string
-)
-
 // UpdateCmd represents the send update subcommand.
 var UpdateCmd = &cobra.Command{
 	Use:   "update <message_id> <new_text>",

@@ -42,6 +42,6 @@ func AddUpdatesCommand(rootCmd *cobra.Command) {
 		GetUpdatesTo.AddToParams(params)
 		result := runner.CallWithParams("get_updates", params)
 		// Output as JSON
-		json.NewEncoder(os.Stdout).Encode(result)
+		_ = json.NewEncoder(os.Stdout).Encode(result)
 	}
 }

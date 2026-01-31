@@ -10,6 +10,10 @@ import (
 	"agent-telegram/internal/cliutil"
 )
 
+const (
+	methodSendMessage = "send_message"
+)
+
 var (
 	sendFlags SendFlags
 	// File to send
@@ -86,7 +90,7 @@ func AddSendCommand(rootCmd *cobra.Command) {
 	SendCmd.Flags().StringVar(&sendFirstName, "first-name", "", "Contact first name")
 	SendCmd.Flags().StringVar(&sendLastName, "last-name", "", "Contact last name")
 
-	SendCmd.Run = func(cmd *cobra.Command, args []string) {
+	SendCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := sendFlags.NewRunner()
 
 		// Determine what type of content to send
@@ -95,10 +99,11 @@ func AddSendCommand(rootCmd *cobra.Command) {
 		result := runner.CallWithParams(method, params)
 
 		// For send_message, extract and output just the message ID
-		if method == "send_message" || method == "send_reply" {
+		if method == methodSendMessage || method == "send_reply" {
 			if r, ok := result.(map[string]any); ok {
 				if id, ok := r["id"].(float64); ok {
-					json.NewEncoder(os.Stdout).Encode(map[string]any{"id": int64(id)})
+					//nolint:errchkjson // Output to stdout, error handling not required
+					_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"id": int64(id)})
 					return
 				}
 			}
@@ -111,7 +116,7 @@ func AddSendCommand(rootCmd *cobra.Command) {
 }
 
 // buildSendParams determines the method and parameters based on flags and args.
-func buildSendParams(args []string) (string, map[string]any) {
+func buildSendParams(args []string) (string, map[string]any) { //nolint:funlen
 	params := make(map[string]any)
 
 	// Always add recipient
@@ -120,33 +125,6 @@ func buildSendParams(args []string) (string, map[string]any) {
 	// Add caption if present
 	if sendFlags.Caption != "" {
 		params["caption"] = sendFlags.Caption
-	}
-
-	// Count how many content type flags are set
-	contentFlags := 0
-	if sendFile != "" {
-		contentFlags++
-	}
-	if sendPhoto != "" {
-		contentFlags++
-	}
-	if sendVideo != "" {
-		contentFlags++
-	}
-	if sendAudio != "" {
-		contentFlags++
-	}
-	if sendDocument != "" {
-		contentFlags++
-	}
-	if pollQuestion != "" {
-		contentFlags++
-	}
-	if latitude != 0 && longitude != 0 {
-		contentFlags++
-	}
-	if sendContact != "" {
-		contentFlags++
 	}
 
 	// Priority: contact > poll > location > photo > video > audio > document > file > message
@@ -209,10 +187,10 @@ func buildSendParams(args []string) (string, map[string]any) {
 
 	case len(args) > 0:
 		params["message"] = args[0]
-		return "send_message", params
+		return methodSendMessage, params
 
 	default:
 		params["message"] = ""
-		return "send_message", params
+		return methodSendMessage, params
 	}
 }

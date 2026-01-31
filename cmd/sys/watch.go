@@ -30,7 +30,7 @@ Example:
 			fmt.Fprintln(os.Stderr, "Make sure the server is running in daemon mode")
 			os.Exit(1)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		// Seek to end of file
 		if _, err := f.Seek(0, 2); err != nil {
@@ -45,15 +45,12 @@ Example:
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				line, err := reader.ReadString('\n')
-				if err != nil {
-					continue
-				}
-				fmt.Print(line)
+		for range ticker.C {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				continue
 			}
+			fmt.Print(line)
 		}
 	},
 }

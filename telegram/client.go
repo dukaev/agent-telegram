@@ -23,11 +23,6 @@ import (
 	"agent-telegram/telegram/user"
 )
 
-const (
-	// unknownPeer is the default peer string.
-	unknownPeer = "unknown"
-)
-
 // Client wraps the Telegram client
 type Client struct {
 	client      *telegram.Client

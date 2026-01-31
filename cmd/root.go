@@ -19,8 +19,9 @@ import (
 var (
 	version = "dev"
 
-	// Command Group IDs
-	GroupIDAuth      = "auth"
+	// GroupIDAuth is the command group ID for authentication commands.
+	GroupIDAuth = "auth"
+	// GroupIDMessaging is the command group ID for messaging commands.
 	GroupIDMessaging = "messaging"
 	GroupIDMessage   = "message"
 	GroupIDUser      = "user"
