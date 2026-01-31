@@ -21,6 +21,7 @@ type Client struct {
 	appHash     string
 	phone       string
 	sessionPath string
+	updateStore *UpdateStore
 }
 
 // codeAuth reads verification code from stdin
@@ -56,6 +57,12 @@ func (c *Client) WithSessionPath(path string) *Client {
 	return c
 }
 
+// WithUpdateStore sets a custom update store.
+func (c *Client) WithUpdateStore(store *UpdateStore) *Client {
+	c.updateStore = store
+	return c
+}
+
 // Start starts the Telegram client
 func (c *Client) Start(ctx context.Context) error {
 	var sessionPath string
@@ -74,6 +81,9 @@ func (c *Client) Start(ctx context.Context) error {
 
 	// Create dispatcher
 	dispatcher := tg.NewUpdateDispatcher()
+
+	// Register update handlers if store is configured
+	c.RegisterUpdateHandlers(dispatcher)
 
 	// Create client
 	c.client = telegram.NewClient(c.appID, c.appHash, telegram.Options{
@@ -254,4 +264,59 @@ func (c *Client) GetChats(ctx context.Context, limit, offset int) ([]map[string]
 	}
 
 	return result, nil
+}
+
+// GetUpdates pops and returns stored updates.
+func (c *Client) GetUpdates(limit int) []StoredUpdate {
+	if c.updateStore == nil {
+		return []StoredUpdate{}
+	}
+	return c.updateStore.Get(limit)
+}
+
+// RegisterUpdateHandlers registers update handlers on the dispatcher.
+func (c *Client) RegisterUpdateHandlers(dispatcher tg.UpdateDispatcher) {
+	if c.updateStore == nil {
+		return
+	}
+
+	// New messages
+	dispatcher.OnNewMessage(func(ctx context.Context, e tg.Entities, update *tg.UpdateNewMessage) error {
+		peer := "unknown"
+		if msg, ok := update.Message.(*tg.Message); ok && msg.PeerID != nil {
+			peer = peerToString(msg.PeerID)
+		}
+		c.updateStore.Add(NewStoredUpdate(UpdateTypeNewMessage, map[string]interface{}{
+			"message": MessageData(update.Message),
+			"peer":    peer,
+		}))
+		return nil
+	})
+
+	// Edited messages
+	dispatcher.OnEditMessage(func(ctx context.Context, e tg.Entities, update *tg.UpdateEditMessage) error {
+		peer := "unknown"
+		if msg, ok := update.Message.(*tg.Message); ok && msg.PeerID != nil {
+			peer = peerToString(msg.PeerID)
+		}
+		c.updateStore.Add(NewStoredUpdate(UpdateTypeEditMessage, map[string]interface{}{
+			"message": MessageData(update.Message),
+			"peer":    peer,
+		}))
+		return nil
+	})
+}
+
+// peerToString converts a PeerClass to a string representation.
+func peerToString(peer tg.PeerClass) string {
+	switch p := peer.(type) {
+	case *tg.PeerUser:
+		return fmt.Sprintf("user:%d", p.UserID)
+	case *tg.PeerChat:
+		return fmt.Sprintf("chat:%d", p.ChatID)
+	case *tg.PeerChannel:
+		return fmt.Sprintf("channel:%d", p.ChannelID)
+	default:
+		return "unknown"
+	}
 }

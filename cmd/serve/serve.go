@@ -82,6 +82,8 @@ func Run(args []string) {
 	if *sessionPath != "" {
 		tgClient = tgClient.WithSessionPath(*sessionPath)
 	}
+	// Set up update store (keeps last 1000 updates)
+	tgClient = tgClient.WithUpdateStore(telegram.NewUpdateStore(1000))
 
 	// Start Telegram client in background
 	go func() {

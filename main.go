@@ -15,6 +15,7 @@ import (
 	"agent-telegram/cmd/chats"
 	"agent-telegram/cmd/echo"
 	"agent-telegram/cmd/get-me"
+	getupdates "agent-telegram/cmd/get-updates"
 	"agent-telegram/cmd/ping"
 	cmdserve "agent-telegram/cmd/serve"
 	"agent-telegram/cmd/status"
@@ -46,6 +47,8 @@ func main() {
 		echo.Run(os.Args[2:])
 	case "get-me":
 		getme.Run(os.Args[2:])
+	case "get-updates":
+		getupdates.Run(os.Args[2:])
 	case "chats":
 		chats.Run(os.Args[2:])
 	case "status":
@@ -67,6 +70,7 @@ func printUsage() {
 	fmt.Println("  ping        Send ping to IPC server")
 	fmt.Println("  echo        Echo message via IPC server")
 	fmt.Println("  get-me      Get current Telegram user info")
+	fmt.Println("  get-updates Get Telegram updates (pops from store)")
 	fmt.Println("  chats       List Telegram chats")
 	fmt.Println("  status      Check IPC server status")
 	fmt.Println("  version     Print version information")
@@ -84,6 +88,8 @@ func printUsage() {
 	fmt.Println("  agent-telegram serve --session /path/session    # Use custom session")
 	fmt.Println("  agent-telegram ping                            # Ping server")
 	fmt.Println("  agent-telegram get-me                          # Get user info")
+	fmt.Println("  agent-telegram get-updates                     # Get updates")
+	fmt.Println("  agent-telegram get-updates --limit 20          # Get 20 updates")
 	fmt.Println("  agent-telegram chats                           # List chats (default 10)")
 	fmt.Println("  agent-telegram chats --limit 20 --offset 10    # List with pagination")
 	fmt.Println("  agent-telegram status                          # Check status")

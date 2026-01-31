@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"agent-telegram/telegram"
 	"github.com/gotd/td/tg"
 )
 
@@ -47,4 +48,5 @@ func GetMeHandler(client Client) func(json.RawMessage) (interface{}, error) {
 type Client interface {
 	GetMe(ctx context.Context) (*tg.User, error)
 	GetChats(ctx context.Context, limit, offset int) ([]map[string]interface{}, error)
+	GetUpdates(limit int) []telegram.StoredUpdate
 }
