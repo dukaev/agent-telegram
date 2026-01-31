@@ -1,11 +1,24 @@
 // Package telegram provides common types for Telegram client send operations.
 package telegram
 
+import "fmt"
+
 // SendMessageParams holds parameters for SendMessage.
 type SendMessageParams struct {
 	Peer     string `json:"peer,omitempty"`
 	Username string `json:"username,omitempty"`
 	Message  string `json:"message"`
+}
+
+// Validate validates SendMessageParams.
+func (p SendMessageParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if p.Message == "" {
+		return fmt.Errorf("message is required")
+	}
+	return nil
 }
 
 // SendMessageResult is the result of SendMessage.
@@ -22,6 +35,20 @@ type SendLocationParams struct {
 	Username string  `json:"username,omitempty"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
+}
+
+// Validate validates SendLocationParams.
+func (p SendLocationParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if p.Latitude < -90 || p.Latitude > 90 {
+		return fmt.Errorf("latitude must be between -90 and 90")
+	}
+	if p.Longitude < -180 || p.Longitude > 180 {
+		return fmt.Errorf("longitude must be between -180 and 180")
+	}
+	return nil
 }
 
 // SendLocationResult is the result of SendLocation.
@@ -41,6 +68,17 @@ type SendPhotoParams struct {
 	Caption  string `json:"caption,omitempty"`
 }
 
+// Validate validates SendPhotoParams.
+func (p SendPhotoParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if p.File == "" {
+		return fmt.Errorf("file is required")
+	}
+	return nil
+}
+
 // SendPhotoResult is the result of SendPhoto.
 type SendPhotoResult struct {
 	ID      int64  `json:"id"`
@@ -58,6 +96,20 @@ type SendContactParams struct {
 	LastName  string `json:"lastName,omitempty"`
 }
 
+// Validate validates SendContactParams.
+func (p SendContactParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if p.Phone == "" {
+		return fmt.Errorf("phone is required")
+	}
+	if p.FirstName == "" {
+		return fmt.Errorf("firstName is required")
+	}
+	return nil
+}
+
 // SendContactResult is the result of SendContact.
 type SendContactResult struct {
 	ID    int64  `json:"id"`
@@ -72,6 +124,17 @@ type SendFileParams struct {
 	Username string `json:"username,omitempty"`
 	File     string `json:"file"`
 	Caption  string `json:"caption,omitempty"`
+}
+
+// Validate validates SendFileParams.
+func (p SendFileParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if p.File == "" {
+		return fmt.Errorf("file is required")
+	}
+	return nil
 }
 
 // SendFileResult is the result of SendFile.
@@ -98,6 +161,34 @@ type SendPollParams struct {
 	CorrectIdx int          `json:"correctIdx,omitempty"`
 }
 
+// Validate validates SendPollParams.
+func (p SendPollParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if p.Question == "" {
+		return fmt.Errorf("question is required")
+	}
+	if len(p.Options) < 2 {
+		return fmt.Errorf("at least 2 options are required")
+	}
+	if len(p.Options) > 10 {
+		return fmt.Errorf("maximum 10 options allowed")
+	}
+	return nil
+}
+
+// ValidateForQuiz validates SendPollParams for quiz mode.
+func (p SendPollParams) ValidateForQuiz() error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	if p.CorrectIdx < 0 || p.CorrectIdx >= len(p.Options) {
+		return fmt.Errorf("correctIdx must be between 0 and %d", len(p.Options)-1)
+	}
+	return nil
+}
+
 // SendPollResult is the result of SendPoll.
 type SendPollResult struct {
 	ID       int64  `json:"id"`
@@ -112,6 +203,17 @@ type SendVideoParams struct {
 	Username string `json:"username,omitempty"`
 	File     string `json:"file"`
 	Caption  string `json:"caption,omitempty"`
+}
+
+// Validate validates SendVideoParams.
+func (p SendVideoParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if p.File == "" {
+		return fmt.Errorf("file is required")
+	}
+	return nil
 }
 
 // SendVideoResult is the result of SendVideo.

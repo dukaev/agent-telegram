@@ -9,30 +9,21 @@ import (
 	"agent-telegram/telegram"
 )
 
-// UnblockPeerParams represents parameters for unblock request.
-type UnblockPeerParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-}
-
 // UnblockPeerHandler returns a handler for unblock requests.
-func UnblockPeerHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p UnblockPeerParams
+func UnblockPeerHandler(client Client) func(json.RawMessage) (any, error) {
+	return func(params json.RawMessage) (any, error) {
+		var p telegram.UnblockPeerParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
 
-		if p.Peer == "" && p.Username == "" {
-			return nil, fmt.Errorf("peer or username is required")
+		if err := p.Validate(); err != nil {
+			return nil, err
 		}
 
-		result, err := client.UnblockPeer(context.Background(), telegram.UnblockPeerParams{
-			Peer:     p.Peer,
-			Username: p.Username,
-		})
+		result, err := client.UnblockPeer(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unblock peer: %w", err)
 		}

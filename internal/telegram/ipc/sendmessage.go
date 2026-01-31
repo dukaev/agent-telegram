@@ -1,5 +1,4 @@
 // Package ipc provides Telegram IPC handlers.
-//nolint:dupl // Handler pattern has expected similarity
 package ipc
 
 import (
@@ -10,36 +9,21 @@ import (
 	"agent-telegram/telegram"
 )
 
-// SendMessageParams represents parameters for send_message request.
-type SendMessageParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	Message  string `json:"message"`
-}
-
 // SendMessageHandler returns a handler for send_message requests.
-func SendMessageHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p SendMessageParams
+func SendMessageHandler(client Client) func(json.RawMessage) (any, error) {
+	return func(params json.RawMessage) (any, error) {
+		var p telegram.SendMessageParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
 
-		// Validate
-		if p.Peer == "" && p.Username == "" {
-			return nil, fmt.Errorf("peer or username is required")
-		}
-		if p.Message == "" {
-			return nil, fmt.Errorf("message is required")
+		if err := p.Validate(); err != nil {
+			return nil, err
 		}
 
-		result, err := client.SendMessage(context.Background(), telegram.SendMessageParams{
-			Peer:     p.Peer,
-			Username: p.Username,
-			Message:  p.Message,
-		})
+		result, err := client.SendMessage(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to send message: %w", err)
 		}

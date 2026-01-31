@@ -1,5 +1,4 @@
 // Package ipc provides Telegram IPC handlers.
-//nolint:dupl // Similar to send-video but for different command
 package ipc
 
 import (
@@ -11,42 +10,25 @@ import (
 	"agent-telegram/telegram"
 )
 
-// SendFileParams represents parameters for send_file request.
-type SendFileParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	File     string `json:"file"`
-	Caption  string `json:"caption,omitempty"`
-}
-
 // SendFileHandler returns a handler for send_file requests.
-func SendFileHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p SendFileParams
+func SendFileHandler(client Client) func(json.RawMessage) (any, error) {
+	return func(params json.RawMessage) (any, error) {
+		var p telegram.SendFileParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
 
-		if p.Peer == "" && p.Username == "" {
-			return nil, fmt.Errorf("peer or username is required")
-		}
-		if p.File == "" {
-			return nil, fmt.Errorf("file is required")
+		if err := p.Validate(); err != nil {
+			return nil, err
 		}
 
-		// Check file exists
 		if _, err := os.Stat(p.File); os.IsNotExist(err) {
 			return nil, fmt.Errorf("file not found: %s", p.File)
 		}
 
-		result, err := client.SendFile(context.Background(), telegram.SendFileParams{
-			Peer:     p.Peer,
-			Username: p.Username,
-			File:     p.File,
-			Caption:  p.Caption,
-		})
+		result, err := client.SendFile(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to send file: %w", err)
 		}

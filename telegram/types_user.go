@@ -1,6 +1,8 @@
 // Package telegram provides common types for Telegram client user operations.
 package telegram
 
+import "fmt"
+
 // GetMeResult represents the result of GetMe.
 type GetMeResult struct {
 	ID        int64  `json:"id"`
@@ -15,6 +17,14 @@ type GetMeResult struct {
 // GetUserInfoParams holds parameters for GetUserInfo.
 type GetUserInfoParams struct {
 	Username string `json:"username"`
+}
+
+// Validate validates GetUserInfoParams.
+func (p GetUserInfoParams) Validate() error {
+	if p.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	return nil
 }
 
 // GetUserInfoResult is the result of GetUserInfo.
@@ -36,6 +46,14 @@ type UpdateProfileParams struct {
 	Bio       string `json:"bio,omitempty"`
 }
 
+// Validate validates UpdateProfileParams.
+func (p UpdateProfileParams) Validate() error {
+	if p.FirstName == "" {
+		return fmt.Errorf("firstName is required")
+	}
+	return nil
+}
+
 // UpdateProfileResult is the result of UpdateProfile.
 type UpdateProfileResult struct {
 	Success bool `json:"success"`
@@ -44,6 +62,14 @@ type UpdateProfileResult struct {
 // UpdateAvatarParams holds parameters for UpdateAvatar.
 type UpdateAvatarParams struct {
 	File string `json:"file"`
+}
+
+// Validate validates UpdateAvatarParams.
+func (p UpdateAvatarParams) Validate() error {
+	if p.File == "" {
+		return fmt.Errorf("file is required")
+	}
+	return nil
 }
 
 // UpdateAvatarResult is the result of UpdateAvatar.
@@ -57,6 +83,14 @@ type BlockPeerParams struct {
 	Username string `json:"username,omitempty"`
 }
 
+// Validate validates BlockPeerParams.
+func (p BlockPeerParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	return nil
+}
+
 // BlockPeerResult is the result of BlockPeer.
 type BlockPeerResult struct {
 	Success bool   `json:"success"`
@@ -67,6 +101,14 @@ type BlockPeerResult struct {
 type UnblockPeerParams struct {
 	Peer     string `json:"peer,omitempty"`
 	Username string `json:"username,omitempty"`
+}
+
+// Validate validates UnblockPeerParams.
+func (p UnblockPeerParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	return nil
 }
 
 // UnblockPeerResult is the result of UnblockPeer.

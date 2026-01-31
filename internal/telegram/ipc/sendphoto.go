@@ -10,41 +10,25 @@ import (
 	"agent-telegram/telegram"
 )
 
-// SendPhotoParams represents parameters for send_photo request.
-type SendPhotoParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	File     string `json:"file"`
-}
-
 // SendPhotoHandler returns a handler for send_photo requests.
-func SendPhotoHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p SendPhotoParams
+func SendPhotoHandler(client Client) func(json.RawMessage) (any, error) {
+	return func(params json.RawMessage) (any, error) {
+		var p telegram.SendPhotoParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
 
-		// Validate
-		if p.Peer == "" && p.Username == "" {
-			return nil, fmt.Errorf("peer or username is required")
-		}
-		if p.File == "" {
-			return nil, fmt.Errorf("file is required")
+		if err := p.Validate(); err != nil {
+			return nil, err
 		}
 
-		// Check file exists
 		if _, err := os.Stat(p.File); os.IsNotExist(err) {
 			return nil, fmt.Errorf("file not found: %s", p.File)
 		}
 
-		result, err := client.SendPhoto(context.Background(), telegram.SendPhotoParams{
-			Peer:     p.Peer,
-			Username: p.Username,
-			File:     p.File,
-		})
+		result, err := client.SendPhoto(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to send photo: %w", err)
 		}

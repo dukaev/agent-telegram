@@ -1,4 +1,5 @@
 // Package ipc provides Telegram IPC handlers.
+//nolint:dupl // Handler pattern has expected similarity
 package ipc
 
 import (
@@ -9,35 +10,21 @@ import (
 	"agent-telegram/telegram"
 )
 
-// ClearMessagesParams represents parameters for clear_messages request.
-type ClearMessagesParams struct {
-	Peer      string   `json:"peer,omitempty"`
-	Username  string   `json:"username,omitempty"`
-	MessageIDs []int64 `json:"messageIds"`
-}
-
 // ClearMessagesHandler returns a handler for clear_messages requests.
-func ClearMessagesHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p ClearMessagesParams
+func ClearMessagesHandler(client Client) func(json.RawMessage) (any, error) {
+	return func(params json.RawMessage) (any, error) {
+		var p telegram.ClearMessagesParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
 
-		if p.Peer == "" && p.Username == "" {
-			return nil, fmt.Errorf("peer or username is required")
-		}
-		if len(p.MessageIDs) == 0 {
-			return nil, fmt.Errorf("messageIds is required")
+		if err := p.Validate(); err != nil {
+			return nil, err
 		}
 
-		result, err := client.ClearMessages(context.Background(), telegram.ClearMessagesParams{
-			Peer:       p.Peer,
-			Username:   p.Username,
-			MessageIDs: p.MessageIDs,
-		})
+		result, err := client.ClearMessages(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to clear messages: %w", err)
 		}
@@ -46,32 +33,21 @@ func ClearMessagesHandler(client Client) func(json.RawMessage) (interface{}, err
 	}
 }
 
-// ClearHistoryParams represents parameters for clear_history request.
-type ClearHistoryParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-	Revoke   bool   `json:"revoke,omitempty"`
-}
-
 // ClearHistoryHandler returns a handler for clear_history requests.
-func ClearHistoryHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p ClearHistoryParams
+func ClearHistoryHandler(client Client) func(json.RawMessage) (any, error) {
+	return func(params json.RawMessage) (any, error) {
+		var p telegram.ClearHistoryParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
 
-		if p.Peer == "" && p.Username == "" {
-			return nil, fmt.Errorf("peer or username is required")
+		if err := p.Validate(); err != nil {
+			return nil, err
 		}
 
-		result, err := client.ClearHistory(context.Background(), telegram.ClearHistoryParams{
-			Peer:     p.Peer,
-			Username: p.Username,
-			Revoke:   p.Revoke,
-		})
+		result, err := client.ClearHistory(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to clear history: %w", err)
 		}

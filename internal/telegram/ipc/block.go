@@ -9,30 +9,21 @@ import (
 	"agent-telegram/telegram"
 )
 
-// BlockPeerParams represents parameters for block request.
-type BlockPeerParams struct {
-	Peer     string `json:"peer,omitempty"`
-	Username string `json:"username,omitempty"`
-}
-
 // BlockPeerHandler returns a handler for block requests.
-func BlockPeerHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p BlockPeerParams
+func BlockPeerHandler(client Client) func(json.RawMessage) (any, error) {
+	return func(params json.RawMessage) (any, error) {
+		var p telegram.BlockPeerParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
 
-		if p.Peer == "" && p.Username == "" {
-			return nil, fmt.Errorf("peer or username is required")
+		if err := p.Validate(); err != nil {
+			return nil, err
 		}
 
-		result, err := client.BlockPeer(context.Background(), telegram.BlockPeerParams{
-			Peer:     p.Peer,
-			Username: p.Username,
-		})
+		result, err := client.BlockPeer(context.Background(), p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to block peer: %w", err)
 		}

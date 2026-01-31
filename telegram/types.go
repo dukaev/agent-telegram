@@ -1,7 +1,10 @@
 // Package telegram provides common types for Telegram client.
 package telegram
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // UpdateType represents the type of Telegram update.
 type UpdateType string
@@ -85,6 +88,17 @@ type ClearMessagesParams struct {
 	MessageIDs []int64 `json:"messageIds"`
 }
 
+// Validate validates ClearMessagesParams.
+func (p ClearMessagesParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	if len(p.MessageIDs) == 0 {
+		return fmt.Errorf("messageIds is required")
+	}
+	return nil
+}
+
 // ClearMessagesResult is the result of ClearMessages.
 type ClearMessagesResult struct {
 	Success bool   `json:"success"`
@@ -97,6 +111,14 @@ type ClearHistoryParams struct {
 	Peer     string `json:"peer,omitempty"`
 	Username string `json:"username,omitempty"`
 	Revoke   bool   `json:"revoke,omitempty"`
+}
+
+// Validate validates ClearHistoryParams.
+func (p ClearHistoryParams) Validate() error {
+	if p.Peer == "" && p.Username == "" {
+		return fmt.Errorf("peer or username is required")
+	}
+	return nil
 }
 
 // ClearHistoryResult is the result of ClearHistory.
