@@ -31,12 +31,28 @@ Examples:
 	Args: cobra.MaximumNArgs(1),
 }
 
+// MyInfoCmd represents the my-info command (alias for info without args).
+var MyInfoCmd = &cobra.Command{
+	GroupID: "auth",
+	Use:   "my-info",
+	Short: "Get your profile information",
+	Long: `Get detailed information about your Telegram profile.
+
+This returns your user ID, username, name, bio, verification status, etc.`,
+	Args: cobra.NoArgs,
+}
+
 // AddUserInfoCommand adds the user-info command to the root command.
 func AddUserInfoCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(UserInfoCmd)
+	rootCmd.AddCommand(MyInfoCmd)
 
+	// Setup flags for both commands
 	UserInfoCmd.Flags().BoolVarP(&GetUserInfoJSON, "json", "j", false, "Output as JSON")
-	UserInfoCmd.Run = func(_ *cobra.Command, args []string) {
+	MyInfoCmd.Flags().BoolVarP(&GetUserInfoJSON, "json", "j", false, "Output as JSON")
+
+	// Share the same Run function
+	run := func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(UserInfoCmd, true) // Always JSON
 
 		var result any
@@ -55,4 +71,7 @@ func AddUserInfoCommand(rootCmd *cobra.Command) {
 		//nolint:errchkjson // Output to stdout, error handling not required
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 	}
+
+	UserInfoCmd.Run = run
+	MyInfoCmd.Run = run
 }

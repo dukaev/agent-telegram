@@ -17,7 +17,6 @@ var (
 
 // BlockCmd represents the block command.
 var BlockCmd = &cobra.Command{
-	GroupID: "user",
 	Use:   "ban",
 	Short: "Block or unblock a Telegram peer",
 	Long: `Block or unblock a Telegram user or chat.

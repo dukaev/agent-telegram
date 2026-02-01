@@ -1,5 +1,5 @@
-// Package chat provides commands for managing chats.
-package chat
+// Package mute provides commands for muting Telegram chats.
+package mute
 
 import (
 	"fmt"
@@ -16,6 +16,7 @@ var (
 
 // MuteCmd represents the mute command.
 var MuteCmd = &cobra.Command{
+	GroupID: "user",
 	Use:     "mute",
 	Short:   "Mute or unmute a Telegram chat",
 	Long: `Mute or unmute a Telegram chat to control notifications.
@@ -28,10 +29,12 @@ Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
 }
 
 // AddMuteCommand adds the mute command to the root command.
-func AddMuteCommand(parentCmd *cobra.Command) {
-	parentCmd.AddCommand(MuteCmd)
+func AddMuteCommand(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(MuteCmd)
 
-	SetupMuteFlags(MuteCmd)
+	MuteCmd.Flags().VarP(&muteTo, "to", "t", "Recipient (@username, username, or chat ID)")
+	MuteCmd.Flags().BoolVarP(&muteDisable, "disable", "d", false, "Unmute the chat")
+	_ = MuteCmd.MarkFlagRequired("to")
 
 	MuteCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(MuteCmd, false)
@@ -61,11 +64,3 @@ func AddMuteCommand(parentCmd *cobra.Command) {
 		})
 	}
 }
-
-// SetupMuteFlags configures the flags for a mute command.
-func SetupMuteFlags(cmd *cobra.Command) {
-	cmd.Flags().VarP(&muteTo, "to", "t", "Recipient (@username, username, or chat ID)")
-	cmd.Flags().BoolVarP(&muteDisable, "disable", "d", false, "Unmute the chat")
-	_ = cmd.MarkFlagRequired("to")
-}
-

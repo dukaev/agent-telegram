@@ -1,5 +1,5 @@
-// Package contacts provides commands for managing contacts.
-package contacts
+// Package contact provides commands for managing contacts.
+package contact
 
 import (
 	"fmt"
@@ -17,7 +17,6 @@ var (
 
 // AddContactCmd represents the contact add command.
 var AddContactCmd = &cobra.Command{
-	GroupID: "contacts",
 	Use:     "add",
 	Short:   "Add a new contact to your Telegram account",
 	Long: `Add a new contact to your Telegram account using their phone number.
@@ -25,8 +24,8 @@ var AddContactCmd = &cobra.Command{
 The phone number must include the country code (e.g., +1234567890).
 
 Example:
-  agent-telegram contacts add --phone +1234567890 --first-name John
-  agent-telegram contacts add --phone +1234567890 --first-name John --last-name Doe`,
+  agent-telegram contact add --phone +1234567890 --first-name John
+  agent-telegram contact add --phone +1234567890 --first-name John --last-name Doe`,
 	Args: cobra.NoArgs,
 }
 

@@ -19,7 +19,6 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(MsgCmd)
 
 	// Call AddXxxCommand functions with MsgCmd to setup flags and Run
-	send.AddSendCommand(MsgCmd)
 	AddDeleteCommand(MsgCmd)
 	AddForwardCommand(MsgCmd)
 	AddPinMessageCommand(MsgCmd)
@@ -28,9 +27,7 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	AddReactionCommand(MsgCmd)
 	AddInspectKeyboardCommand(MsgCmd)
 
-	// Update Use strings and GroupID for subcommands
-	send.SendCmd.Use = "send [message]"
-	send.SendCmd.GroupID = "" // Clear GroupID to avoid conflict
+	// Update Use strings for subcommands
 	DeleteCmd.Use = "delete <message_id|id1,id2,...>"
 	ForwardCmd.Use = "forward <message_id>"
 	PinMessageCmd.Use = "pin <message_id>"
@@ -38,4 +35,7 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	PressButtonCmd.Use = "press-button <message_id> <button_index>"
 	ReactionCmd.Use = "reaction <message_id> <emoji>"
 	InspectKeyboardCmd.Use = "inspect-keyboard"
+
+	// Add send command as a top-level command (in "Manage Messages" group)
+	send.AddSendCommand(rootCmd)
 }

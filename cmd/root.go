@@ -9,9 +9,10 @@ import (
 	// Import subpackages to trigger their init() registration
 	_ "agent-telegram/cmd/auth"
 	_ "agent-telegram/cmd/chat"
-	_ "agent-telegram/cmd/contacts"
+	_ "agent-telegram/cmd/contact"
 	_ "agent-telegram/cmd/get"
 	_ "agent-telegram/cmd/message"
+	_ "agent-telegram/cmd/open"
 	_ "agent-telegram/cmd/search"
 	_ "agent-telegram/cmd/send"
 	_ "agent-telegram/cmd/sys"
@@ -23,8 +24,6 @@ var (
 
 	// GroupIDAuth is the command group ID for authentication commands.
 	GroupIDAuth = "auth"
-	// GroupIDMessaging is the command group ID for messaging commands.
-	GroupIDMessaging = "messaging"
 	// GroupIDMessage is the command group ID for message management commands.
 	GroupIDMessage = "message"
 	// GroupIDUser is the command group ID for user commands.
@@ -39,8 +38,6 @@ var (
 	GroupIDServer = "server"
 	// GroupIDSearch is the command group ID for search commands.
 	GroupIDSearch = "search"
-	// GroupIDContacts is the command group ID for contacts commands.
-	GroupIDContacts = "contacts"
 )
 
 // RootCmd represents the base command when called without any subcommands.
@@ -70,13 +67,11 @@ func init() {
 	// Add command groups
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDServer, Title: "Server"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDAuth, Title: "Authentication"})
-	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessaging, Title: "Messaging"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessage, Title: "Manage Messages"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDUser, Title: "User"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDChat, Title: "Chat"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDGet, Title: "Get"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDSearch, Title: "Search"})
-	RootCmd.AddGroup(&cobra.Group{ID: GroupIDContacts, Title: "Contacts"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDSystem, Title: "System"})
 
 	// Global flags

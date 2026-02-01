@@ -14,9 +14,9 @@ var (
 	pinChatDisable bool
 )
 
-// PinChatCmd represents the pin-chat command.
+// PinChatCmd represents the pin command.
 var PinChatCmd = &cobra.Command{
-	Use:    "pin-chat",
+	Use:    "pin",
 	Short:  "Pin or unpin a chat in the dialog list",
 	Long: `Pin or unpin a chat in your Telegram dialog list.
 
@@ -27,7 +27,7 @@ Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
 	Args:    cobra.NoArgs,
 }
 
-// AddPinChatCommand adds the pin-chat command to the root command.
+// AddPinChatCommand adds the pin command to the root command.
 func AddPinChatCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(PinChatCmd)
 

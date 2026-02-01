@@ -35,6 +35,8 @@ func AddChatCommand(rootCmd *cobra.Command) {
 	AddDemoteAdminCommand(ChatCmd)
 	AddInviteLinkCommand(ChatCmd)
 	AddListCommand(ChatCmd)
+	AddOpenCommand(ChatCmd)
+	AddInfoCommand(ChatCmd)
 
 	// Add the parent chat command to root
 	rootCmd.AddCommand(ChatCmd)

@@ -1,5 +1,5 @@
-// Package contacts provides commands for managing contacts.
-package contacts
+// Package contact provides commands for managing contacts.
+package contact
 
 import (
 	"fmt"
@@ -15,7 +15,6 @@ var (
 
 // DeleteContactCmd represents the contact delete command.
 var DeleteContactCmd = &cobra.Command{
-	GroupID: "contacts",
 	Use:     "delete",
 	Short:   "Delete a contact from your Telegram account",
 	Long: `Delete a contact from your Telegram account by username.
@@ -23,8 +22,8 @@ var DeleteContactCmd = &cobra.Command{
 You can specify the username with or without the @ prefix.
 
 Example:
-  agent-telegram contacts delete --username john
-  agent-telegram contacts delete --username @john`,
+  agent-telegram contact delete --username john
+  agent-telegram contact delete --username @john`,
 	Args: cobra.NoArgs,
 }
 

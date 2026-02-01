@@ -1,5 +1,5 @@
-// Package contacts provides commands for managing contacts.
-package contacts
+// Package contact provides commands for managing contacts.
+package contact
 
 import (
 	"fmt"
@@ -14,9 +14,8 @@ var (
 	listLimit       int
 )
 
-// ListContactsCmd represents the contacts list command.
+// ListContactsCmd represents the contact list command.
 var ListContactsCmd = &cobra.Command{
-	GroupID: "contacts",
 	Use:     "list",
 	Short:   "List contacts from your Telegram account",
 	Long: `List all contacts from your Telegram account with optional search filter.
@@ -28,9 +27,9 @@ Search matches against:
   - Phone number
 
 Example:
-  agent-telegram contacts list
-  agent-telegram contacts list --search john
-  agent-telegram contacts list --search "@john" --limit 20`,
+  agent-telegram contact list
+  agent-telegram contact list --search john
+  agent-telegram contact list --search "@john" --limit 20`,
 	Args: cobra.NoArgs,
 }
 
