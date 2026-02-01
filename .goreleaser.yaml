@@ -50,17 +50,8 @@ changelog:
 
 release:
   github:
-    owner: user  # Change to your GitHub username
+    owner: dukaev
     name: agent-telegram
   draft: false
   prerelease: auto
   name_template: "v{{.Version}}"
-
-# Publish raw binaries (without archive) for npm postinstall
-blobs:
-  - provider: gs
-    bucket: "{{ .Env.BUCKET }}"
-    disable: true  # Enable if you want cloud storage
-
-# Upload extra files to release
-extra_files: []
