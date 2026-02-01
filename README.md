@@ -4,6 +4,8 @@ Telegram automation CLI for AI agents. Fast Go binary with MTProto API.
 
 By Aslan Dukaev [X](https://x.com/dukaev) ·[Telegram](https://t.me/dukaev)
 
+![Screenshot](docs/screen.png)
+
 ## Installation
 
 ### Package Managers
