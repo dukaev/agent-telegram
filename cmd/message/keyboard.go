@@ -16,10 +16,9 @@ var (
 
 // InspectKeyboardCmd represents the inspect-keyboard command.
 var InspectKeyboardCmd = &cobra.Command{
-	GroupID: "message",
 	Use:   "inspect-keyboard",
-	Short: "Inspect reply keyboard buttons from a chat (bot only)",
-	Long: `Get the current reply keyboard from a chat (bot only).
+	Short: "Inspect reply keyboard buttons from a chat",
+	Long: `Get the current reply keyboard from a chat.
 
 Reply keyboard buttons are the buttons shown at the bottom of the chat interface,
 different from inline buttons that appear with messages.

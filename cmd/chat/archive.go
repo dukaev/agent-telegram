@@ -16,7 +16,6 @@ var (
 
 // ArchiveCmd represents the archive command.
 var ArchiveCmd = &cobra.Command{
-	GroupID: "chat",
 	Use:     "archive",
 	Short:   "Archive or unarchive a Telegram chat",
 	Long: `Archive or unarchive a Telegram chat.

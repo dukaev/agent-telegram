@@ -19,6 +19,7 @@ import (
 	"agent-telegram/telegram/message"
 	"agent-telegram/telegram/pin"
 	"agent-telegram/telegram/reaction"
+	"agent-telegram/telegram/search"
 	"agent-telegram/telegram/types"
 	"agent-telegram/telegram/user"
 )
@@ -39,6 +40,7 @@ type Client struct {
 	user     *user.Client
 	pin      *pin.Client
 	reaction *reaction.Client
+	search   *search.Client
 }
 
 // codeAuth reads verification code from stdin
@@ -73,6 +75,7 @@ func NewClient(appID int, appHash, phone string) *Client {
 	tc.user = user.NewClient(tc)
 	tc.pin = pin.NewClient(tc)
 	tc.reaction = reaction.NewClient(tc)
+	tc.search = search.NewClient(tc)
 	return tc
 }
 
@@ -132,6 +135,7 @@ func (c *Client) initDomainClients() {
 	c.user = user.NewClient(c)
 	c.pin = pin.NewClient(c)
 	c.reaction = reaction.NewClient(c)
+	c.search = search.NewClient(c)
 }
 
 // runClient is the main client run loop.
@@ -185,6 +189,7 @@ func (c *Client) setDomainAPIs() {
 	c.user.SetAPI(api)
 	c.pin.SetAPI(api)
 	c.reaction.SetAPI(api)
+	c.search.SetAPI(api)
 }
 
 // Client returns the underlying telegram.Client
@@ -220,6 +225,11 @@ func (c *Client) Pin() *pin.Client {
 // Reaction returns the reaction client.
 func (c *Client) Reaction() *reaction.Client {
 	return c.reaction
+}
+
+// Search returns the search client.
+func (c *Client) Search() *search.Client {
+	return c.search
 }
 
 // GetMe returns the current user information.

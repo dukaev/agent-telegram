@@ -41,3 +41,4 @@ build-errors.log
 .env.local
 agent-telegram
 ipc-client
+*.log

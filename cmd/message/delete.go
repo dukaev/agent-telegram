@@ -17,7 +17,6 @@ var (
 
 // DeleteCmd represents the delete command.
 var DeleteCmd = &cobra.Command{
-	GroupID: "message",
 	Use:   "delete <message_id|id1,id2,...>",
 	Short: "Delete Telegram message(s)",
 	Long: `Delete messages from a chat.

@@ -27,7 +27,7 @@ var (
 
 // LoginCmd represents the login command.
 var LoginCmd = &cobra.Command{
-	GroupID: "server",
+	GroupID: "auth",
 	Use:     "login",
 	Short:   "Interactive login with Telegram authentication",
 	Long: `Interactively login to Telegram using authentication code.

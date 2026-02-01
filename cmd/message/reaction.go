@@ -19,7 +19,6 @@ var (
 
 // ReactionCmd represents the reaction command.
 var ReactionCmd = &cobra.Command{
-	GroupID: "message",
 	Use:   "reaction <emoji>",
 	Short: "Add a reaction to a Telegram message",
 	Long: `Add a reaction emoji to a message in a chat.

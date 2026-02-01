@@ -125,6 +125,16 @@ func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*type
 	return c.chat.PinChat(ctx, params)
 }
 
+// JoinChat joins a chat or channel using an invite link.
+func (c *Client) JoinChat(ctx context.Context, params types.JoinChatParams) (*types.JoinChatResult, error) {
+	return c.chat.JoinChat(ctx, params)
+}
+
+// SubscribeChannel subscribes to a public channel.
+func (c *Client) SubscribeChannel(ctx context.Context, params types.SubscribeChannelParams) (*types.SubscribeChannelResult, error) {
+	return c.chat.SubscribeChannel(ctx, params)
+}
+
 // BlockPeer blocks a peer.
 func (c *Client) BlockPeer(ctx context.Context, params types.BlockPeerParams) (*types.BlockPeerResult, error) {
 	return c.user.BlockPeer(ctx, params)
@@ -163,4 +173,99 @@ func (c *Client) SendLocation(ctx context.Context, params types.SendLocationPara
 // SendPoll sends a poll to a peer.
 func (c *Client) SendPoll(ctx context.Context, params types.SendPollParams) (*types.SendPollResult, error) {
 	return c.media.SendPoll(ctx, params)
+}
+
+// GetContacts returns the user's contact list with optional search filter.
+func (c *Client) GetContacts(ctx context.Context, params types.GetContactsParams) (*types.GetContactsResult, error) {
+	return c.user.GetContacts(ctx, params)
+}
+
+// SearchGlobal searches for public chats, channels, and bots globally.
+func (c *Client) SearchGlobal(ctx context.Context, params types.SearchGlobalParams) (*types.SearchGlobalResult, error) {
+	return c.search.SearchGlobal(ctx, params)
+}
+
+// SearchInChat searches for messages within a specific chat.
+func (c *Client) SearchInChat(ctx context.Context, params types.SearchInChatParams) (*types.SearchInChatResult, error) {
+	return c.search.SearchInChat(ctx, params)
+}
+
+// AddContact adds a new contact to the user's contact list.
+func (c *Client) AddContact(ctx context.Context, params types.AddContactParams) (*types.AddContactResult, error) {
+	return c.user.AddContact(ctx, params)
+}
+
+// DeleteContact deletes a contact from the user's contact list.
+func (c *Client) DeleteContact(ctx context.Context, params types.DeleteContactParams) (*types.DeleteContactResult, error) {
+	return c.user.DeleteContact(ctx, params)
+}
+
+// GetTopics retrieves forum topics from a channel.
+func (c *Client) GetTopics(ctx context.Context, params types.GetTopicsParams) (*types.GetTopicsResult, error) {
+	return c.chat.GetTopics(ctx, params)
+}
+
+// CreateGroup creates a new group chat.
+func (c *Client) CreateGroup(ctx context.Context, params types.CreateGroupParams) (*types.CreateGroupResult, error) {
+	return c.chat.CreateGroup(ctx, params)
+}
+
+// CreateChannel creates a new channel or supergroup.
+func (c *Client) CreateChannel(ctx context.Context, params types.CreateChannelParams) (*types.CreateChannelResult, error) {
+	return c.chat.CreateChannel(ctx, params)
+}
+
+// EditTitle edits the title of a chat or channel.
+func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*types.EditTitleResult, error) {
+	return c.chat.EditTitle(ctx, params)
+}
+
+// SetPhoto sets the photo for a chat or channel.
+func (c *Client) SetPhoto(ctx context.Context, params types.SetPhotoParams) (*types.SetPhotoResult, error) {
+	return c.chat.SetPhoto(ctx, params)
+}
+
+// DeletePhoto deletes the photo from a chat or channel.
+func (c *Client) DeletePhoto(ctx context.Context, params types.DeletePhotoParams) (*types.DeletePhotoResult, error) {
+	return c.chat.DeletePhoto(ctx, params)
+}
+
+// Leave leaves a chat or channel.
+func (c *Client) Leave(ctx context.Context, params types.LeaveParams) (*types.LeaveResult, error) {
+	return c.chat.Leave(ctx, params)
+}
+
+// Invite invites users to a chat or channel.
+func (c *Client) Invite(ctx context.Context, params types.InviteParams) (*types.InviteResult, error) {
+	return c.chat.Invite(ctx, params)
+}
+
+// GetParticipants retrieves participants from a chat or channel.
+func (c *Client) GetParticipants(ctx context.Context, params types.GetParticipantsParams) (*types.GetParticipantsResult, error) {
+	return c.chat.GetParticipants(ctx, params)
+}
+
+// GetAdmins retrieves admins from a chat or channel.
+func (c *Client) GetAdmins(ctx context.Context, params types.GetAdminsParams) (*types.GetAdminsResult, error) {
+	return c.chat.GetAdmins(ctx, params)
+}
+
+// GetBanned retrieves banned users from a chat or channel.
+func (c *Client) GetBanned(ctx context.Context, params types.GetBannedParams) (*types.GetBannedResult, error) {
+	return c.chat.GetBanned(ctx, params)
+}
+
+// PromoteAdmin promotes a user to admin.
+func (c *Client) PromoteAdmin(ctx context.Context, params types.PromoteAdminParams) (*types.PromoteAdminResult, error) {
+	return c.chat.PromoteAdmin(ctx, params)
+}
+
+// DemoteAdmin demotes an admin to regular user.
+func (c *Client) DemoteAdmin(ctx context.Context, params types.DemoteAdminParams) (*types.DemoteAdminResult, error) {
+	return c.chat.DemoteAdmin(ctx, params)
+}
+
+// GetInviteLink gets or creates an invite link for a chat or channel.
+func (c *Client) GetInviteLink(ctx context.Context, params types.GetInviteLinkParams) (*types.GetInviteLinkResult, error) {
+	return c.chat.GetInviteLink(ctx, params)
 }

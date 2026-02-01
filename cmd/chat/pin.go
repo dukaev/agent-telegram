@@ -16,7 +16,6 @@ var (
 
 // PinChatCmd represents the pin-chat command.
 var PinChatCmd = &cobra.Command{
-	GroupID: "chat",
 	Use:    "pin-chat",
 	Short:  "Pin or unpin a chat in the dialog list",
 	Long: `Pin or unpin a chat in your Telegram dialog list.

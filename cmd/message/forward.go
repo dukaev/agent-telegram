@@ -12,7 +12,6 @@ import (
 
 // ForwardCmd represents the forward command.
 var ForwardCmd = &cobra.Command{
-	GroupID: "message",
 	Use:     "forward <message_id>",
 	Short:   "Forward a Telegram message to another user or chat",
 	Long: `Forward a message from one peer to another.

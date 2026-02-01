@@ -16,7 +16,6 @@ var (
 
 // MuteCmd represents the mute command.
 var MuteCmd = &cobra.Command{
-	GroupID: "chat",
 	Use:     "mute",
 	Short:   "Mute or unmute a Telegram chat",
 	Long: `Mute or unmute a Telegram chat to control notifications.

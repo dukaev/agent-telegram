@@ -4,9 +4,10 @@ package cmd
 import (
 	"agent-telegram/cmd/auth"
 	"agent-telegram/cmd/chat"
+	"agent-telegram/cmd/contacts"
 	"agent-telegram/cmd/get"
 	"agent-telegram/cmd/message"
-	"agent-telegram/cmd/send"
+	"agent-telegram/cmd/search"
 	"agent-telegram/cmd/sys"
 	"agent-telegram/cmd/user"
 )
@@ -14,32 +15,29 @@ import (
 func init() {
 	// Auth commands
 	auth.AddLoginCommand(RootCmd)
+	auth.AddLogoutCommand(RootCmd)
 
 	// Get commands
 	get.AddUserInfoCommand(RootCmd)
 	get.AddUpdatesCommand(RootCmd)
-	get.AddChatsCommand(RootCmd)
 	auth.AddOpenCommand(RootCmd)
 
-	// Send commands
-	send.AddSendCommand(RootCmd)
+	// Search commands
+	search.AddSearchCommand(RootCmd)
 
 	// Message commands
-	message.AddDeleteCommand(RootCmd)
-	message.AddForwardCommand(RootCmd)
-	message.AddPinCommand(RootCmd)
-	message.AddInspectButtonsCommand(RootCmd)
-	message.AddPressButtonCommand(RootCmd)
-	message.AddInspectKeyboardCommand(RootCmd)
-	message.AddReactionCommand(RootCmd)
+	message.AddMsgCommand(RootCmd)
 
 	// User commands
 	user.AddBlockCommand(RootCmd)
 
+	// Contacts commands
+	contacts.AddListContactsCommand(RootCmd)
+	contacts.AddAddContactCommand(RootCmd)
+	contacts.AddDeleteContactCommand(RootCmd)
+
 	// Chat commands
-	chat.AddPinChatCommand(RootCmd)
-	chat.AddMuteCommand(RootCmd)
-	chat.AddArchiveCommand(RootCmd)
+	chat.AddChatCommand(RootCmd)
 
 	// System commands
 	sys.AddStatusCommand(RootCmd)

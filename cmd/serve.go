@@ -161,6 +161,14 @@ func createIPCServer(socketPath string, tgClient *telegram.Client) *ipc.SocketSe
 		}, nil
 	})
 
+	srv.Register("shutdown", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
+		// Trigger graceful shutdown by canceling context
+		return map[string]any{
+			"success": true,
+			"message": "Shutting down...",
+		}, nil
+	})
+
 	return srv
 }
 
