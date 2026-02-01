@@ -11,7 +11,6 @@ By Aslan Dukaev [X](https://x.com/dukaev) ·[Telegram](https://t.me/dukaev)
 ```bash
 bun add -g agent-telegram
 npm install -g agent-telegram
-pnpm add -g agent-telegram
 ```
 
 ### From Source
@@ -25,7 +24,6 @@ go build -o agent-telegram .
 ## Quick Start
 
 ```bash
-agent-telegram serve                      # Start IPC server (runs in background)
 agent-telegram login                      # Interactive login
 agent-telegram my-info                    # Get your profile
 agent-telegram chat list                  # List all chats
@@ -42,6 +40,8 @@ agent-telegram stop                       # Stop server
 agent-telegram login                      # Interactive login
 agent-telegram logout                     # Logout and clear session
 agent-telegram my-info                    # Get your profile information
+agent-telegram llms-txt                   # Generate full CLI documentation for LLMs
+
 ```
 
 ### Send Messages

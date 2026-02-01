@@ -47,6 +47,40 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Download binaries from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          mkdir -p binaries
+
+          # Download and extract all platform binaries
+          for platform in darwin linux; do
+            for arch in amd64 arm64; do
+              echo "Downloading ${platform}_${arch}..."
+              gh release download v${VERSION} \
+                --repo ${{ github.repository }} \
+                --pattern "agent-telegram_${VERSION}_${platform}_${arch}.tar.gz" \
+                --dir /tmp
+              tar -xzf /tmp/agent-telegram_${VERSION}_${platform}_${arch}.tar.gz -C /tmp
+              mv /tmp/agent-telegram binaries/agent-telegram-${platform}-${arch}
+              chmod +x binaries/agent-telegram-${platform}-${arch}
+            done
+          done
+
+          # Windows binaries
+          for arch in amd64 arm64; do
+            echo "Downloading windows_${arch}..."
+            gh release download v${VERSION} \
+              --repo ${{ github.repository }} \
+              --pattern "agent-telegram_${VERSION}_windows_${arch}.zip" \
+              --dir /tmp
+            unzip -o /tmp/agent-telegram_${VERSION}_windows_${arch}.zip -d /tmp
+            mv /tmp/agent-telegram.exe binaries/agent-telegram-windows-${arch}.exe
+          done
+
+          ls -la binaries/
+
       - name: Update package version from tag
         run: |
           VERSION=${GITHUB_REF_NAME#v}
