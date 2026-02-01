@@ -39,8 +39,19 @@ var LoginCmd = &cobra.Command{
 This will guide you through the login process:
   1. Enter your phone number
   2. Enter the verification code sent to Telegram
-  3. Enter 2FA password if enabled`,
-	Run:     runLogin,
+  3. Enter 2FA password if enabled
+
+Telegram API credentials (required):
+  Get your credentials at: https://my.telegram.org/apps
+
+  Set via environment variables:
+    export TELEGRAM_APP_ID=12345
+    export TELEGRAM_APP_HASH=abcdef...
+
+  Or create a .env file in the current directory.
+
+  Or pass as flags: --app-id and --app-hash`,
+	Run: runLogin,
 }
 
 // AddLoginCommand adds the login command to the root command.

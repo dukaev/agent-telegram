@@ -274,8 +274,8 @@ agent-telegram uses a client-daemon architecture:
 
 ```
 ┌─────────────┐      IPC       ┌──────────────┐      MTProto
-│ CLI Command │ ─────────────> │ IPC Server   │ ──────────────> Telegram
-│  (Go binary)│  Unix Socket   │ (background) │   (gotd/td)
+│ CLI Command │ ─────────────>│ IPC Server   │ ──────────────> Telegram
+│ (Go binary)│  Unix Socket   │ (background) │   (gotd/td)
 └─────────────┘                └──────────────┘
 ```
 
