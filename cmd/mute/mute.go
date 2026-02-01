@@ -2,74 +2,40 @@
 package mute
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
 )
 
-var (
-	muteTo      cliutil.Recipient
-	muteDisable bool
-)
-
-// MuteCmd represents the mute command.
-var MuteCmd = &cobra.Command{
-	GroupID: "user",
-	Use:     "mute",
-	Short:   "Mute or unmute a Telegram chat",
+// MuteConfig is the toggle command configuration for mute commands.
+var MuteConfig = cliutil.ToggleCommandConfig{
+	Use:   "mute",
+	Short: "Mute or unmute a Telegram chat",
 	Long: `Mute or unmute a Telegram chat to control notifications.
 
 Muted chats will not send you notifications for new messages.
 Use --disable to unmute a previously muted chat.
 
 Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
-	Args: cobra.NoArgs,
+	EnableMethod:  "mute",
+	DisableMethod: "unmute",
+	EnableMsg:     "Chat muted successfully!",
+	DisableMsg:    "Chat unmuted successfully!",
+}
+
+// MuteCmd represents the mute command.
+var MuteCmd = cliutil.NewToggleCommand(MuteConfig)
+
+func init() {
+	MuteCmd.GroupID = "user"
 }
 
 // AddMuteCommand adds the mute command to the root command.
 func AddMuteCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(MuteCmd)
-
-	SetupMuteFlags(MuteCmd)
-	SetMuteRun(MuteCmd)
 }
 
-// SetupMuteFlags configures the flags for a mute command.
-func SetupMuteFlags(cmd *cobra.Command) {
-	cmd.Flags().VarP(&muteTo, "to", "t", "Recipient (@username, username, or chat ID)")
-	cmd.Flags().BoolVarP(&muteDisable, "disable", "d", false, "Unmute the chat")
-	_ = cmd.MarkFlagRequired("to")
-}
-
-// SetMuteRun sets the Run function for a mute command.
-func SetMuteRun(cmd *cobra.Command) {
-	cmd.Run = func(_ *cobra.Command, _ []string) {
-		runner := cliutil.NewRunnerFromCmd(cmd, false)
-		params := map[string]any{}
-		muteTo.AddToParams(params)
-
-		var method string
-		var successMsg string
-		if muteDisable {
-			method = "unmute"
-			successMsg = "Chat unmuted successfully!"
-		} else {
-			method = "mute"
-			successMsg = "Chat muted successfully!"
-		}
-
-		result := runner.CallWithParams(method, params)
-		runner.PrintResult(result, func(result any) {
-			r, ok := result.(map[string]any)
-			if !ok {
-				fmt.Printf("%s\n", successMsg)
-				return
-			}
-			peer := cliutil.ExtractString(r, "peer")
-			fmt.Printf("%s\n", successMsg)
-			fmt.Printf("  Peer: %s\n", peer)
-		})
-	}
+// NewMuteCommand creates a new mute command (useful for subcommands).
+func NewMuteCommand() *cobra.Command {
+	return cliutil.NewToggleCommand(MuteConfig)
 }

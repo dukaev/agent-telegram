@@ -2,12 +2,9 @@
 package ipc
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 
 	"agent-telegram/internal/ipc"
-	"agent-telegram/telegram/types"
 )
 
 // RegisterHandlers registers all Telegram IPC handlers.
@@ -65,7 +62,7 @@ func registerReactionHandlers(srv ipc.MethodRegistrar, client Client) {
 
 // registerChatHandlers registers chat operation handlers.
 func registerChatHandlers(srv ipc.MethodRegistrar, client Client) {
-	registerHandler(srv, "pin_chat", Handler(client.PinChat, "pin chat"))
+	registerHandler(srv, "pin_chat", Handler(client.Chat().PinChat, "pin chat"))
 	registerHandler(srv, "join_chat", JoinChatHandler(client))
 	registerHandler(srv, "subscribe_channel", SubscribeChannelHandler(client))
 	registerHandler(srv, "leave", LeaveHandler(client))
@@ -98,23 +95,8 @@ func registerUserHandlers(srv ipc.MethodRegistrar, client Client) {
 }
 
 // InspectReplyKeyboardHandler returns a handler for inspecting reply keyboard requests.
-func InspectReplyKeyboardHandler(client Client) func(json.RawMessage) (interface{}, error) {
-	return func(params json.RawMessage) (interface{}, error) {
-		var p types.PeerInfo
-		if err := json.Unmarshal(params, &p); err != nil {
-			return nil, fmt.Errorf("invalid params: %w", err)
-		}
-		if err := p.ValidatePeer(); err != nil {
-			return nil, err
-		}
-
-		result, err := client.InspectReplyKeyboard(context.Background(), p)
-		if err != nil {
-			return nil, fmt.Errorf("failed to inspect reply keyboard: %w", err)
-		}
-
-		return result, nil
-	}
+func InspectReplyKeyboardHandler(client Client) HandlerFunc {
+	return Handler(client.Message().InspectReplyKeyboard, "inspect reply keyboard")
 }
 
 // registerHandler registers a single handler with error wrapping.

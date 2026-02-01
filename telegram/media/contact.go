@@ -12,8 +12,8 @@ import (
 
 // SendContact sends a contact to a peer.
 func (c *Client) SendContact(ctx context.Context, params types.SendContactParams) (*types.SendContactResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)

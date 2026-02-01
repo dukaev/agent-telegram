@@ -11,7 +11,7 @@ import (
 )
 
 // GetUpdatesHandler returns a handler for get_updates requests.
-func GetUpdatesHandler(client Client) func(json.RawMessage) (interface{}, error) {
+func GetUpdatesHandler(client Client) HandlerFunc {
 	return func(params json.RawMessage) (interface{}, error) {
 		var p types.GetUpdatesParams
 		if len(params) > 0 {

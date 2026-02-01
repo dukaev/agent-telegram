@@ -1,0 +1,35 @@
+{
+  "meta": {
+    "method": "contacts.resolveUsername",
+    "recorded_at": "2024-01-15T10:35:00Z",
+    "telegram_layer": 185,
+    "notes": "Resolve regular user by username",
+    "sanitized": true
+  },
+  "request": {
+    "_": "contacts.resolveUsernameRequest",
+    "username": "testuser1"
+  },
+  "response": {
+    "_": "contacts.resolvedPeer",
+    "peer": {
+      "_": "peerUser",
+      "user_id": 100000001
+    },
+    "chats": [],
+    "users": [
+      {
+        "_": "user",
+        "id": 100000001,
+        "access_hash": 1000000000000000001,
+        "first_name": "Alice",
+        "last_name": "Test",
+        "username": "testuser1",
+        "phone": "+15551234567",
+        "status": {
+          "_": "userStatusRecently"
+        }
+      }
+    ]
+  }
+}

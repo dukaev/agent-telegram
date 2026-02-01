@@ -12,8 +12,19 @@ import (
 
 // GetMessages returns messages from a dialog with the given username.
 func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	// Set defaults
+	if params.Limit <= 0 {
+		params.Limit = 10
+	}
+	if params.Limit > 100 {
+		params.Limit = 100
+	}
+	if params.Offset < 0 {
+		params.Offset = 0
 	}
 
 	// Ensure username has @ prefix for resolvePeer

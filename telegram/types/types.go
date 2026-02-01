@@ -20,9 +20,14 @@ func (p PeerInfo) ValidatePeer() error {
 	return nil
 }
 
+// Validate implements the Params interface for PeerInfo.
+func (p PeerInfo) Validate() error {
+	return p.ValidatePeer()
+}
+
 // MsgID is a base type for parameters that need a message ID.
 type MsgID struct {
-	MessageID int64 `json:"messageId"`
+	MessageID int64 `json:"messageId" validate:"required"`
 }
 
 // ValidateMessageID validates that messageId is set.
@@ -31,6 +36,11 @@ func (m MsgID) ValidateMessageID() error {
 		return fmt.Errorf("messageId is required")
 	}
 	return nil
+}
+
+// Validate implements the Params interface for MsgID.
+func (m MsgID) Validate() error {
+	return m.ValidateMessageID()
 }
 
 // RequiredText is a base type for parameters with a required text field.
@@ -102,9 +112,14 @@ type MessageResult struct {
 
 // GetMessagesParams holds parameters for GetMessages.
 type GetMessagesParams struct {
-	Username string `json:"username"`
+	Username string `json:"username" validate:"required"`
 	Limit    int    `json:"limit"`
 	Offset   int    `json:"offset"`
+}
+
+// Validate validates GetMessagesParams.
+func (p GetMessagesParams) Validate() error {
+	return ValidateStruct(p)
 }
 
 // GetMessagesResult is the result of GetMessages.

@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	topicsPeer string
-	topicsLimit int
+	topicsPeer   string
+	topicsLimit  int
+	topicsOffset int
 )
 
 // TopicsCmd represents the topics command.
@@ -34,23 +35,20 @@ func AddTopicsCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(TopicsCmd)
 
 	TopicsCmd.Flags().StringVarP(&topicsPeer, "peer", "p", "", "Channel username (@username or username)")
-	TopicsCmd.Flags().IntVarP(&topicsLimit, "limit", "l", 100, "Maximum number of topics (max 100)")
+	TopicsCmd.Flags().IntVarP(&topicsLimit, "limit", "l", cliutil.DefaultLimitMax, "Maximum number of topics (max 100)")
+	TopicsCmd.Flags().IntVarP(&topicsOffset, "offset", "o", 0, "Offset for pagination")
 	_ = TopicsCmd.MarkFlagRequired("peer")
 
 	TopicsCmd.Run = func(_ *cobra.Command, _ []string) {
-		// Validate and sanitize limit
-		if topicsLimit < 1 {
-			topicsLimit = 1
-		}
-		if topicsLimit > 100 {
-			topicsLimit = 100
-		}
+		pag := cliutil.NewPagination(topicsLimit, topicsOffset, cliutil.PaginationConfig{
+			MaxLimit: cliutil.MaxLimitStandard,
+		})
 
 		runner := cliutil.NewRunnerFromCmd(TopicsCmd, true) // Always JSON output
 		params := map[string]any{
-			"peer":  topicsPeer,
-			"limit": topicsLimit,
+			"peer": topicsPeer,
 		}
+		pag.ToParams(params, true)
 
 		result := runner.CallWithParams("get_topics", params)
 		//nolint:errchkjson // Output to stdout, error handling not required

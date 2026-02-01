@@ -6,18 +6,12 @@ import "fmt"
 // SendMessageParams holds parameters for SendMessage.
 type SendMessageParams struct {
 	PeerInfo
-	Message string `json:"message"`
+	Message string `json:"message" validate:"required"`
 }
 
 // Validate validates SendMessageParams.
 func (p SendMessageParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if p.Message == "" {
-		return fmt.Errorf("message is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // SendMessageResult is the result of SendMessage.
@@ -37,23 +31,20 @@ type SendLocationParams struct {
 
 // Validate validates SendLocationParams.
 func (p SendLocationParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
+	if err := ValidateStruct(p); err != nil {
 		return err
 	}
-	if p.Latitude < -90 || p.Latitude > 90 {
-		return fmt.Errorf("latitude must be between -90 and 90")
+	if err := ValidateLatitude(p.Latitude); err != nil {
+		return err
 	}
-	if p.Longitude < -180 || p.Longitude > 180 {
-		return fmt.Errorf("longitude must be between -180 and 180")
-	}
-	return nil
+	return ValidateLongitude(p.Longitude)
 }
 
 // SendLocationResult is the result of SendLocation.
 type SendLocationResult struct {
-	ID       int64   `json:"id"`
-	Date     int64   `json:"date"`
-	Peer     string  `json:"peer"`
+	ID        int64   `json:"id"`
+	Date      int64   `json:"date"`
+	Peer      string  `json:"peer"`
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
@@ -61,19 +52,13 @@ type SendLocationResult struct {
 // SendPhotoParams holds parameters for SendPhoto.
 type SendPhotoParams struct {
 	PeerInfo
-	File    string `json:"file"`
+	File    string `json:"file" validate:"required"`
 	Caption string `json:"caption,omitempty"`
 }
 
 // Validate validates SendPhotoParams.
 func (p SendPhotoParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if p.File == "" {
-		return fmt.Errorf("file is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // SendPhotoResult is the result of SendPhoto.
@@ -87,23 +72,14 @@ type SendPhotoResult struct {
 // SendContactParams holds parameters for SendContact.
 type SendContactParams struct {
 	PeerInfo
-	Phone    string `json:"phone"`
-	FirstName string `json:"firstName"`
-	LastName string `json:"lastName,omitempty"`
+	Phone     string `json:"phone" validate:"required"`
+	FirstName string `json:"firstName" validate:"required"`
+	LastName  string `json:"lastName,omitempty"`
 }
 
 // Validate validates SendContactParams.
 func (p SendContactParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if p.Phone == "" {
-		return fmt.Errorf("phone is required")
-	}
-	if p.FirstName == "" {
-		return fmt.Errorf("firstName is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // SendContactResult is the result of SendContact.
@@ -117,19 +93,13 @@ type SendContactResult struct {
 // SendFileParams holds parameters for SendFile.
 type SendFileParams struct {
 	PeerInfo
-	File    string `json:"file"`
+	File    string `json:"file" validate:"required"`
 	Caption string `json:"caption,omitempty"`
 }
 
 // Validate validates SendFileParams.
 func (p SendFileParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if p.File == "" {
-		return fmt.Errorf("file is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // SendFileResult is the result of SendFile.
@@ -148,20 +118,17 @@ type PollOption struct {
 // SendPollParams holds parameters for SendPoll.
 type SendPollParams struct {
 	PeerInfo
-	Question    string       `json:"question"`
-	Options     []PollOption `json:"options"`
-	Anonymous   bool         `json:"anonymous,omitempty"`
-	Quiz        bool         `json:"quiz,omitempty"`
-	CorrectIdx  int          `json:"correctIdx,omitempty"`
+	Question   string       `json:"question" validate:"required"`
+	Options    []PollOption `json:"options"`
+	Anonymous  bool         `json:"anonymous,omitempty"`
+	Quiz       bool         `json:"quiz,omitempty"`
+	CorrectIdx int          `json:"correctIdx,omitempty"`
 }
 
 // Validate validates SendPollParams.
 func (p SendPollParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
+	if err := ValidateStruct(p); err != nil {
 		return err
-	}
-	if p.Question == "" {
-		return fmt.Errorf("question is required")
 	}
 	if len(p.Options) < 2 {
 		return fmt.Errorf("at least 2 options are required")
@@ -194,19 +161,13 @@ type SendPollResult struct {
 // SendVideoParams holds parameters for SendVideo.
 type SendVideoParams struct {
 	PeerInfo
-	File    string `json:"file"`
+	File    string `json:"file" validate:"required"`
 	Caption string `json:"caption,omitempty"`
 }
 
 // Validate validates SendVideoParams.
 func (p SendVideoParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if p.File == "" {
-		return fmt.Errorf("file is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // SendVideoResult is the result of SendVideo.

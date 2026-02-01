@@ -14,8 +14,8 @@ import (
 func (c *Client) UpdateMessage(
 	ctx context.Context, params types.UpdateMessageParams,
 ) (*types.UpdateMessageResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
@@ -42,8 +42,8 @@ func (c *Client) UpdateMessage(
 func (c *Client) DeleteMessage(
 	ctx context.Context, params types.DeleteMessageParams,
 ) (*types.DeleteMessageResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	_, err := c.API.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
@@ -64,8 +64,8 @@ func (c *Client) DeleteMessage(
 func (c *Client) ForwardMessage(
 	ctx context.Context, params types.ForwardMessageParams,
 ) (*types.ForwardMessageResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	fromPeer, err := c.ResolvePeer(ctx, params.FromPeer)

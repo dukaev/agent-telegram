@@ -1,4 +1,4 @@
-// Package chat provides commands for managing chats.
+//nolint:dupl // Similar command structure is intentional
 package chat
 
 import (

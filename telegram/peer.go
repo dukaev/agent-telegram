@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 )
 
 // ResolvePeer resolves a peer string to InputPeerClass with caching.
@@ -30,7 +31,7 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 		case *tg.PeerUser:
 			inputPeer = &tg.InputPeerUser{
 				UserID:     p.UserID,
-				AccessHash: getAccessHashFromPeerClass(peerClass, p.UserID),
+				AccessHash: helpers.GetAccessHash(peerClass, p.UserID),
 			}
 		case *tg.PeerChat:
 			inputPeer = &tg.InputPeerChat{
@@ -39,7 +40,7 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 		case *tg.PeerChannel:
 			inputPeer = &tg.InputPeerChannel{
 				ChannelID:  p.ChannelID,
-				AccessHash: getAccessHashFromPeerClass(peerClass, p.ChannelID),
+				AccessHash: helpers.GetAccessHash(peerClass, p.ChannelID),
 			}
 		default:
 			return nil, fmt.Errorf("unknown peer type")
@@ -55,24 +56,3 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 	return &tg.InputPeerEmpty{}, nil
 }
 
-// getAccessHashFromPeerClass extracts access hash from the resolved peer.
-func getAccessHashFromPeerClass(peerClass *tg.ContactsResolvedPeer, id int64) int64 {
-	for _, chat := range peerClass.Chats {
-		switch c := chat.(type) {
-		case *tg.Channel:
-			if c.ID == id {
-				return c.AccessHash
-			}
-		case *tg.Chat:
-			if c.ID == id {
-				return 0
-			}
-		}
-	}
-	for _, user := range peerClass.Users {
-		if u, ok := user.(*tg.User); ok && u.ID == id {
-			return u.AccessHash
-		}
-	}
-	return 0
-}

@@ -27,20 +27,5 @@ func AddUserCommand(rootCmd *cobra.Command) {
 
 // AddMuteSubcommand adds the mute command as a subcommand.
 func AddMuteSubcommand(parentCmd *cobra.Command) {
-	muteCmd := &cobra.Command{
-		Use:     "mute",
-		Short:   "Mute or unmute a Telegram chat",
-		Long: `Mute or unmute a Telegram chat to control notifications.
-
-Muted chats will not send you notifications for new messages.
-Use --disable to unmute a previously muted chat.
-
-Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
-		Args: cobra.NoArgs,
-	}
-
-	mute.SetupMuteFlags(muteCmd)
-	mute.SetMuteRun(muteCmd)
-
-	parentCmd.AddCommand(muteCmd)
+	parentCmd.AddCommand(mute.NewMuteCommand())
 }

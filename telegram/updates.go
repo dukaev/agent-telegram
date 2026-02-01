@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
 )
 
@@ -110,7 +111,7 @@ func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface
 
 		// Simplify from_id to string format
 		if m.FromID != nil {
-			data["from"] = formatPeerClass(m.FromID)
+			data["from"] = helpers.FormatPeer(m.FromID, helpers.PeerFormatTyped)
 			if name := getSenderName(entities, m.FromID); name != "" {
 				data["from_name"] = name
 			}
@@ -118,7 +119,7 @@ func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface
 
 		// Simplify peer_id to string format
 		if m.PeerID != nil {
-			data["peer"] = formatPeerClass(m.PeerID)
+			data["peer"] = helpers.FormatPeer(m.PeerID, helpers.PeerFormatTyped)
 		}
 
 		// Add inline buttons if present
@@ -127,20 +128,6 @@ func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface
 		}
 	}
 	return data
-}
-
-// formatPeerClass converts a PeerClass to a simple string representation.
-func formatPeerClass(p tg.PeerClass) string {
-	switch v := p.(type) {
-	case *tg.PeerUser:
-		return fmt.Sprintf("user:%d", v.UserID)
-	case *tg.PeerChat:
-		return fmt.Sprintf("chat:%d", v.ChatID)
-	case *tg.PeerChannel:
-		return fmt.Sprintf("channel:%d", v.ChannelID)
-	default:
-		return ""
-	}
 }
 
 // extractButtonsData extracts button data from ReplyMarkup.

@@ -4,6 +4,7 @@ package user
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/client"
@@ -32,8 +33,8 @@ func trimUsernamePrefix(username string) string {
 
 // GetContacts returns the user's contact list with optional search filter.
 func (c *Client) GetContacts(ctx context.Context, params types.GetContactsParams) (*types.GetContactsResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Set defaults
@@ -113,72 +114,35 @@ func convertUserToContact(user *tg.User) types.Contact {
 
 // matchesQuery checks if a contact matches the search query.
 func matchesQuery(contact types.Contact, query string) bool {
-	query = lower(query)
+	query = strings.ToLower(query)
 
 	// Check first name
-	if contains(lower(contact.FirstName), query) {
+	if strings.Contains(strings.ToLower(contact.FirstName), query) {
 		return true
 	}
 
 	// Check last name
-	if contains(lower(contact.LastName), query) {
+	if strings.Contains(strings.ToLower(contact.LastName), query) {
 		return true
 	}
 
 	// Check username
-	if contains(lower(contact.Username), query) {
+	if strings.Contains(strings.ToLower(contact.Username), query) {
 		return true
 	}
 
 	// Check phone
-	if contains(contact.Phone, query) {
+	if strings.Contains(contact.Phone, query) {
 		return true
 	}
 
 	return false
 }
 
-func lower(s string) string {
-	// Simple lowercase conversion for ASCII
-	result := make([]byte, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			result[i] = c + 32
-		} else {
-			result[i] = c
-		}
-	}
-	return string(result)
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && findSubstring(s, substr) >= 0
-}
-
-func findSubstring(s, substr string) int {
-	if len(substr) == 0 {
-		return 0
-	}
-	for i := 0; i <= len(s)-len(substr); i++ {
-		match := true
-		for j := 0; j < len(substr); j++ {
-			if s[i+j] != substr[j] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return i
-		}
-	}
-	return -1
-}
-
 // AddContact adds a new contact to the user's contact list.
 func (c *Client) AddContact(ctx context.Context, params types.AddContactParams) (*types.AddContactResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Import contact using phone number
@@ -207,9 +171,12 @@ func (c *Client) AddContact(ctx context.Context, params types.AddContactParams) 
 }
 
 // DeleteContact deletes a contact from the user's contact list.
-func (c *Client) DeleteContact(ctx context.Context, params types.DeleteContactParams) (*types.DeleteContactResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+func (c *Client) DeleteContact(
+	ctx context.Context,
+	params types.DeleteContactParams,
+) (*types.DeleteContactResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	var userID int64

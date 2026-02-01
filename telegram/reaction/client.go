@@ -31,8 +31,8 @@ func createReaction(emoji string) tg.ReactionClass {
 
 // AddReaction adds a reaction to a message.
 func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams) (*types.AddReactionResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
@@ -64,8 +64,8 @@ func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams
 func (c *Client) RemoveReaction(
 	ctx context.Context, params types.RemoveReactionParams,
 ) (*types.RemoveReactionResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
@@ -122,8 +122,8 @@ func extractReactions(msgReactions tg.MessageReactions) []types.Reaction {
 func (c *Client) ListReactions(
 	ctx context.Context, params types.ListReactionsParams,
 ) (*types.ListReactionsResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Get messages to find reactions

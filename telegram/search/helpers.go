@@ -1,9 +1,8 @@
 package search
 
 import (
-	"fmt"
-
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
 )
 
@@ -15,7 +14,7 @@ func buildSearchResult(
 	channelMap map[int64]*tg.Channel,
 ) types.SearchResult {
 	result := types.SearchResult{
-		Peer: formatPeer(peerClass),
+		Peer: helpers.FormatPeer(peerClass, helpers.PeerFormatTyped),
 	}
 
 	// Add names/IDs based on peer type
@@ -68,8 +67,8 @@ func extractMessages(messages []tg.MessageClass, users []tg.UserClass, _ []tg.Ch
 			Date:     int64(m.Date),
 			Text:     m.Message,
 			Out:      m.Out,
-			PeerID:   formatPeer(m.PeerID),
-			FromID:   formatFromID(m.FromID),
+			PeerID:   helpers.FormatPeer(m.PeerID, helpers.PeerFormatTyped),
+			FromID:   helpers.FormatPeer(m.FromID, helpers.PeerFormatTyped),
 			FromName: getFromName(m.FromID, userMap),
 		}
 
@@ -82,35 +81,6 @@ func extractMessages(messages []tg.MessageClass, users []tg.UserClass, _ []tg.Ch
 	}
 
 	return results
-}
-
-// formatPeer formats a peer class to string.
-func formatPeer(peer tg.PeerClass) string {
-	switch p := peer.(type) {
-	case *tg.PeerUser:
-		return fmt.Sprintf("user:%d", p.UserID)
-	case *tg.PeerChat:
-		return fmt.Sprintf("chat:%d", p.ChatID)
-	case *tg.PeerChannel:
-		return fmt.Sprintf("channel:%d", p.ChannelID)
-	}
-	return ""
-}
-
-// formatFromID formats a from ID peer class to string.
-func formatFromID(fromID tg.PeerClass) string {
-	if fromID == nil {
-		return ""
-	}
-	switch p := fromID.(type) {
-	case *tg.PeerUser:
-		return fmt.Sprintf("user:%d", p.UserID)
-	case *tg.PeerChat:
-		return fmt.Sprintf("chat:%d", p.ChatID)
-	case *tg.PeerChannel:
-		return fmt.Sprintf("channel:%d", p.ChannelID)
-	}
-	return ""
 }
 
 // getFromName extracts the sender name from peer.

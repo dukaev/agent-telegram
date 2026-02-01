@@ -24,52 +24,42 @@ func NewClient(tc client.ParentClient) *Client {
 
 // PinMessage pins a message.
 func (c *Client) PinMessage(ctx context.Context, params types.PinMessageParams) (*types.PinMessageResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
-	if err != nil {
+	if err := c.updatePin(ctx, params.Peer, params.MessageID, false); err != nil {
 		return nil, err
 	}
-
-	_, err = c.API.MessagesUpdatePinnedMessage(ctx, &tg.MessagesUpdatePinnedMessageRequest{
-		Peer:  inputPeer,
-		ID:    int(params.MessageID),
-		Unpin: false,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to pin message: %w", err)
-	}
-
-	return &types.PinMessageResult{
-		Success:   true,
-		MessageID: params.MessageID,
-	}, nil
+	return &types.PinMessageResult{Success: true, MessageID: params.MessageID}, nil
 }
 
 // UnpinMessage unpins a message.
 func (c *Client) UnpinMessage(ctx context.Context, params types.UnpinMessageParams) (*types.UnpinMessageResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.updatePin(ctx, params.Peer, params.MessageID, true); err != nil {
+		return nil, err
+	}
+	return &types.UnpinMessageResult{Success: true, MessageID: params.MessageID}, nil
+}
+
+// updatePin is the shared implementation for pin/unpin operations.
+func (c *Client) updatePin(ctx context.Context, peer string, messageID int64, unpin bool) error {
+	if err := c.CheckInitialized(); err != nil {
+		return err
 	}
 
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, peer)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = c.API.MessagesUpdatePinnedMessage(ctx, &tg.MessagesUpdatePinnedMessageRequest{
 		Peer:  inputPeer,
-		ID:    int(params.MessageID),
-		Unpin: true,
+		ID:    int(messageID),
+		Unpin: unpin,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to unpin message: %w", err)
+		action := "pin"
+		if unpin {
+			action = "unpin"
+		}
+		return fmt.Errorf("failed to %s message: %w", action, err)
 	}
-
-	return &types.UnpinMessageResult{
-		Success:   true,
-		MessageID: params.MessageID,
-	}, nil
+	return nil
 }

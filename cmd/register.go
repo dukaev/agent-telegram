@@ -6,7 +6,6 @@ import (
 	"agent-telegram/cmd/chat"
 	"agent-telegram/cmd/contact"
 	"agent-telegram/cmd/get"
-	"agent-telegram/cmd/info"
 	"agent-telegram/cmd/message"
 	"agent-telegram/cmd/open"
 	"agent-telegram/cmd/search"
@@ -28,9 +27,6 @@ func init() {
 
 	// Open command
 	open.AddOpenCommand(RootCmd)
-
-	// Info command
-	info.AddInfoCommand(RootCmd)
 
 	// Message commands
 	message.AddMsgCommand(RootCmd)

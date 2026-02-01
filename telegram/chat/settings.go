@@ -10,8 +10,8 @@ import (
 
 // EditTitle edits the title of a chat or channel.
 func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*types.EditTitleResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	peer, err := c.ResolvePeer(ctx, params.Peer)
@@ -51,8 +51,8 @@ func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*
 
 // SetPhoto sets the photo for a chat or channel.
 func (c *Client) SetPhoto(_ context.Context, _ types.SetPhotoParams) (*types.SetPhotoResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// This requires file upload functionality
@@ -62,8 +62,8 @@ func (c *Client) SetPhoto(_ context.Context, _ types.SetPhotoParams) (*types.Set
 
 // DeletePhoto deletes the photo from a chat or channel.
 func (c *Client) DeletePhoto(ctx context.Context, params types.DeletePhotoParams) (*types.DeletePhotoResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	peer, err := c.ResolvePeer(ctx, params.Peer)

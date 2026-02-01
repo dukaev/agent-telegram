@@ -12,8 +12,8 @@ import (
 
 // SendMessage sends a message to a peer.
 func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams) (*types.SendMessageResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Resolve username to get input peer
@@ -45,8 +45,8 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 
 // SendReply sends a reply to a message.
 func (c *Client) SendReply(ctx context.Context, params types.SendReplyParams) (*types.SendReplyResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)

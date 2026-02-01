@@ -116,6 +116,7 @@ func AddSendCommand(rootCmd *cobra.Command) {
 }
 
 // buildSendParams determines the method and parameters based on flags and args.
+//
 //nolint:funlen // Function requires handling multiple content types
 func buildSendParams(args []string) (string, map[string]any) {
 	params := make(map[string]any)

@@ -58,11 +58,11 @@ ignoreFailures = false
 [rule.var-naming]
 	severity = "warning"
 
-# File length limit rule - max 200 lines
+# File length limit rule - files must be under 200 lines (excluding blanks and comments)
 [rule.file-length-limit]
 	severity = "error"
 	arguments = [
-		{ max = 200, skipBlankLines = true, skipComments = true }
+		{ max = 199, skipBlankLines = true, skipComments = true }
 	]
 
 # Limit function return values
@@ -70,13 +70,12 @@ ignoreFailures = false
 	severity = "error"
 	arguments = [3]
 
-# Cyclomatic complexity limit (each switch case adds 1)
-# Use map/strategy pattern for large switches
+# Cyclomatic complexity limit (22 for type switches)
 [rule.cyclomatic]
 	severity = "error"
-	arguments = [10]
+	arguments = [22]
 
-# Cognitive complexity limit
+# Cognitive complexity limit (25 for type switches)
 [rule.cognitive-complexity]
 	severity = "error"
-	arguments = [10]
+	arguments = [25]

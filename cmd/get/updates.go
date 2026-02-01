@@ -31,14 +31,17 @@ var UpdatesCmd = &cobra.Command{
 func AddUpdatesCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(UpdatesCmd)
 
-	UpdatesCmd.Flags().IntVarP(&GetUpdatesLimit, "limit", "l", 10, "Number of updates to get")
+	UpdatesCmd.Flags().IntVarP(&GetUpdatesLimit, "limit", "l", cliutil.DefaultLimitSmall, "Number of updates (max 100)")
 	UpdatesCmd.Flags().BoolVarP(&GetUpdatesJSON, "json", "j", false, "Output as JSON")
 	UpdatesCmd.Flags().VarP(&GetUpdatesTo, "to", "t", "Recipient (@username, username, or chat ID) to filter updates")
 	UpdatesCmd.Run = func(*cobra.Command, []string) {
+		pag := cliutil.NewPagination(GetUpdatesLimit, 0, cliutil.PaginationConfig{
+			MaxLimit: cliutil.MaxLimitStandard,
+		})
+
 		runner := cliutil.NewRunnerFromCmd(UpdatesCmd, true) // Always JSON
-		params := map[string]any{
-			"limit": GetUpdatesLimit,
-		}
+		params := map[string]any{}
+		pag.ToParams(params, false) // updates API doesn't support offset
 		GetUpdatesTo.AddToParams(params)
 		result := runner.CallWithParams("get_updates", params)
 		// Output as JSON

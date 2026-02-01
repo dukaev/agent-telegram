@@ -13,8 +13,8 @@ import (
 
 // SendPoll sends a poll to a peer.
 func (c *Client) SendPoll(ctx context.Context, params types.SendPollParams) (*types.SendPollResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)

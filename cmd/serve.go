@@ -71,10 +71,11 @@ func runServe(_ *cobra.Command, _ []string) {
 	startTelegramClient(ctx, tgClient)
 
 	srv := createIPCServer(socketPath, tgClient)
-	startServer(ctx, srv)
-
+	if err := srv.Start(ctx); err != nil {
+		slog.Error("server error", "error", err)
+		os.Exit(1)
+	}
 	slog.Info("Server stopped")
-	fmt.Println("Server stopped.")
 }
 
 // setupLogger configures structured logging to file.
@@ -211,14 +212,6 @@ func createIPCServer(socketPath string, tgClient *telegram.Client) *ipc.SocketSe
 	})
 
 	return srv
-}
-
-// startServer starts the IPC server.
-func startServer(ctx context.Context, srv *ipc.SocketServer) {
-	if err := srv.Start(ctx); err != nil {
-		slog.Error("server error", "error", err)
-		os.Exit(1)
-	}
 }
 
 // getEnv returns the first non-empty environment variable from the given keys.

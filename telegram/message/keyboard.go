@@ -10,10 +10,11 @@ import (
 )
 
 // InspectReplyKeyboard inspects the reply keyboard from a chat.
+//
 //nolint:funlen // Function requires iterating through messages to find keyboard markup
 func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Normalize peer

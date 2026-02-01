@@ -10,8 +10,8 @@ import (
 
 // GetTopics retrieves forum topics from a channel.
 func (c *Client) GetTopics(ctx context.Context, params types.GetTopicsParams) (*types.GetTopicsResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Resolve peer to get InputChannel

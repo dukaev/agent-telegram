@@ -10,8 +10,8 @@ import (
 
 // CreateGroup creates a new group chat.
 func (c *Client) CreateGroup(ctx context.Context, params types.CreateGroupParams) (*types.CreateGroupResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Resolve members to InputPeerClass
@@ -71,8 +71,8 @@ func (c *Client) CreateChannel(
 	ctx context.Context,
 	params types.CreateChannelParams,
 ) (*types.CreateChannelResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Create channel

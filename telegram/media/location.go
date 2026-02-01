@@ -102,8 +102,8 @@ func (g *GeoCoder) Geocode(city string) (*GeocodeResult, error) {
 
 // SendLocation sends a location to a peer.
 func (c *Client) SendLocation(ctx context.Context, params types.SendLocationParams) (*types.SendLocationResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Clean peer (remove @ prefix)

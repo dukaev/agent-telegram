@@ -15,8 +15,8 @@ func (c *Client) GetParticipants(
 	ctx context.Context,
 	params types.GetParticipantsParams,
 ) (*types.GetParticipantsResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	peer, err := c.ResolvePeer(ctx, params.Peer)
@@ -162,8 +162,8 @@ func extractChatParticipant(p tg.ChatParticipantClass, users []tg.UserClass) typ
 
 // GetAdmins retrieves admins from a chat or channel.
 func (c *Client) GetAdmins(ctx context.Context, params types.GetAdminsParams) (*types.GetAdminsResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	participantsResult, err := c.GetParticipants(ctx, types.GetParticipantsParams(params))
@@ -187,8 +187,8 @@ func (c *Client) GetAdmins(ctx context.Context, params types.GetAdminsParams) (*
 
 // GetBanned retrieves banned users from a chat or channel.
 func (c *Client) GetBanned(ctx context.Context, params types.GetBannedParams) (*types.GetBannedResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	peer, err := c.ResolvePeer(ctx, params.Peer)

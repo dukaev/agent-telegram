@@ -13,8 +13,8 @@ import (
 func (c *Client) InspectInlineButtons(
 	ctx context.Context, params types.InspectInlineButtonsParams,
 ) (*types.InspectInlineButtonsResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Get messages to find the one with inline buttons
@@ -109,8 +109,8 @@ func extractButtons(markup tg.ReplyMarkupClass) []types.InlineButton {
 func (c *Client) PressInlineButton(
 	ctx context.Context, params types.PressInlineButtonParams,
 ) (*types.PressInlineButtonResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Resolve peer for the callback request

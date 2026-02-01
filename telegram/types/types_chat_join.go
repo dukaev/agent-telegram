@@ -1,18 +1,14 @@
+// Package types provides common types for Telegram client join operations.
 package types
-
-import "fmt"
 
 // JoinChatParams holds parameters for JoinChat.
 type JoinChatParams struct {
-	InviteLink string `json:"inviteLink"`
+	InviteLink string `json:"inviteLink" validate:"required"`
 }
 
 // Validate validates JoinChatParams.
 func (p JoinChatParams) Validate() error {
-	if p.InviteLink == "" {
-		return fmt.Errorf("inviteLink is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // JoinChatResult is the result of JoinChat.
@@ -24,15 +20,12 @@ type JoinChatResult struct {
 
 // SubscribeChannelParams holds parameters for SubscribeChannel.
 type SubscribeChannelParams struct {
-	Channel string `json:"channel"` // @username or username
+	Channel string `json:"channel" validate:"required"` // @username or username
 }
 
 // Validate validates SubscribeChannelParams.
 func (p SubscribeChannelParams) Validate() error {
-	if p.Channel == "" {
-		return fmt.Errorf("channel is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // SubscribeChannelResult is the result of SubscribeChannel.
@@ -54,16 +47,13 @@ type ForumTopic struct {
 
 // GetTopicsParams holds parameters for GetTopics.
 type GetTopicsParams struct {
-	Peer  string `json:"peer"`            // Channel username or ID
-	Limit int    `json:"limit,omitempty"` // Maximum number of topics to return
+	Peer  string `json:"peer" validate:"required"` // Channel username or ID
+	Limit int    `json:"limit,omitempty"`          // Maximum number of topics to return
 }
 
 // Validate validates GetTopicsParams.
 func (p GetTopicsParams) Validate() error {
-	if p.Peer == "" {
-		return fmt.Errorf("peer is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // GetTopicsResult is the result of GetTopics.

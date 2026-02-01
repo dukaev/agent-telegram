@@ -15,8 +15,8 @@ func (c *Client) GetInviteLink(
 	ctx context.Context,
 	params types.GetInviteLinkParams,
 ) (*types.GetInviteLinkResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	peer, err := c.ResolvePeer(ctx, params.Peer)

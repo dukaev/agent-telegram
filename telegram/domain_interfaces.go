@@ -1,0 +1,88 @@
+// Package telegram defines interfaces for domain clients.
+package telegram
+
+import (
+	"context"
+
+	"agent-telegram/telegram/types"
+)
+
+// ChatClient defines the interface for chat operations.
+type ChatClient interface {
+	GetChats(ctx context.Context, params *types.GetChatsParams) (*types.GetChatsResult, error)
+	GetTopics(ctx context.Context, params types.GetTopicsParams) (*types.GetTopicsResult, error)
+	CreateGroup(ctx context.Context, params types.CreateGroupParams) (*types.CreateGroupResult, error)
+	CreateChannel(ctx context.Context, params types.CreateChannelParams) (*types.CreateChannelResult, error)
+	EditTitle(ctx context.Context, params types.EditTitleParams) (*types.EditTitleResult, error)
+	SetPhoto(ctx context.Context, params types.SetPhotoParams) (*types.SetPhotoResult, error)
+	DeletePhoto(ctx context.Context, params types.DeletePhotoParams) (*types.DeletePhotoResult, error)
+	Leave(ctx context.Context, params types.LeaveParams) (*types.LeaveResult, error)
+	Invite(ctx context.Context, params types.InviteParams) (*types.InviteResult, error)
+	GetParticipants(ctx context.Context, params types.GetParticipantsParams) (*types.GetParticipantsResult, error)
+	GetAdmins(ctx context.Context, params types.GetAdminsParams) (*types.GetAdminsResult, error)
+	GetBanned(ctx context.Context, params types.GetBannedParams) (*types.GetBannedResult, error)
+	PromoteAdmin(ctx context.Context, params types.PromoteAdminParams) (*types.PromoteAdminResult, error)
+	DemoteAdmin(ctx context.Context, params types.DemoteAdminParams) (*types.DemoteAdminResult, error)
+	GetInviteLink(ctx context.Context, params types.GetInviteLinkParams) (*types.GetInviteLinkResult, error)
+	ClearMessages(ctx context.Context, params types.ClearMessagesParams) (*types.ClearMessagesResult, error)
+	ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error)
+	PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error)
+	JoinChat(ctx context.Context, params types.JoinChatParams) (*types.JoinChatResult, error)
+	SubscribeChannel(ctx context.Context, params types.SubscribeChannelParams) (*types.SubscribeChannelResult, error)
+}
+
+// MessageClient defines the interface for message operations.
+type MessageClient interface {
+	GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error)
+	SendMessage(ctx context.Context, params types.SendMessageParams) (*types.SendMessageResult, error)
+	SendReply(ctx context.Context, params types.SendReplyParams) (*types.SendReplyResult, error)
+	UpdateMessage(ctx context.Context, params types.UpdateMessageParams) (*types.UpdateMessageResult, error)
+	DeleteMessage(ctx context.Context, params types.DeleteMessageParams) (*types.DeleteMessageResult, error)
+	ForwardMessage(ctx context.Context, params types.ForwardMessageParams) (*types.ForwardMessageResult, error)
+	InspectInlineButtons(
+		ctx context.Context, params types.InspectInlineButtonsParams,
+	) (*types.InspectInlineButtonsResult, error)
+	PressInlineButton(ctx context.Context, params types.PressInlineButtonParams) (*types.PressInlineButtonResult, error)
+	InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error)
+}
+
+// MediaClient defines the interface for media operations.
+type MediaClient interface {
+	SendPhoto(ctx context.Context, params types.SendPhotoParams) (*types.SendPhotoResult, error)
+	SendVideo(ctx context.Context, params types.SendVideoParams) (*types.SendVideoResult, error)
+	SendFile(ctx context.Context, params types.SendFileParams) (*types.SendFileResult, error)
+	SendContact(ctx context.Context, params types.SendContactParams) (*types.SendContactResult, error)
+	SendLocation(ctx context.Context, params types.SendLocationParams) (*types.SendLocationResult, error)
+	SendPoll(ctx context.Context, params types.SendPollParams) (*types.SendPollResult, error)
+}
+
+// UserClient defines the interface for user operations.
+type UserClient interface {
+	GetUserInfo(ctx context.Context, params types.GetUserInfoParams) (*types.GetUserInfoResult, error)
+	GetContacts(ctx context.Context, params types.GetContactsParams) (*types.GetContactsResult, error)
+	AddContact(ctx context.Context, params types.AddContactParams) (*types.AddContactResult, error)
+	DeleteContact(ctx context.Context, params types.DeleteContactParams) (*types.DeleteContactResult, error)
+	UpdateProfile(ctx context.Context, params types.UpdateProfileParams) (*types.UpdateProfileResult, error)
+	UpdateAvatar(ctx context.Context, params types.UpdateAvatarParams) (*types.UpdateAvatarResult, error)
+	BlockPeer(ctx context.Context, params types.BlockPeerParams) (*types.BlockPeerResult, error)
+	UnblockPeer(ctx context.Context, params types.UnblockPeerParams) (*types.UnblockPeerResult, error)
+}
+
+// PinClient defines the interface for pin operations.
+type PinClient interface {
+	PinMessage(ctx context.Context, params types.PinMessageParams) (*types.PinMessageResult, error)
+	UnpinMessage(ctx context.Context, params types.UnpinMessageParams) (*types.UnpinMessageResult, error)
+}
+
+// ReactionClient defines the interface for reaction operations.
+type ReactionClient interface {
+	AddReaction(ctx context.Context, params types.AddReactionParams) (*types.AddReactionResult, error)
+	RemoveReaction(ctx context.Context, params types.RemoveReactionParams) (*types.RemoveReactionResult, error)
+	ListReactions(ctx context.Context, params types.ListReactionsParams) (*types.ListReactionsResult, error)
+}
+
+// SearchClient defines the interface for search operations.
+type SearchClient interface {
+	SearchGlobal(ctx context.Context, params types.SearchGlobalParams) (*types.SearchGlobalResult, error)
+	SearchInChat(ctx context.Context, params types.SearchInChatParams) (*types.SearchInChatResult, error)
+}

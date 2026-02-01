@@ -11,8 +11,8 @@ import (
 
 // Join joins a chat or channel using an invite link.
 func (c *Client) Join(ctx context.Context, inviteLink string) (tg.UpdatesClass, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Extract hash from invite link
@@ -90,8 +90,8 @@ func (c *Client) JoinChat(ctx context.Context, params types.JoinChatParams) (*ty
 
 // Subscribe subscribes to a channel by username.
 func (c *Client) Subscribe(ctx context.Context, channel string) (tg.UpdatesClass, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Resolve peer to get InputChannel

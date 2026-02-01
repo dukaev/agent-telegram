@@ -10,8 +10,8 @@ import (
 
 // Leave leaves a chat or channel.
 func (c *Client) Leave(ctx context.Context, params types.LeaveParams) (*types.LeaveResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	peer, err := c.ResolvePeer(ctx, params.Peer)
@@ -44,8 +44,8 @@ func (c *Client) Leave(ctx context.Context, params types.LeaveParams) (*types.Le
 
 // Invite invites users to a chat or channel.
 func (c *Client) Invite(ctx context.Context, params types.InviteParams) (*types.InviteResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	peer, err := c.ResolvePeer(ctx, params.Peer)

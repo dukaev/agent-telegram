@@ -1,31 +1,24 @@
-package types
-
-import "fmt"
+// Package types provides common types for Telegram client admin operations.
+package types // revive:disable:var-naming
 
 // PromoteAdminParams holds parameters for PromoteAdmin.
 type PromoteAdminParams struct {
-	Peer              string `json:"peer"`                        // Chat/channel username or ID
-	User              string `json:"user"`                        // Username to promote
-	CanChangeInfo     bool   `json:"canChangeInfo,omitempty"`     // Can change chat info
-	CanPostMessages   bool   `json:"canPostMessages,omitempty"`   // Can post messages
-	CanEditMessages   bool   `json:"canEditMessages,omitempty"`   // Can edit messages
-	CanDeleteMessages bool   `json:"canDeleteMessages,omitempty"` // Can delete messages
-	CanBanUsers       bool   `json:"canBanUsers,omitempty"`       // Can ban users
-	CanInviteUsers    bool   `json:"canInviteUsers,omitempty"`    // Can invite users
-	CanPinMessages    bool   `json:"canPinMessages,omitempty"`    // Can pin messages
-	CanAddAdmins      bool   `json:"canAddAdmins,omitempty"`      // Can add new admins
-	Anonymous         bool   `json:"anonymous,omitempty"`         // Is anonymous admin
+	Peer              string `json:"peer" validate:"required"`       // Chat/channel username or ID
+	User              string `json:"user" validate:"required"`       // Username to promote
+	CanChangeInfo     bool   `json:"canChangeInfo,omitempty"`        // Can change chat info
+	CanPostMessages   bool   `json:"canPostMessages,omitempty"`      // Can post messages
+	CanEditMessages   bool   `json:"canEditMessages,omitempty"`      // Can edit messages
+	CanDeleteMessages bool   `json:"canDeleteMessages,omitempty"`    // Can delete messages
+	CanBanUsers       bool   `json:"canBanUsers,omitempty"`          // Can ban users
+	CanInviteUsers    bool   `json:"canInviteUsers,omitempty"`       // Can invite users
+	CanPinMessages    bool   `json:"canPinMessages,omitempty"`       // Can pin messages
+	CanAddAdmins      bool   `json:"canAddAdmins,omitempty"`         // Can add new admins
+	Anonymous         bool   `json:"anonymous,omitempty"`            // Is anonymous admin
 }
 
 // Validate validates PromoteAdminParams.
 func (p PromoteAdminParams) Validate() error {
-	if p.Peer == "" {
-		return fmt.Errorf("peer is required")
-	}
-	if p.User == "" {
-		return fmt.Errorf("user is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // PromoteAdminResult is the result of PromoteAdmin.
@@ -35,19 +28,13 @@ type PromoteAdminResult struct {
 
 // DemoteAdminParams holds parameters for DemoteAdmin.
 type DemoteAdminParams struct {
-	Peer string `json:"peer"` // Chat/channel username or ID
-	User string `json:"user"` // Username to demote
+	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
+	User string `json:"user" validate:"required"` // Username to demote
 }
 
 // Validate validates DemoteAdminParams.
 func (p DemoteAdminParams) Validate() error {
-	if p.Peer == "" {
-		return fmt.Errorf("peer is required")
-	}
-	if p.User == "" {
-		return fmt.Errorf("user is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // DemoteAdminResult is the result of DemoteAdmin.
@@ -57,16 +44,13 @@ type DemoteAdminResult struct {
 
 // GetInviteLinkParams holds parameters for GetInviteLink.
 type GetInviteLinkParams struct {
-	Peer      string `json:"peer"`                // Chat/channel username or ID
-	CreateNew bool   `json:"createNew,omitempty"` // Create a new link
+	Peer      string `json:"peer" validate:"required"` // Chat/channel username or ID
+	CreateNew bool   `json:"createNew,omitempty"`      // Create a new link
 }
 
 // Validate validates GetInviteLinkParams.
 func (p GetInviteLinkParams) Validate() error {
-	if p.Peer == "" {
-		return fmt.Errorf("peer is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // GetInviteLinkResult is the result of GetInviteLink.

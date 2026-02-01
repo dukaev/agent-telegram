@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "method": "messages.getHistory",
+    "recorded_at": "2024-01-15T10:30:00Z",
+    "telegram_layer": 185,
+    "notes": "Private chat with regular user, 3 text messages",
+    "sanitized": true
+  },
+  "request": {
+    "_": "messages.getHistoryRequest",
+    "peer": {
+      "_": "inputPeerUser",
+      "user_id": 100000001,
+      "access_hash": 1000000000000000001
+    },
+    "offset_id": 0,
+    "offset_date": 0,
+    "add_offset": 0,
+    "limit": 50,
+    "max_id": 0,
+    "min_id": 0,
+    "hash": 0
+  },
+  "response": {
+    "_": "messages.messages",
+    "messages": [
+      {
+        "_": "message",
+        "id": 103,
+        "peer_id": {
+          "_": "peerUser",
+          "user_id": 100000001
+        },
+        "from_id": {
+          "_": "peerUser",
+          "user_id": 100000001
+        },
+        "date": 1705312200,
+        "message": "Test message 3",
+        "out": false
+      },
+      {
+        "_": "message",
+        "id": 102,
+        "peer_id": {
+          "_": "peerUser",
+          "user_id": 100000001
+        },
+        "from_id": {
+          "_": "peerUser",
+          "user_id": 100000002
+        },
+        "date": 1705312100,
+        "message": "Test message 2",
+        "out": true
+      },
+      {
+        "_": "message",
+        "id": 101,
+        "peer_id": {
+          "_": "peerUser",
+          "user_id": 100000001
+        },
+        "from_id": {
+          "_": "peerUser",
+          "user_id": 100000001
+        },
+        "date": 1705312000,
+        "message": "Test message 1",
+        "out": false
+      }
+    ],
+    "chats": [],
+    "users": [
+      {
+        "_": "user",
+        "id": 100000001,
+        "access_hash": 1000000000000000001,
+        "first_name": "Alice",
+        "last_name": "Test",
+        "username": "testuser1"
+      },
+      {
+        "_": "user",
+        "id": 100000002,
+        "access_hash": 1000000000000000002,
+        "first_name": "Bob",
+        "last_name": "User",
+        "username": "testuser2",
+        "self": true
+      }
+    ]
+  }
+}

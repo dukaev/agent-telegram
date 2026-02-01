@@ -14,8 +14,8 @@ import (
 func (c *Client) SendDocument(
 	ctx context.Context, peer, file, mimeType, caption string,
 ) (*types.SendFileResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, peer)

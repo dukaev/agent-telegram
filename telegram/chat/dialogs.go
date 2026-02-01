@@ -6,16 +6,17 @@ import (
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/types"
 )
 
 // GetChats returns the list of dialogs/chats with pagination.
-func (c *Client) GetChats(ctx context.Context, limit, _ int) ([]map[string]any, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+func (c *Client) GetChats(ctx context.Context, params *types.GetChatsParams) (*types.GetChatsResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	dialogsClass, err := c.API.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
-		Limit:      limit,
+		Limit:      params.Limit,
 		OffsetDate: 0,
 		OffsetID:   0,
 		OffsetPeer: &tg.InputPeerEmpty{},
@@ -24,28 +25,41 @@ func (c *Client) GetChats(ctx context.Context, limit, _ int) ([]map[string]any, 
 		return nil, fmt.Errorf("failed to get dialogs: %w", err)
 	}
 
-	dialogs, chats, users, err := extractDialogData(dialogsClass)
+	data, err := extractDialogData(dialogsClass)
 	if err != nil {
 		return nil, err
 	}
 
-	chatMap := buildChatMap(chats)
-	userMap := buildUserMap(users)
+	chatMap := buildChatMap(data.chats)
+	userMap := buildUserMap(data.users)
 
-	return convertDialogsToResult(dialogs, chatMap, userMap), nil
+	chats := convertDialogsToResult(data.dialogs, chatMap, userMap)
+	return &types.GetChatsResult{
+		Chats:  chats,
+		Limit:  params.Limit,
+		Offset: params.Offset,
+		Count:  len(chats),
+	}, nil
+}
+
+// dialogData holds extracted dialog data.
+type dialogData struct {
+	dialogs []tg.DialogClass
+	chats   []tg.ChatClass
+	users   []tg.UserClass
 }
 
 // extractDialogData extracts dialogs, chats, and users from the response.
-func extractDialogData(dialogsClass tg.MessagesDialogsClass) ([]tg.DialogClass, []tg.ChatClass, []tg.UserClass, error) {
+func extractDialogData(dialogsClass tg.MessagesDialogsClass) (*dialogData, error) {
 	switch d := dialogsClass.(type) {
 	case *tg.MessagesDialogs:
-		return d.Dialogs, d.Chats, d.Users, nil
+		return &dialogData{d.Dialogs, d.Chats, d.Users}, nil
 	case *tg.MessagesDialogsSlice:
-		return d.Dialogs, d.Chats, d.Users, nil
+		return &dialogData{d.Dialogs, d.Chats, d.Users}, nil
 	case *tg.MessagesDialogsNotModified:
-		return nil, nil, nil, fmt.Errorf("dialogs not modified")
+		return nil, fmt.Errorf("dialogs not modified")
 	default:
-		return nil, nil, nil, fmt.Errorf("unexpected dialogs type: %T", d)
+		return nil, fmt.Errorf("unexpected dialogs type: %T", d)
 	}
 }
 

@@ -2,9 +2,6 @@
 package user
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
@@ -12,8 +9,8 @@ import (
 
 // InfoCmd represents the user info command.
 var InfoCmd = &cobra.Command{
-	Use:     "info [@username]",
-	Short:   "Get information about a Telegram user",
+	Use:   "info [@username]",
+	Short: "Get information about a Telegram user",
 	Long: `Get detailed information about a Telegram user by username.
 If no username is provided, returns info about the current user (me).
 
@@ -29,29 +26,12 @@ Examples:
 func AddInfoCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(InfoCmd)
 
-	InfoCmd.Flags().BoolVarP(&infoJSON, "json", "j", false, "Output as JSON")
-
 	InfoCmd.Run = func(_ *cobra.Command, args []string) {
-		runner := cliutil.NewRunnerFromCmd(InfoCmd, true) // Always JSON
-
-		var result any
-		if len(args) == 0 {
-			// No username provided - get current user info
-			result = runner.Call("get_me", nil)
-		} else {
-			// Username provided - get specific user info
-			username := args[0]
-			result = runner.CallWithParams("get_user_info", map[string]any{
-				"username": username,
-			})
+		runner := cliutil.NewRunnerFromCmd(InfoCmd, true)
+		username := ""
+		if len(args) > 0 {
+			username = args[0]
 		}
-
-		// Output as JSON
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
+		cliutil.GetUserInfo(runner, username)
 	}
 }
-
-var (
-	infoJSON bool
-)

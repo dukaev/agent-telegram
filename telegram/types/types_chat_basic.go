@@ -1,12 +1,21 @@
 // Package types provides common types for Telegram client chat operations.
 package types // revive:disable:var-naming
 
-import "fmt"
-
 // GetChatsParams holds parameters for GetChats.
 type GetChatsParams struct {
 	Limit  int `json:"limit"`
 	Offset int `json:"offset"`
+}
+
+// Validate validates GetChatsParams and sets defaults.
+func (p *GetChatsParams) Validate() error {
+	if p.Limit <= 0 {
+		p.Limit = 10
+	}
+	if p.Limit > 100 {
+		p.Limit = 100
+	}
+	return nil
 }
 
 // GetChatsResult is the result of GetChats.
@@ -20,18 +29,12 @@ type GetChatsResult struct {
 // ClearMessagesParams holds parameters for ClearMessages.
 type ClearMessagesParams struct {
 	PeerInfo
-	MessageIDs []int64 `json:"messageIds"`
+	MessageIDs []int64 `json:"messageIds" validate:"required"`
 }
 
 // Validate validates ClearMessagesParams.
 func (p ClearMessagesParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if len(p.MessageIDs) == 0 {
-		return fmt.Errorf("messageIds is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // ClearMessagesResult is the result of ClearMessages.
@@ -49,7 +52,7 @@ type ClearHistoryParams struct {
 
 // Validate validates ClearHistoryParams.
 func (p ClearHistoryParams) Validate() error {
-	return p.ValidatePeer()
+	return ValidateStruct(p)
 }
 
 // ClearHistoryResult is the result of ClearHistory.
@@ -61,23 +64,14 @@ type ClearHistoryResult struct {
 
 // ForwardMessageParams holds parameters for ForwardMessage.
 type ForwardMessageParams struct {
-	FromPeer  string `json:"fromPeer"`
-	MessageID int64  `json:"messageId"`
-	ToPeer    string `json:"toPeer"`
+	FromPeer  string `json:"fromPeer" validate:"required"`
+	MessageID int64  `json:"messageId" validate:"required"`
+	ToPeer    string `json:"toPeer" validate:"required"`
 }
 
 // Validate validates ForwardMessageParams.
 func (p ForwardMessageParams) Validate() error {
-	if p.FromPeer == "" {
-		return fmt.Errorf("fromPeer is required")
-	}
-	if p.MessageID == 0 {
-		return fmt.Errorf("messageId is required")
-	}
-	if p.ToPeer == "" {
-		return fmt.Errorf("toPeer is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // ForwardMessageResult is the result of ForwardMessage.
@@ -94,7 +88,7 @@ type PinChatParams struct {
 
 // Validate validates PinChatParams.
 func (p PinChatParams) Validate() error {
-	return p.ValidatePeer()
+	return ValidateStruct(p)
 }
 
 // PinChatResult is the result of PinChat.

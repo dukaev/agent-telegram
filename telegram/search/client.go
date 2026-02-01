@@ -24,8 +24,8 @@ func NewClient(tc client.ParentClient) *Client {
 
 // SearchGlobal searches for public chats, channels, and bots globally.
 func (c *Client) SearchGlobal(ctx context.Context, params types.SearchGlobalParams) (*types.SearchGlobalResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Limit results
@@ -86,8 +86,8 @@ func (c *Client) SearchGlobal(ctx context.Context, params types.SearchGlobalPara
 
 // SearchInChat searches for messages within a specific chat.
 func (c *Client) SearchInChat(ctx context.Context, params types.SearchInChatParams) (*types.SearchInChatResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("api client not set")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Resolve peer

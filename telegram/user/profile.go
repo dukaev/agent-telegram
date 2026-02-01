@@ -15,8 +15,8 @@ import (
 func (c *Client) UpdateProfile(
 	ctx context.Context, params types.UpdateProfileParams,
 ) (*types.UpdateProfileResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	_, err := c.API.AccountUpdateProfile(ctx, &tg.AccountUpdateProfileRequest{
@@ -35,8 +35,8 @@ func (c *Client) UpdateProfile(
 
 // UpdateAvatar updates the user's avatar/profile photo.
 func (c *Client) UpdateAvatar(ctx context.Context, params types.UpdateAvatarParams) (*types.UpdateAvatarResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// #nosec G304 -- filePath is validated in handler

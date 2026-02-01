@@ -145,8 +145,11 @@ func ExtractFloat64(m map[string]any, key string) float64 {
 	return 0
 }
 
-// ExtractInt64 safely extracts an int64 from a map.
+// ExtractInt64 safely extracts an int64 from a map (handles both int64 and float64).
 func ExtractInt64(m map[string]any, key string) int64 {
+	if v, ok := m[key].(int64); ok {
+		return v
+	}
 	return int64(ExtractFloat64(m, key))
 }
 

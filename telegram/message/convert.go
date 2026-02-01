@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
 )
 
@@ -52,8 +53,6 @@ func extractMessagesData(messagesClass tg.MessagesMessagesClass) ([]tg.MessageCl
 }
 
 // convertMessagesToResult converts messages to the result format.
-//
-//nolint:gocognit,funlen // Function requires extracting multiple message fields
 func convertMessagesToResult(messages []tg.MessageClass, userMap map[int64]tg.UserClass) []types.MessageResult {
 	result := make([]types.MessageResult, 0, len(messages))
 	for _, msgClass := range messages {
@@ -61,118 +60,93 @@ func convertMessagesToResult(messages []tg.MessageClass, userMap map[int64]tg.Us
 		if !ok {
 			continue
 		}
-
-		msgResult := types.MessageResult{
-			ID:        int64(msg.ID),
-			Date:      int64(msg.Date),
-			Out:       msg.Out,
-			Pinned:    msg.Pinned,
-			Mentioned: msg.Mentioned,
-			Silent:    msg.Silent,
-			Post:      msg.Post,
-		}
-
-		// Extract text
-		if msg.Message != "" {
-			msgResult.Text = msg.Message
-		}
-
-		// Extract sender info
-		if msg.FromID != nil {
-			if fromUser, ok := msg.FromID.(*tg.PeerUser); ok {
-				msgResult.FromID = fmt.Sprintf("user%d", fromUser.UserID)
-				if user, ok := userMap[fromUser.UserID].(*tg.User); ok {
-					msgResult.FromName = buildUserDisplayName(user)
-				}
-			}
-		}
-
-		// Extract peer ID (chat where message was sent)
-		if msg.PeerID != nil {
-			msgResult.PeerID = formatPeer(msg.PeerID)
-		}
-
-		// Extract edit date
-		if msg.EditDate != 0 {
-			msgResult.EditDate = int64(msg.EditDate)
-		}
-
-		// Extract media
-		if msg.Media != nil {
-			msgResult.Media = convertMedia(msg.Media)
-		}
-
-		// Extract views
-		if msg.Views != 0 {
-			msgResult.Views = msg.Views
-		}
-
-		// Extract forwards
-		if msg.Forwards != 0 {
-			msgResult.Forwards = msg.Forwards
-		}
-
-		// Extract reply to
-		if msg.ReplyTo != nil {
-			msgResult.ReplyTo = convertReplyHeader(msg.ReplyTo)
-		}
-
-		// Extract forward info
-		if !msg.FwdFrom.Zero() {
-			msgResult.FwdFrom = convertFwdHeader(msg.FwdFrom)
-		}
-
-		// Extract reactions
-		if !msg.Reactions.Zero() {
-			msgResult.Reactions = convertReactions(msg.Reactions)
-		}
-
-		// Extract entities (formatting)
-		if len(msg.Entities) > 0 {
-			msgResult.Entities = convertEntities(msg.Entities)
-		}
-
-		// Extract via bot ID
-		if msg.ViaBotID != 0 {
-			msgResult.ViaBotID = msg.ViaBotID
-		}
-
-		// Extract post author
-		if msg.PostAuthor != "" {
-			msgResult.PostAuthor = msg.PostAuthor
-		}
-
-		// Extract grouped ID (albums)
-		if msg.GroupedID != 0 {
-			msgResult.GroupedID = msg.GroupedID
-		}
-
-		// Extract TTL period
-		if msg.TTLPeriod != 0 {
-			msgResult.TTLPeriod = msg.TTLPeriod
-		}
-
-		// Extract inline buttons
-		if msg.ReplyMarkup != nil {
-			msgResult.Buttons = extractButtons(msg.ReplyMarkup)
-		}
-
-		result = append(result, msgResult)
+		result = append(result, convertMessage(msg, userMap))
 	}
 	return result
 }
 
-// formatPeer formats a peer to string.
-func formatPeer(peer tg.PeerClass) string {
-	switch p := peer.(type) {
-	case *tg.PeerUser:
-		return fmt.Sprintf("user%d", p.UserID)
-	case *tg.PeerChat:
-		return fmt.Sprintf("-%d", p.ChatID)
-	case *tg.PeerChannel:
-		return fmt.Sprintf("-100%d", p.ChannelID)
-	default:
-		return ""
+// convertMessage converts a single message to MessageResult.
+func convertMessage(msg *tg.Message, userMap map[int64]tg.UserClass) types.MessageResult {
+	r := types.MessageResult{
+		ID:        int64(msg.ID),
+		Date:      int64(msg.Date),
+		Text:      msg.Message,
+		Out:       msg.Out,
+		Pinned:    msg.Pinned,
+		Mentioned: msg.Mentioned,
+		Silent:    msg.Silent,
+		Post:      msg.Post,
+	}
+
+	extractSenderInfo(msg, userMap, &r)
+	extractMessageMeta(msg, &r)
+	extractMessageContent(msg, &r)
+
+	return r
+}
+
+// extractSenderInfo extracts sender information from message.
+func extractSenderInfo(msg *tg.Message, userMap map[int64]tg.UserClass, r *types.MessageResult) {
+	if msg.FromID == nil {
+		return
+	}
+	fromUser, ok := msg.FromID.(*tg.PeerUser)
+	if !ok {
+		return
+	}
+	r.FromID = fmt.Sprintf("user%d", fromUser.UserID)
+	if user, ok := userMap[fromUser.UserID].(*tg.User); ok {
+		r.FromName = buildUserDisplayName(user)
+	}
+}
+
+// extractMessageMeta extracts message metadata.
+func extractMessageMeta(msg *tg.Message, r *types.MessageResult) {
+	if msg.PeerID != nil {
+		r.PeerID = helpers.FormatPeer(msg.PeerID, helpers.PeerFormatCompact)
+	}
+	if msg.EditDate != 0 {
+		r.EditDate = int64(msg.EditDate)
+	}
+	if msg.Views != 0 {
+		r.Views = msg.Views
+	}
+	if msg.Forwards != 0 {
+		r.Forwards = msg.Forwards
+	}
+	if msg.ViaBotID != 0 {
+		r.ViaBotID = msg.ViaBotID
+	}
+	if msg.PostAuthor != "" {
+		r.PostAuthor = msg.PostAuthor
+	}
+	if msg.GroupedID != 0 {
+		r.GroupedID = msg.GroupedID
+	}
+	if msg.TTLPeriod != 0 {
+		r.TTLPeriod = msg.TTLPeriod
+	}
+}
+
+// extractMessageContent extracts message content (media, reactions, etc).
+func extractMessageContent(msg *tg.Message, r *types.MessageResult) {
+	if msg.Media != nil {
+		r.Media = convertMedia(msg.Media)
+	}
+	if msg.ReplyTo != nil {
+		r.ReplyTo = convertReplyHeader(msg.ReplyTo)
+	}
+	if !msg.FwdFrom.Zero() {
+		r.FwdFrom = convertFwdHeader(msg.FwdFrom)
+	}
+	if !msg.Reactions.Zero() {
+		r.Reactions = convertReactions(msg.Reactions)
+	}
+	if len(msg.Entities) > 0 {
+		r.Entities = convertEntities(msg.Entities)
+	}
+	if msg.ReplyMarkup != nil {
+		r.Buttons = extractButtons(msg.ReplyMarkup)
 	}
 }
 
@@ -229,7 +203,7 @@ func convertReplyHeader(replyHeader tg.MessageReplyHeaderClass) map[string]any {
 // convertFwdHeader converts forward header to map.
 func convertFwdHeader(fwdHeader tg.MessageFwdHeader) map[string]any {
 	result := make(map[string]any)
-	result["from_id"] = formatPeer(fwdHeader.FromID)
+	result["from_id"] = helpers.FormatPeer(fwdHeader.FromID, helpers.PeerFormatCompact)
 	if fwdHeader.Date != 0 {
 		result["date"] = fwdHeader.Date
 	}

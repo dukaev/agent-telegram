@@ -13,8 +13,8 @@ import (
 func (c *Client) ClearMessages(
 	ctx context.Context, params types.ClearMessagesParams,
 ) (*types.ClearMessagesResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	// Convert int64 slice to int slice for API
@@ -40,8 +40,8 @@ func (c *Client) ClearMessages(
 
 // ClearHistory clears all chat history for a peer.
 func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
@@ -66,8 +66,8 @@ func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryPara
 
 // PinChat pins or unpins a chat in the dialog list.
 func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	inputPeer, err := c.ResolvePeer(ctx, params.Peer)

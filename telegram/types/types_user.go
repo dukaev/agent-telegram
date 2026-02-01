@@ -1,8 +1,6 @@
 // Package types provides common types for Telegram client user operations.
 package types // revive:disable:var-naming
 
-import "fmt"
-
 // GetMeResult represents the result of GetMe.
 type GetMeResult struct {
 	ID        int64  `json:"id"`
@@ -16,15 +14,12 @@ type GetMeResult struct {
 
 // GetUserInfoParams holds parameters for GetUserInfo.
 type GetUserInfoParams struct {
-	Username string `json:"username"`
+	Username string `json:"username" validate:"required"`
 }
 
 // Validate validates GetUserInfoParams.
 func (p GetUserInfoParams) Validate() error {
-	if p.Username == "" {
-		return fmt.Errorf("username is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // GetUserInfoResult is the result of GetUserInfo.
@@ -41,17 +36,14 @@ type GetUserInfoResult struct {
 
 // UpdateProfileParams holds parameters for UpdateProfile.
 type UpdateProfileParams struct {
-	FirstName string `json:"firstName"`
+	FirstName string `json:"firstName" validate:"required"`
 	LastName  string `json:"lastName,omitempty"`
 	Bio       string `json:"bio,omitempty"`
 }
 
 // Validate validates UpdateProfileParams.
 func (p UpdateProfileParams) Validate() error {
-	if p.FirstName == "" {
-		return fmt.Errorf("firstName is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // UpdateProfileResult is the result of UpdateProfile.
@@ -61,15 +53,12 @@ type UpdateProfileResult struct {
 
 // UpdateAvatarParams holds parameters for UpdateAvatar.
 type UpdateAvatarParams struct {
-	File string `json:"file"`
+	File string `json:"file" validate:"required"`
 }
 
 // Validate validates UpdateAvatarParams.
 func (p UpdateAvatarParams) Validate() error {
-	if p.File == "" {
-		return fmt.Errorf("file is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // UpdateAvatarResult is the result of UpdateAvatar.
@@ -84,7 +73,7 @@ type BlockPeerParams struct {
 
 // Validate validates BlockPeerParams.
 func (p BlockPeerParams) Validate() error {
-	return p.ValidatePeer()
+	return ValidateStruct(p)
 }
 
 // BlockPeerResult is the result of BlockPeer.
@@ -100,7 +89,7 @@ type UnblockPeerParams struct {
 
 // Validate validates UnblockPeerParams.
 func (p UnblockPeerParams) Validate() error {
-	return p.ValidatePeer()
+	return ValidateStruct(p)
 }
 
 // UnblockPeerResult is the result of UnblockPeer.

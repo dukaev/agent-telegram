@@ -2,24 +2,16 @@
 package get
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
 )
 
-var (
-	// GetUserInfoJSON enables JSON output.
-	GetUserInfoJSON bool
-)
-
 // UserInfoCmd represents the info command.
 var UserInfoCmd = &cobra.Command{
 	GroupID: "get",
-	Use:   "info [@username]",
-	Short: "Get information about a Telegram user",
+	Use:     "info [@username]",
+	Short:   "Get information about a Telegram user",
 	Long: `Get detailed information about a Telegram user by username.
 If no username is provided, returns info about the current user (me).
 
@@ -34,8 +26,8 @@ Examples:
 // MyInfoCmd represents the my-info command (alias for info without args).
 var MyInfoCmd = &cobra.Command{
 	GroupID: "auth",
-	Use:   "my-info",
-	Short: "Get your profile information",
+	Use:     "my-info",
+	Short:   "Get your profile information",
 	Long: `Get detailed information about your Telegram profile.
 
 This returns your user ID, username, name, bio, verification status, etc.`,
@@ -47,47 +39,27 @@ func AddUserInfoCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(UserInfoCmd)
 	rootCmd.AddCommand(MyInfoCmd)
 
-	// Setup flags for both commands
-	UserInfoCmd.Flags().BoolVarP(&GetUserInfoJSON, "json", "j", false, "Output as JSON")
-	MyInfoCmd.Flags().BoolVarP(&GetUserInfoJSON, "json", "j", false, "Output as JSON")
-
-	// Share the same Run function
-	run := func(_ *cobra.Command, args []string) {
-		runner := cliutil.NewRunnerFromCmd(UserInfoCmd, true) // Always JSON
-
-		var result any
-		if len(args) == 0 {
-			// No username provided - get current user info
-			result = runner.Call("get_me", nil)
-		} else {
-			// Username provided - get specific user info
-			username := args[0]
-			result = runner.CallWithParams("get_user_info", map[string]any{
-				"username": username,
-			})
+	UserInfoCmd.Run = func(_ *cobra.Command, args []string) {
+		runner := cliutil.NewRunnerFromCmd(UserInfoCmd, true)
+		username := ""
+		if len(args) > 0 {
+			username = args[0]
 		}
-
-		// Output as JSON
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
+		cliutil.GetUserInfo(runner, username)
 	}
 
-	UserInfoCmd.Run = run
-	MyInfoCmd.Run = run
+	MyInfoCmd.Run = func(_ *cobra.Command, _ []string) {
+		runner := cliutil.NewRunnerFromCmd(MyInfoCmd, true)
+		cliutil.GetUserInfo(runner, "")
+	}
 }
 
 // AddMyInfoCommand adds only the my-info command to the root command.
 func AddMyInfoCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(MyInfoCmd)
 
-	// Setup flags
-	MyInfoCmd.Flags().BoolVarP(&GetUserInfoJSON, "json", "j", false, "Output as JSON")
-
-	// Set Run function
 	MyInfoCmd.Run = func(_ *cobra.Command, _ []string) {
-		runner := cliutil.NewRunnerFromCmd(MyInfoCmd, true) // Always JSON
-		result := runner.Call("get_me", nil)
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
+		runner := cliutil.NewRunnerFromCmd(MyInfoCmd, true)
+		cliutil.GetUserInfo(runner, "")
 	}
 }

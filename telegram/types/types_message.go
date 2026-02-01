@@ -7,21 +7,12 @@ import "fmt"
 type SendReplyParams struct {
 	PeerInfo
 	MsgID
-	Text string `json:"text"`
+	Text string `json:"text" validate:"required"`
 }
 
 // Validate validates SendReplyParams.
 func (p SendReplyParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	if p.Text == "" {
-		return fmt.Errorf("text is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // SendReplyResult is the result of SendReply.
@@ -37,21 +28,12 @@ type SendReplyResult struct {
 type UpdateMessageParams struct {
 	PeerInfo
 	MsgID
-	Text string `json:"text"`
+	Text string `json:"text" validate:"required"`
 }
 
 // Validate validates UpdateMessageParams.
 func (p UpdateMessageParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	if p.Text == "" {
-		return fmt.Errorf("text is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // UpdateMessageResult is the result of UpdateMessage.
@@ -68,13 +50,7 @@ type DeleteMessageParams struct {
 
 // Validate validates DeleteMessageParams.
 func (p DeleteMessageParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // DeleteMessageResult is the result of DeleteMessage.
@@ -91,13 +67,7 @@ type PinMessageParams struct {
 
 // Validate validates PinMessageParams.
 func (p PinMessageParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // PinMessageResult is the result of PinMessage.
@@ -114,13 +84,7 @@ type UnpinMessageParams struct {
 
 // Validate validates UnpinMessageParams.
 func (p UnpinMessageParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // UnpinMessageResult is the result of UnpinMessage.
@@ -145,13 +109,7 @@ type InspectInlineButtonsParams struct {
 
 // Validate validates InspectInlineButtonsParams.
 func (p InspectInlineButtonsParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // InspectInlineButtonsResult is the result of InspectInlineButtons.
@@ -170,10 +128,7 @@ type PressInlineButtonParams struct {
 
 // Validate validates PressInlineButtonParams.
 func (p PressInlineButtonParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
+	if err := ValidateStruct(p); err != nil {
 		return err
 	}
 	if p.ButtonIndex < 0 {
@@ -187,4 +142,3 @@ type PressInlineButtonResult struct {
 	Success   bool  `json:"success"`
 	MessageID int64 `json:"messageId"`
 }
-

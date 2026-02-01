@@ -1,34 +1,23 @@
 // Package types provides common types for Telegram client reaction operations.
 package types // revive:disable:var-naming
 
-import "fmt"
-
 // AddReactionParams holds parameters for AddReaction.
 type AddReactionParams struct {
 	PeerInfo
 	MsgID
-	Emoji string `json:"emoji"`
+	Emoji string `json:"emoji" validate:"required"`
 	Big   bool   `json:"big,omitempty"`
 }
 
 // Validate validates AddReactionParams.
 func (p AddReactionParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	if p.Emoji == "" {
-		return fmt.Errorf("emoji is required")
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // AddReactionResult is the result of AddReaction.
 type AddReactionResult struct {
-	Success   bool  `json:"success"`
-	MessageID int64 `json:"messageId"`
+	Success   bool   `json:"success"`
+	MessageID int64  `json:"messageId"`
 	Emoji     string `json:"emoji"`
 }
 
@@ -40,13 +29,7 @@ type RemoveReactionParams struct {
 
 // Validate validates RemoveReactionParams.
 func (p RemoveReactionParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // RemoveReactionResult is the result of RemoveReaction.
@@ -57,9 +40,9 @@ type RemoveReactionResult struct {
 
 // Reaction represents a reaction on a message.
 type Reaction struct {
-	Emoji   string `json:"emoji"`
-	Count   int    `json:"count"`
-	FromMe  bool   `json:"fromMe"`
+	Emoji   string  `json:"emoji"`
+	Count   int     `json:"count"`
+	FromMe  bool    `json:"fromMe"`
 	UserIDs []int64 `json:"userIds,omitempty"`
 }
 
@@ -72,13 +55,7 @@ type ListReactionsParams struct {
 
 // Validate validates ListReactionsParams.
 func (p ListReactionsParams) Validate() error {
-	if err := p.ValidatePeer(); err != nil {
-		return err
-	}
-	if err := p.ValidateMessageID(); err != nil {
-		return err
-	}
-	return nil
+	return ValidateStruct(p)
 }
 
 // ListReactionsResult is the result of ListReactions.

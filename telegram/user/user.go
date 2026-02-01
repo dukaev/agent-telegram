@@ -6,35 +6,14 @@ import (
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
 )
 
-// getAccessHash extracts access hash from the resolved peer.
-func getAccessHash(peerClass *tg.ContactsResolvedPeer, id int64) int64 {
-	for _, chat := range peerClass.Chats {
-		switch c := chat.(type) {
-		case *tg.Channel:
-			if c.ID == id {
-				return c.AccessHash
-			}
-		case *tg.Chat:
-			if c.ID == id {
-				return 0
-			}
-		}
-	}
-	for _, user := range peerClass.Users {
-		if u, ok := user.(*tg.User); ok && u.ID == id {
-			return u.AccessHash
-		}
-	}
-	return 0
-}
-
 // GetUserInfo gets information about a user by username.
 func (c *Client) GetUserInfo(ctx context.Context, params types.GetUserInfoParams) (*types.GetUserInfoResult, error) {
-	if c.API == nil {
-		return nil, fmt.Errorf("client not initialized")
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
 	}
 
 	username := trimUsernamePrefix(params.Username)
@@ -61,7 +40,7 @@ func (c *Client) GetUserInfo(ctx context.Context, params types.GetUserInfoParams
 	// Get full user info to get bio
 	fullUser, err := c.API.UsersGetFullUser(ctx, &tg.InputUser{
 		UserID:     user.ID,
-		AccessHash: getAccessHash(resolvedPeer, user.ID),
+		AccessHash: helpers.GetAccessHash(resolvedPeer, user.ID),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get full user info: %w", err)

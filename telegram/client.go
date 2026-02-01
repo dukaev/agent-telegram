@@ -60,22 +60,14 @@ func (c codeAuth) AcceptTOS(_ context.Context, _ tg.HelpTermsOfService) error {
 	return nil
 }
 
-// NewClient creates a new Telegram client
+// NewClient creates a new Telegram client.
+// Domain clients are created lazily in Start() when the Telegram client is ready.
 func NewClient(appID int, appHash, phone string) *Client {
-	tc := &Client{
+	return &Client{
 		appID:   appID,
 		appHash: appHash,
 		phone:   phone,
 	}
-	// Initialize domain clients (will be finalized when telegram client is set)
-	tc.message = message.NewClient(tc)
-	tc.media = media.NewClient(tc)
-	tc.chat = chat.NewClient(tc)
-	tc.user = user.NewClient(tc)
-	tc.pin = pin.NewClient(tc)
-	tc.reaction = reaction.NewClient(tc)
-	tc.search = search.NewClient(tc)
-	return tc
 }
 
 // WithSessionPath sets a custom session path.

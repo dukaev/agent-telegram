@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix build run test clean
+.PHONY: lint lint-fix build run test test-contracts validate-fixtures clean
 
 REVIVE = $(shell go env GOPATH)/bin/revive
 AIR = $(shell go env GOPATH)/bin/air
@@ -6,8 +6,8 @@ GCL_CUSTOM = ./bin/custom-gcl
 
 lint:
 	golangci-lint run ./...
-	-@$(REVIVE) -config .revive.toml ./... 2>/dev/null || true
-	-@$(GCL_CUSTOM) run -c .golangci.custom.yaml ./... 2>/dev/null || true
+	-@$(REVIVE) -config .revive.toml ./... 
+	-@$(GCL_CUSTOM) run -c .golangci.custom.yaml ./... 
 
 lint-fix:
 	golangci-lint run --fix ./...
@@ -23,6 +23,22 @@ run:
 
 test:
 	go test -v ./...
+
+test-contracts: ## Run contract tests with fixtures
+	go test -v -tags=contracts ./...
+
+validate-fixtures: ## Validate fixture files structure
+	@echo "Validating fixtures..."
+	@for f in testdata/fixtures/**/*.json; do \
+		jq empty "$$f" 2>/dev/null || echo "Invalid JSON: $$f"; \
+	done
+	@echo "Fixtures validated"
+
+record-fixture: ## Record a fixture (use: make record-fixture METHOD=messages.getHistory PEER=@username)
+	go run ./testdata/recorder -method $(METHOD) -peer $(PEER) -output ./testdata/fixtures
+
+sanitize-fixture: ## Sanitize a fixture (use: make sanitize-fixture INPUT=path/to/fixture.json)
+	go run ./testdata/sanitizer -input $(INPUT) -inplace
 
 clean:
 	go clean
