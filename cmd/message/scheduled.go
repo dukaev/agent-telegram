@@ -11,7 +11,7 @@ import (
 	"agent-telegram/internal/cliutil"
 )
 
-var scheduledPeer string
+var scheduledTo cliutil.Recipient
 
 // ScheduledCmd represents the scheduled command.
 var ScheduledCmd = &cobra.Command{
@@ -20,7 +20,7 @@ var ScheduledCmd = &cobra.Command{
 	Long: `List all scheduled messages in a chat.
 
 Example:
-  agent-telegram msg scheduled --peer @channel`,
+  agent-telegram msg scheduled --to @channel`,
 	Args: cobra.NoArgs,
 }
 
@@ -28,14 +28,13 @@ Example:
 func AddScheduledCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(ScheduledCmd)
 
-	ScheduledCmd.Flags().StringVarP(&scheduledPeer, "peer", "p", "", "Chat/channel to get scheduled messages from")
-	_ = ScheduledCmd.MarkFlagRequired("peer")
+	ScheduledCmd.Flags().VarP(&scheduledTo, "to", "t", "Chat/channel to get scheduled messages from")
+	_ = ScheduledCmd.MarkFlagRequired("to")
 
 	ScheduledCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(ScheduledCmd, true)
-		params := map[string]any{
-			"peer": scheduledPeer,
-		}
+		params := map[string]any{}
+		scheduledTo.AddToParams(params)
 
 		result := runner.CallWithParams("get_scheduled_messages", params)
 		//nolint:errchkjson // Output to stdout

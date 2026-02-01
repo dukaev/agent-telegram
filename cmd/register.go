@@ -50,6 +50,5 @@ func init() {
 
 	// System commands
 	sys.AddStatusCommand(RootCmd)
-	sys.AddWatchCommand(RootCmd)
 	sys.AddLLMsTxtCommand(RootCmd)
 }

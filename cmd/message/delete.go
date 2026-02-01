@@ -3,6 +3,7 @@ package message
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -46,7 +47,7 @@ func AddDeleteCommand(rootCmd *cobra.Command) {
 
 	DeleteCmd.Run = func(_ *cobra.Command, args []string) {
 		if len(args) == 0 {
-			fmt.Printf("Error: message_id or id1,id2,... required\n")
+			fmt.Fprintln(os.Stderr, "Error: message_id or id1,id2,... required")
 			return
 		}
 
@@ -73,12 +74,12 @@ func AddDeleteCommand(rootCmd *cobra.Command) {
 			runner.PrintResult(result, func(result any) {
 				r, ok := result.(map[string]any)
 				if !ok {
-					fmt.Printf("Messages deleted successfully!\n")
+					fmt.Fprintln(os.Stderr, "Messages deleted successfully!")
 					return
 				}
 				cleared := cliutil.ExtractFloat64(r, "cleared")
-				fmt.Printf("Messages deleted successfully!\n")
-				fmt.Printf("  Deleted: %d messages\n", int(cleared))
+				fmt.Fprintln(os.Stderr, "Messages deleted successfully!")
+				fmt.Fprintf(os.Stderr, "  Deleted: %d messages\n", int(cleared))
 			})
 		} else {
 			// Single ID - use delete_message
@@ -90,7 +91,7 @@ func AddDeleteCommand(rootCmd *cobra.Command) {
 
 			result := runner.CallWithParams("delete_message", params)
 			runner.PrintResult(result, func(any) {
-				fmt.Printf("Message deleted successfully!\n")
+				fmt.Fprintln(os.Stderr, "Message deleted successfully!")
 			})
 		}
 	}

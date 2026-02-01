@@ -106,6 +106,10 @@ func runServe(_ *cobra.Command, _ []string) {
 	tgClient := createTelegramClient(appID, appHash, phone, sessionPath)
 	startTelegramClient(ctx, tgClient)
 
+	// Wait for Telegram client to be ready before registering handlers
+	// This ensures domain clients have their API set
+	waitForTelegramReady(ctx, tgClient)
+
 	srv := createIPCServer(socketPath, tgClient, cancel)
 	if err := srv.Start(ctx); err != nil {
 		slog.Error("server error", "error", err)
@@ -234,6 +238,18 @@ func startTelegramClient(ctx context.Context, tgClient *telegram.Client) {
 		}
 		slog.Error("telegram client failed after retries", "retries", maxRetries)
 	}()
+}
+
+// waitForTelegramReady waits for the Telegram client to be fully initialized.
+func waitForTelegramReady(ctx context.Context, tgClient *telegram.Client) {
+	select {
+	case <-tgClient.Ready():
+		slog.Info("Telegram client ready")
+	case <-ctx.Done():
+		// Context cancelled, server is shutting down
+	case <-time.After(60 * time.Second):
+		slog.Warn("Telegram client not ready after timeout, starting IPC server anyway")
+	}
 }
 
 // createIPCServer creates and configures the IPC server.

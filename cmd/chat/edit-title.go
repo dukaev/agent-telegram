@@ -14,9 +14,9 @@ var EditTitleCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Long: `Edit the title of a Telegram chat or channel.
 
 Example:
-  agent-telegram chat edit-title --peer @mychannel --title "New Title"`,
+  agent-telegram chat edit-title --to @mychannel --title "New Title"`,
 	Method:  "edit_title",
-	Flags:   []cliutil.Flag{cliutil.PeerFlag, cliutil.TitleFlag},
+	Flags:   []cliutil.Flag{cliutil.ToFlag, cliutil.TitleFlag},
 	Success: "Title updated successfully",
 })
 

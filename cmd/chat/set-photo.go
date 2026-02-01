@@ -14,9 +14,9 @@ var SetPhotoCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Long: `Set the profile photo for a Telegram chat or channel.
 
 Example:
-  agent-telegram chat set-photo --peer @mychannel --file photo.jpg`,
+  agent-telegram chat set-photo --to @mychannel --file photo.jpg`,
 	Method:  "set_photo",
-	Flags:   []cliutil.Flag{cliutil.PeerFlag, cliutil.FileFlag},
+	Flags:   []cliutil.Flag{cliutil.ToFlag, cliutil.FileFlag},
 	Success: "Photo set successfully",
 })
 

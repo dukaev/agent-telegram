@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	typingPeer   string
+	typingTo     cliutil.Recipient
 	typingAction string
 )
 
@@ -25,9 +25,9 @@ Actions: typing (default), upload_photo, record_video, record_audio,
          upload_document, choose_sticker, record_round, cancel
 
 Example:
-  agent-telegram msg typing --peer @user
-  agent-telegram msg typing --peer @user --action record_audio
-  agent-telegram msg typing --peer @user --action cancel`,
+  agent-telegram msg typing --to @user
+  agent-telegram msg typing --to @user --action record_audio
+  agent-telegram msg typing --to @user --action cancel`,
 	Args: cobra.NoArgs,
 }
 
@@ -35,20 +35,22 @@ Example:
 func AddTypingCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(TypingCmd)
 
-	TypingCmd.Flags().StringVarP(&typingPeer, "peer", "p", "", "Chat/user to send typing to")
+	TypingCmd.Flags().VarP(&typingTo, "to", "t", "Chat/user to send typing to")
 	TypingCmd.Flags().StringVarP(&typingAction, "action", "a", "typing", "Typing action")
-	_ = TypingCmd.MarkFlagRequired("peer")
+	_ = TypingCmd.MarkFlagRequired("to")
 
 	TypingCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(TypingCmd, true)
 		params := map[string]any{
-			"peer":   typingPeer,
 			"action": typingAction,
 		}
+		typingTo.AddToParams(params)
 
 		result := runner.CallWithParams("set_typing", params)
 		//nolint:errchkjson // Output to stdout
 		_ = json.NewEncoder(os.Stdout).Encode(result)
-		cliutil.PrintSuccessSummary(result, "Typing indicator sent")
+		if !runner.IsQuiet() {
+			cliutil.PrintSuccessSummary(result, "Typing indicator sent")
+		}
 	}
 }

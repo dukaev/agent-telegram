@@ -3,6 +3,7 @@ package contact
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -66,7 +67,7 @@ func buildListParams() map[string]any {
 func printContacts(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {
-		fmt.Println("Failed to get contacts")
+		fmt.Fprintln(os.Stderr, "Failed to get contacts")
 		return
 	}
 
@@ -81,9 +82,9 @@ func printContactsHeader(r map[string]any) {
 	query, _ := r["query"].(string)
 	count, _ := r["count"].(float64)
 	if query != "" {
-		fmt.Printf("Found %d contacts matching '%s':\n", int(count), query)
+		fmt.Fprintf(os.Stderr, "Found %d contacts matching '%s':\n", int(count), query)
 	} else {
-		fmt.Printf("Contacts (%d):\n", int(count))
+		fmt.Fprintf(os.Stderr, "Contacts (%d):\n", int(count))
 	}
 }
 
@@ -94,7 +95,7 @@ func printContact(c any) {
 	}
 	name := buildContactName(contact)
 	line := formatContactLine(name, contact)
-	fmt.Println(line)
+	fmt.Println(line) // Contact data goes to stdout
 }
 
 func buildContactName(contact map[string]any) string {

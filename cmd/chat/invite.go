@@ -14,10 +14,10 @@ var InviteCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Long: `Invite users to a Telegram chat or channel.
 
 Example:
-  agent-telegram chat invite --peer @mychannel --members @user1 --members @user2`,
+  agent-telegram chat invite --to @mychannel --members @user1 --members @user2`,
 	Method: "invite",
 	Flags: []cliutil.Flag{
-		cliutil.PeerFlag,
+		cliutil.ToFlag,
 		cliutil.MembersFlag,
 	},
 	Success: "Members invited successfully",

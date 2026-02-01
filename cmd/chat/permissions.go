@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	permPeer           string
+	permTo             cliutil.Recipient
 	permSendMessages   bool
 	permSendMedia      bool
 	permSendStickers   bool
@@ -37,8 +37,8 @@ var PermissionsCmd = &cobra.Command{
 All flags default to false (restricted). Use flags to allow specific actions.
 
 Example:
-  agent-telegram chat permissions --peer @mygroup --send-messages --send-media
-  agent-telegram chat permissions --peer @mygroup --send-messages --send-photos --send-videos`,
+  agent-telegram chat permissions --to @mygroup --send-messages --send-media
+  agent-telegram chat permissions --to @mygroup --send-messages --send-photos --send-videos`,
 	Args: cobra.NoArgs,
 }
 
@@ -46,7 +46,7 @@ Example:
 func AddPermissionsCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(PermissionsCmd)
 
-	PermissionsCmd.Flags().StringVarP(&permPeer, "peer", "p", "", "Chat/channel")
+	PermissionsCmd.Flags().VarP(&permTo, "to", "t", "Chat/channel")
 	PermissionsCmd.Flags().BoolVar(&permSendMessages, "send-messages", false, "Allow sending messages")
 	PermissionsCmd.Flags().BoolVar(&permSendMedia, "send-media", false, "Allow sending media")
 	PermissionsCmd.Flags().BoolVar(&permSendStickers, "send-stickers", false, "Allow sending stickers")
@@ -61,12 +61,11 @@ func AddPermissionsCommand(rootCmd *cobra.Command) {
 	PermissionsCmd.Flags().BoolVar(&permSendAudios, "send-audios", false, "Allow sending audios")
 	PermissionsCmd.Flags().BoolVar(&permSendVoices, "send-voices", false, "Allow sending voice messages")
 	PermissionsCmd.Flags().BoolVar(&permSendDocs, "send-docs", false, "Allow sending documents")
-	_ = PermissionsCmd.MarkFlagRequired("peer")
+	_ = PermissionsCmd.MarkFlagRequired("to")
 
 	PermissionsCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(PermissionsCmd, true)
 		params := map[string]any{
-			"peer":         permPeer,
 			"sendMessages": permSendMessages,
 			"sendMedia":    permSendMedia,
 			"sendStickers": permSendStickers,
@@ -82,10 +81,13 @@ func AddPermissionsCommand(rootCmd *cobra.Command) {
 			"sendVoices":   permSendVoices,
 			"sendDocs":     permSendDocs,
 		}
+		permTo.AddToParams(params)
 
 		result := runner.CallWithParams("set_chat_permissions", params)
 		//nolint:errchkjson // Output to stdout
 		_ = json.NewEncoder(os.Stdout).Encode(result)
-		cliutil.PrintSuccessSummary(result, "Permissions updated")
+		if !runner.IsQuiet() {
+			cliutil.PrintSuccessSummary(result, "Permissions updated")
+		}
 	}
 }

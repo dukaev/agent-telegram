@@ -101,10 +101,18 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 	}
 }
 
-// registerHandler registers a single handler with error wrapping.
+// registerHandler registers a single handler with error wrapping and panic recovery.
 func registerHandler(srv ipc.MethodRegistrar, method string, handler HandlerFunc) {
-	srv.Register(method, func(params json.RawMessage) (interface{}, *ipc.ErrorObject) {
-		result, err := handler(params)
+	srv.Register(method, func(params json.RawMessage) (result interface{}, rpcErr *ipc.ErrorObject) {
+		// Recover from panics (e.g., nil pointer when client not initialized)
+		defer func() {
+			if r := recover(); r != nil {
+				// If panic is due to nil pointer, it's likely not initialized
+				rpcErr = ipc.ErrNotInitialized
+			}
+		}()
+
+		res, err := handler(params)
 		if err != nil {
 			// Check for specific error types
 			if errors.Is(err, client.ErrNotInitialized) {
@@ -112,6 +120,6 @@ func registerHandler(srv ipc.MethodRegistrar, method string, handler HandlerFunc
 			}
 			return nil, &ipc.ErrorObject{Code: -32000, Message: err.Error()}
 		}
-		return result, nil
+		return res, nil
 	})
 }

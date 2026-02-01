@@ -3,6 +3,7 @@ package contact
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -44,15 +45,15 @@ func AddDeleteContactCommand(rootCmd *cobra.Command) {
 		runner.PrintResult(result, func(result any) {
 			r, ok := result.(map[string]any)
 			if !ok {
-				fmt.Printf("Contact deleted successfully: %s\n", deleteUsername)
+				fmt.Fprintf(os.Stderr, "Contact deleted successfully: %s\n", deleteUsername)
 				return
 			}
 
 			success, _ := r["success"].(bool)
 			if success {
-				fmt.Printf("Contact deleted successfully: %s\n", deleteUsername)
+				fmt.Fprintf(os.Stderr, "Contact deleted successfully: %s\n", deleteUsername)
 			} else {
-				fmt.Printf("Failed to delete contact: %s\n", deleteUsername)
+				fmt.Fprintf(os.Stderr, "Failed to delete contact: %s\n", deleteUsername)
 			}
 		})
 	}

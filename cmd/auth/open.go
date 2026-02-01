@@ -22,7 +22,6 @@ var (
 
 // OpenCmd represents the open command.
 var OpenCmd = &cobra.Command{
-	GroupID: "get",
 	Use:   "open @username",
 	Short: "Open and view messages from a Telegram user/chat",
 	Long: `Open and view messages from a Telegram user or chat by username.

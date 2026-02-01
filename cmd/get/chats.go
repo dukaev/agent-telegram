@@ -20,8 +20,7 @@ var (
 
 // ChatsCmd represents the chats command.
 var ChatsCmd = &cobra.Command{
-	GroupID: "get",
-	Use:     "chats",
+	Use: "chats",
 	Short:   "List Telegram chats",
 	Long:    `List all Telegram chats with optional pagination and filtering.`,
 }
@@ -33,7 +32,7 @@ func AddChatsCommand(rootCmd *cobra.Command) {
 	ChatsCmd.Flags().IntVarP(&ChatsLimit, "limit", "l", 10, "Number of chats to return (max 100)")
 	ChatsCmd.Flags().IntVarP(&ChatsOffset, "offset", "o", 0, "Offset for pagination")
 	ChatsCmd.Flags().StringVarP(&ChatsSearch, "search", "q", "", "Filter by title or username (case-insensitive)")
-	ChatsCmd.Flags().StringVarP(&ChatsType, "type", "t", "", "Filter by type: user, chat, channel, or bot")
+	ChatsCmd.Flags().StringVarP(&ChatsType, "type", "T", "", "Filter by type: user, chat, channel, or bot")
 
 	ChatsCmd.Run = func(*cobra.Command, []string) {
 		cliutil.GetChats(ChatsCmd, ChatsLimit, ChatsOffset, ChatsSearch, ChatsType)

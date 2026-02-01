@@ -32,6 +32,7 @@ type Client struct {
 	sessionPath string
 	updateStore *UpdateStore
 	peerCache   sync.Map // username → InputPeerClass cache
+	ready       chan struct{} // closed when client is fully initialized
 	// Domain clients
 	message  *message.Client
 	media    *media.Client
@@ -67,6 +68,7 @@ func NewClient(appID int, appHash, phone string) *Client {
 		appID:   appID,
 		appHash: appHash,
 		phone:   phone,
+		ready:   make(chan struct{}),
 	}
 }
 
@@ -153,6 +155,9 @@ func (c *Client) runClient(ctx context.Context) error {
 	// Set API for domain clients
 	c.setDomainAPIs()
 
+	// Signal that client is ready
+	close(c.ready)
+
 	// Keep running
 	<-ctx.Done()
 	return nil
@@ -192,9 +197,19 @@ type ClientStatus struct {
 	UserID      int64  `json:"userId,omitempty"`
 }
 
+// Ready returns a channel that is closed when the client is fully initialized.
+func (c *Client) Ready() <-chan struct{} {
+	return c.ready
+}
+
 // IsInitialized returns true if the client API is ready.
 func (c *Client) IsInitialized() bool {
-	return c.message != nil && c.message.IsInitialized()
+	select {
+	case <-c.ready:
+		return true
+	default:
+		return false
+	}
 }
 
 // GetStatus returns the current client status.

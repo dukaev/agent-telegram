@@ -2,6 +2,7 @@ package cliutil
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -63,15 +64,18 @@ func NewToggleCommand(cfg ToggleCommandConfig) *cobra.Command {
 
 			result := runner.CallWithParams(method, params)
 			runner.PrintResult(result, func(result any) {
+				if runner.IsQuiet() {
+					return
+				}
 				r, ok := result.(map[string]any)
 				if !ok {
-					fmt.Printf("%s\n", successMsg)
+					fmt.Fprintf(os.Stderr, "%s\n", successMsg)
 					return
 				}
 				peer := ExtractString(r, "peer")
-				fmt.Printf("%s\n", successMsg)
+				fmt.Fprintf(os.Stderr, "%s\n", successMsg)
 				if peer != "" {
-					fmt.Printf("  Peer: %s\n", peer)
+					fmt.Fprintf(os.Stderr, "  Peer: %s\n", peer)
 				}
 			})
 		},

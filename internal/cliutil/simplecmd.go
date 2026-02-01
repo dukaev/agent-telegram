@@ -21,12 +21,13 @@ const (
 
 // Flag defines a command flag.
 type Flag struct {
-	Name     string
-	Short    string
-	Usage    string
-	Required bool
-	Type     FlagType // Default: FlagString
-	Default  any      // Default value (type must match Type)
+	Name      string
+	Short     string
+	Usage     string
+	Required  bool
+	Type      FlagType // Default: FlagString
+	Default   any      // Default value (type must match Type)
+	ParamName string   // API parameter name (if different from Name)
 }
 
 // SimpleCommandDef defines a simple RPC command.
@@ -69,7 +70,7 @@ func NewSimpleCommand(def SimpleCommandDef) *cobra.Command {
 			//nolint:errchkjson // Output to stdout, error handling not required
 			_ = json.NewEncoder(os.Stdout).Encode(result)
 
-			if def.Success != "" {
+			if def.Success != "" && !runner.IsQuiet() {
 				printSuccess(result, def.Success)
 			}
 		},
@@ -119,22 +120,27 @@ func addFlag(cmd *cobra.Command, f Flag, vals *flagValues) {
 func buildParams(flags []Flag, vals *flagValues) map[string]any {
 	params := make(map[string]any)
 	for _, f := range flags {
+		// Use ParamName if set, otherwise use Name
+		paramName := f.ParamName
+		if paramName == "" {
+			paramName = f.Name
+		}
 		switch f.Type {
 		case FlagString:
 			if ptr := vals.strings[f.Name]; ptr != nil && *ptr != "" {
-				params[f.Name] = *ptr
+				params[paramName] = *ptr
 			}
 		case FlagBool:
 			if ptr := vals.bools[f.Name]; ptr != nil {
-				params[f.Name] = *ptr
+				params[paramName] = *ptr
 			}
 		case FlagInt:
 			if ptr := vals.ints[f.Name]; ptr != nil && *ptr != 0 {
-				params[f.Name] = *ptr
+				params[paramName] = *ptr
 			}
 		case FlagStringSlice:
 			if ptr := vals.stringSlices[f.Name]; ptr != nil && len(*ptr) > 0 {
-				params[f.Name] = *ptr
+				params[paramName] = *ptr
 			}
 		}
 	}
@@ -151,10 +157,13 @@ func printSuccess(result any, msg string) {
 
 // Common flag definitions.
 var (
-	PeerFlag        = Flag{Name: "peer", Short: "p", Usage: "Chat/channel (@username or username)", Required: true}
+	// ToFlag is the standard recipient flag (--to, -t). Maps to "peer" in API.
+	ToFlag = Flag{Name: "to", Short: "t", Usage: "Chat/channel (@username or username)", Required: true, ParamName: "peer"}
+	// PeerFlag is deprecated, use ToFlag instead. Kept for backwards compatibility.
+	PeerFlag        = ToFlag
 	UserFlag        = Flag{Name: "user", Short: "u", Usage: "User (@username or username)", Required: true}
 	FileFlag        = Flag{Name: "file", Short: "f", Usage: "File path", Required: true}
-	TitleFlag       = Flag{Name: "title", Short: "t", Usage: "Title", Required: true}
+	TitleFlag       = Flag{Name: "title", Short: "T", Usage: "Title", Required: true}
 	MembersFlag = Flag{
 		Name: "members", Short: "m", Usage: "Members (can specify multiple)",
 		Required: true, Type: FlagStringSlice,
@@ -162,6 +171,6 @@ var (
 	LinkFlag        = Flag{Name: "link", Short: "l", Usage: "Invite link", Required: true}
 	ChannelFlag     = Flag{Name: "channel", Short: "c", Usage: "Channel (@username or username)", Required: true}
 	DescriptionFlag = Flag{Name: "description", Short: "d", Usage: "Description"}
-	UsernameFlag    = Flag{Name: "username", Short: "u", Usage: "Public username"}
+	UsernameFlag    = Flag{Name: "username", Short: "U", Usage: "Public username"}
 	MegagroupFlag   = Flag{Name: "megagroup", Short: "g", Usage: "Create as supergroup", Type: FlagBool}
 )

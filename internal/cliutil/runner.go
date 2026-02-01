@@ -23,6 +23,8 @@ type RPCClient interface {
 type Runner struct {
 	socketFlag string
 	jsonOutput bool
+	dryRun     bool
+	quiet      bool
 }
 
 // NewRunner creates a new command runner with the given socket flag and JSON output setting.
@@ -30,16 +32,21 @@ func NewRunner(socketFlag string, jsonOutput bool) *Runner {
 	return &Runner{
 		socketFlag: socketFlag,
 		jsonOutput: jsonOutput,
+		dryRun:     false,
 	}
 }
 
 // NewRunnerFromCmd creates a runner from a cobra command.
-// It extracts the socket flag from the command's persistent flags.
+// It extracts the socket flag, dry-run flag, and quiet flag from the command's persistent flags.
 func NewRunnerFromCmd(cmd *cobra.Command, jsonOutput bool) *Runner {
 	socketPath, _ := cmd.Flags().GetString("socket")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+	quiet, _ := cmd.Flags().GetBool("quiet")
 	return &Runner{
 		socketFlag: socketPath,
 		jsonOutput: jsonOutput,
+		dryRun:     dryRun,
+		quiet:      quiet,
 	}
 }
 
@@ -125,7 +132,7 @@ func (r *Runner) ensureServer() error {
 
 	if !acquired {
 		// Another process is starting the server, just wait for it
-		fmt.Fprintln(os.Stderr, "Another process is starting the server, waiting...")
+		r.Log("Another process is starting the server, waiting...")
 		if !r.waitForServer(15 * time.Second) {
 			return fmt.Errorf("server failed to start within timeout")
 		}
@@ -139,36 +146,36 @@ func (r *Runner) ensureServer() error {
 		return nil // Server started by another process
 	}
 
-	// Start the server
-	fmt.Fprintln(os.Stderr, "Server not running, starting...")
+	// Start the server - release lock immediately so serve can acquire it
+	r.Log("Server not running, starting...")
 	if startErr := r.startServer(); startErr != nil {
 		_ = lock.Unlock()
 		return startErr
 	}
 
-	// Wait for server to be ready
-	if !r.waitForServer(10 * time.Second) {
-		_ = lock.Unlock()
+	// Release lock immediately so serve can acquire it
+	_ = lock.Unlock()
+
+	// Wait for server to be ready (Telegram auth can take time)
+	if !r.waitForServer(30 * time.Second) {
 		return fmt.Errorf("server failed to start within timeout")
 	}
 
-	// Release lock - server is now running and has its own lock
-	_ = lock.Unlock()
-	fmt.Fprintln(os.Stderr, "Server started successfully")
+	r.Log("Server started successfully")
 	return nil
 }
 
 // startServerWithWait starts the server and waits for it to be ready.
 func (r *Runner) startServerWithWait() error {
-	fmt.Fprintln(os.Stderr, "Server not running, starting...")
+	r.Log("Server not running, starting...")
 	if startErr := r.startServer(); startErr != nil {
 		return startErr
 	}
 
-	if !r.waitForServer(10 * time.Second) {
+	if !r.waitForServer(30 * time.Second) {
 		return fmt.Errorf("server failed to start within timeout")
 	}
-	fmt.Fprintln(os.Stderr, "Server started successfully")
+	r.Log("Server started successfully")
 	return nil
 }
 
@@ -185,7 +192,13 @@ func (r *Runner) CallDirect(method string, params any) any {
 
 // Call executes an RPC call and returns the result or exits on error.
 // Automatically starts the server if it's not running.
+// If dry-run is enabled, prints what would be executed and returns a mock result.
 func (r *Runner) Call(method string, params any) any {
+	// Handle dry-run mode
+	if r.dryRun {
+		return r.dryRunCall(method, params)
+	}
+
 	// Ensure server is running (auto-start if needed)
 	if err := r.ensureServer(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -198,6 +211,24 @@ func (r *Runner) Call(method string, params any) any {
 		r.handleError(err)
 	}
 	return result
+}
+
+// dryRunCall handles dry-run mode by printing what would be executed.
+func (r *Runner) dryRunCall(method string, params any) any {
+	fmt.Fprintln(os.Stderr, "[DRY-RUN] Would execute:")
+	fmt.Fprintf(os.Stderr, "  Method: %s\n", method)
+	if params != nil {
+		paramsJSON, err := json.MarshalIndent(params, "  ", "  ")
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "  Params: %s\n", string(paramsJSON))
+		}
+	}
+	// Return a mock result
+	return map[string]any{
+		"dry_run": true,
+		"method":  method,
+		"params":  params,
+	}
 }
 
 // handleError handles RPC errors with user-friendly messages.
@@ -224,10 +255,14 @@ func (r *Runner) CallWithParams(method string, params map[string]any) any {
 }
 
 // PrintResult prints the result in JSON or human-readable format.
+// JSON output goes to stdout. Human-readable output uses the formatter.
+// If quiet mode is enabled, the formatter is not called.
 func (r *Runner) PrintResult(result any, formatter func(any)) {
 	switch {
 	case r.jsonOutput || formatter == nil:
 		r.PrintJSON(result)
+	case r.quiet:
+		// Skip human-readable output in quiet mode
 	default:
 		formatter(result)
 	}
@@ -266,19 +301,39 @@ func (r *Runner) MustParseInt(s string) int {
 }
 
 // FormatSuccess formats a success message with common fields.
+// Output goes to stderr so stdout remains clean for data.
 func FormatSuccess(result any, action string) {
 	r, ok := result.(map[string]any)
 	if !ok {
-		fmt.Printf("%s succeeded!\n", action)
+		fmt.Fprintf(os.Stderr, "%s succeeded!\n", action)
 		return
 	}
 
-	fmt.Printf("%s sent successfully!\n", action)
+	fmt.Fprintf(os.Stderr, "%s sent successfully!\n", action)
 	if id, ok := r["id"].(float64); ok {
-		fmt.Printf("  ID: %d\n", int64(id))
+		fmt.Fprintf(os.Stderr, "  ID: %d\n", int64(id))
 	}
 	if peer, ok := r["peer"].(string); ok {
-		fmt.Printf("  Peer: %s\n", peer)
+		fmt.Fprintf(os.Stderr, "  Peer: %s\n", peer)
+	}
+}
+
+// IsQuiet returns true if quiet mode is enabled.
+func (r *Runner) IsQuiet() bool {
+	return r.quiet
+}
+
+// Logf prints a message to stderr if not in quiet mode.
+func (r *Runner) Logf(format string, args ...any) {
+	if !r.quiet {
+		fmt.Fprintf(os.Stderr, format, args...)
+	}
+}
+
+// Log prints a message to stderr if not in quiet mode.
+func (r *Runner) Log(msg string) {
+	if !r.quiet {
+		fmt.Fprintln(os.Stderr, msg)
 	}
 }
 

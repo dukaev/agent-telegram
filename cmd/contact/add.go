@@ -3,6 +3,7 @@ package contact
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -57,17 +58,17 @@ func runAddContact(_ *cobra.Command, _ []string) {
 	runner.PrintResult(result, printContactResult)
 }
 
-// printContactResult prints the contact result.
+// printContactResult prints the contact result to stderr.
 func printContactResult(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {
-		fmt.Println("Contact added successfully!")
+		fmt.Fprintln(os.Stderr, "Contact added successfully!")
 		return
 	}
 
 	contact, ok := r["contact"].(map[string]any)
 	if !ok {
-		fmt.Println("Contact added successfully!")
+		fmt.Fprintln(os.Stderr, "Contact added successfully!")
 		return
 	}
 
@@ -90,15 +91,15 @@ func printContactResult(result any) {
 		name = "Contact"
 	}
 
-	fmt.Printf("Added contact: %s", name)
+	fmt.Fprintf(os.Stderr, "Added contact: %s", name)
 	if username != "" {
-		fmt.Printf(" (@%s)", username)
+		fmt.Fprintf(os.Stderr, " (@%s)", username)
 	}
 	if peer != "" {
-		fmt.Printf(" [%s]", peer)
+		fmt.Fprintf(os.Stderr, " [%s]", peer)
 	}
 	if phone != "" {
-		fmt.Printf(" - %s", phone)
+		fmt.Fprintf(os.Stderr, " - %s", phone)
 	}
-	fmt.Println()
+	fmt.Fprintln(os.Stderr)
 }

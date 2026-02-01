@@ -16,11 +16,11 @@ var SlowModeCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 Allowed values for --seconds: 0 (off), 10, 30, 60, 300, 900, 3600
 
 Example:
-  agent-telegram chat slow-mode --peer @mychannel --seconds 30
-  agent-telegram chat slow-mode --peer @mychannel --seconds 0`,
+  agent-telegram chat slow-mode --to @mychannel --seconds 30
+  agent-telegram chat slow-mode --to @mychannel --seconds 0`,
 	Method: "set_slow_mode",
 	Flags: []cliutil.Flag{
-		cliutil.PeerFlag,
+		cliutil.ToFlag,
 		{Name: "seconds", Short: "s", Usage: "Seconds between messages (0 to disable)", Type: cliutil.FlagInt},
 	},
 	Success: "Slow mode updated",

@@ -13,15 +13,15 @@ var PromoteAdminCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Short: "Promote a user to admin",
 	Long: `Promote a user to administrator in a Telegram channel or supergroup.
 
-Use --peer @username or --peer username to specify the channel.
+Use --to @username or --to username to specify the channel.
 Use --user @username or --user username to specify the user to promote.
 Use various flags to set admin permissions.
 
 Example:
-  agent-telegram promote-admin --peer @mychannel --user @username --can-change-info --can-ban-users`,
+  agent-telegram chat promote-admin --to @mychannel --user @username --canChangeInfo --canBanUsers`,
 	Method: "promote_admin",
 	Flags: []cliutil.Flag{
-		cliutil.PeerFlag,
+		cliutil.ToFlag,
 		cliutil.UserFlag,
 		{Name: "canChangeInfo", Short: "", Usage: "Can change info", Type: cliutil.FlagBool},
 		{Name: "canPostMessages", Short: "", Usage: "Can post messages", Type: cliutil.FlagBool},

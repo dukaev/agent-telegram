@@ -24,7 +24,7 @@ type ListCommandConfig struct {
 
 // NewListCommand creates a cobra command for listing items.
 func NewListCommand(cfg ListCommandConfig) *cobra.Command {
-	var peer string
+	var to Recipient
 	var limit int
 	var offset int
 
@@ -44,28 +44,27 @@ func NewListCommand(cfg ListCommandConfig) *cobra.Command {
 			})
 
 			runner := NewRunnerFromCmd(cmd, true)
-			params := map[string]any{
-				"peer": peer,
-			}
+			params := map[string]any{}
+			to.AddToParams(params)
 			pag.ToParams(params, cfg.HasOffset)
 
 			result := runner.CallWithParams(cfg.Method, params)
 			//nolint:errchkjson // Output to stdout, error handling not required
 			_ = json.NewEncoder(os.Stdout).Encode(result)
 
-			// Print human-readable summary
-			if cfg.PrintFunc != nil {
+			// Print human-readable summary to stderr
+			if cfg.PrintFunc != nil && !runner.IsQuiet() {
 				cfg.PrintFunc(result, "Unknown", "N/A")
 			}
 		},
 	}
 
-	cmd.Flags().StringVarP(&peer, "peer", "p", "", "Chat/channel username (@username or username)")
+	cmd.Flags().VarP(&to, "to", "t", "Chat/channel (@username or username)")
 	cmd.Flags().IntVarP(&limit, "limit", "l", DefaultLimitMax, fmt.Sprintf("Maximum number of items (max %d)", maxLimit))
 	if cfg.HasOffset {
 		cmd.Flags().IntVarP(&offset, "offset", "o", 0, "Offset for pagination")
 	}
-	_ = cmd.MarkFlagRequired("peer")
+	_ = cmd.MarkFlagRequired("to")
 
 	return cmd
 }

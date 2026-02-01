@@ -3,6 +3,7 @@ package send
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +28,7 @@ Example:
 		sendFlags.To.AddToParams(params)
 		result := runner.CallWithParams("update_message", params)
 		runner.PrintResult(result, func(any) {
-			fmt.Printf("Message updated successfully!\n")
+			fmt.Fprintln(os.Stderr, "Message updated successfully!")
 		})
 	},
 }

@@ -2,379 +2,498 @@
 
 ## Architecture Overview
 
+agent-telegram uses a **two-process architecture**:
+
 ```
-┌─────────────┐      IPC       ┌──────────────┐      Telegram API
-│ CLI Command │ ──────────────> │ IPC Server   │ ──────────────────> Telegram
-│  (cmd/*.go) │  Unix Socket   │ (internal/)  │   (gotd/td)
-└─────────────┘                └──────────────┘
-                                      │
-                                      ▼
-                              ┌──────────────┐
-                              │   Telegram   │
-                              │   Client     │
-                              │ (telegram/)  │
-                              └──────────────┘
+┌─────────────────┐         IPC          ┌──────────────────┐        MTProto
+│   CLI Process   │ ◄──────────────────► │  Server Process  │ ◄────────────────► Telegram
+│                 │    Unix Socket       │                  │     (gotd/td)
+│  cmd/*.go       │    JSON-RPC 2.0      │  internal/ipc/   │
+│  internal/      │                      │  telegram/       │
+│  cliutil/       │                      │                  │
+└─────────────────┘                      └──────────────────┘
+        │                                        │
+        ▼                                        ▼
+   Short-lived                             Long-running
+   (per command)                           (background daemon)
 ```
 
-### Components
+### Process Communication
 
-| Layer | Location | Responsibility |
-|-------|----------|-----------------|
-| CLI | `cmd/*.go` | User-facing commands, argument parsing, output formatting |
-| IPC Client | `internal/ipc/client.go` | JSON-RPC client for communicating with server |
-| IPC Server | `internal/ipc/server.go` | JSON-RPC server running on Unix socket |
-| Handlers | `internal/telegram/ipc/*.go` | Request handlers that bridge IPC to Telegram client |
-| Client | `telegram/*.go` | Telegram API wrapper using gotd/td library |
+```
+CLI Command
+    ↓
+cliutil.Runner (auto-starts server if needed)
+    ↓
+internal/ipc.Client (connects to socket)
+    ↓
+JSON-RPC Request → /tmp/agent-telegram.sock → internal/ipc.SocketServer
+    ↓
+internal/ipc.Server (method dispatch)
+    ↓
+Handler (internal/telegram/ipc/)
+    ↓
+telegram.Client.* (domain operation)
+    ↓
+JSON-RPC Response ← Unix Socket ← Result
+```
+
+---
+
+## Project Structure
+
+```
+agent-telegram/
+├── cmd/                           # CLI commands
+│   ├── auth/                      # login, logout
+│   ├── chat/                      # 26+ chat subcommands
+│   ├── contact/                   # add, list, delete
+│   ├── folders/                   # folder management
+│   ├── get/                       # data retrieval
+│   ├── message/                   # msg subcommands
+│   ├── mute/                      # mute operations
+│   ├── open/                      # open resources
+│   ├── privacy/                   # privacy settings
+│   ├── search/                    # search functionality
+│   ├── send/                      # unified send command
+│   ├── sys/                       # status, llms-txt
+│   ├── user/                      # user operations
+│   ├── root.go                    # root command, groups
+│   ├── register.go                # command registration
+│   ├── serve.go                   # server startup
+│   └── stop.go                    # server shutdown
+│
+├── internal/
+│   ├── ipc/                       # IPC infrastructure
+│   │   ├── client.go              # JSON-RPC client
+│   │   ├── server.go              # JSON-RPC server
+│   │   ├── socket.go              # Unix socket server
+│   │   ├── types.go               # Request/Response types
+│   │   ├── interface.go           # Client interfaces
+│   │   └── methods.go             # ping, echo methods
+│   │
+│   ├── telegram/ipc/              # Telegram RPC handlers
+│   │   ├── register.go            # 95+ method handlers
+│   │   ├── handler.go             # Generic handler factory
+│   │   ├── handlers.go            # Handler implementations
+│   │   └── *.go                   # Specific handlers
+│   │
+│   ├── cliutil/                   # CLI utilities
+│   │   ├── runner.go              # Command runner with auto-start
+│   │   ├── recipient.go           # @user/ID normalization
+│   │   ├── pagination.go          # Limit/offset helper
+│   │   ├── listcmd.go             # List command pattern
+│   │   ├── togglecmd.go           # Toggle command pattern
+│   │   ├── print.go               # Output formatting
+│   │   └── filter.go              # Item filtering
+│   │
+│   ├── paths/                     # File path management
+│   │   └── paths.go               # Config dir, logs, PID, lock
+│   │
+│   ├── config/                    # Configuration loading
+│   ├── auth/                      # Auth service
+│   ├── tgauth/                    # Telegram auth flow
+│   └── types/                     # Shared types
+│
+├── telegram/                      # Telegram client
+│   ├── client.go                  # Main client wrapper
+│   ├── accessors.go               # Domain client accessors
+│   ├── domain_interfaces.go       # Domain interfaces
+│   ├── updates.go                 # Update handling
+│   ├── peer.go                    # Peer types
+│   ├── chat/                      # Chat operations
+│   ├── message/                   # Message operations
+│   ├── media/                     # Media handling
+│   ├── user/                      # User operations
+│   ├── search/                    # Search client
+│   ├── pin/                       # Pin operations
+│   ├── reaction/                  # Reactions
+│   ├── types/                     # Domain types
+│   └── helpers/                   # Utilities
+│
+├── cli/                           # Interactive UI
+│   ├── ui/                        # Login UI
+│   ├── steps/                     # Auth steps (phone, code, password)
+│   └── components/                # UI components
+│
+├── main.go                        # Entry point
+├── go.mod
+├── install.sh                     # curl installer
+└── package.json                   # npm package config
+```
+
+---
+
+## Key Components
+
+### 1. IPC Layer (`internal/ipc/`)
+
+**Protocol**: JSON-RPC 2.0 over Unix domain sockets
+
+```go
+// Request format
+{
+  "jsonrpc": "2.0",
+  "method": "send_message",
+  "params": {"peer": "@user", "message": "Hello"},
+  "id": 1
+}
+
+// Response format
+{
+  "jsonrpc": "2.0",
+  "result": {"id": 123, "peer": "@user"},
+  "id": 1
+}
+```
+
+**Error codes**:
+
+| Code | Meaning |
+|------|---------|
+| -32700 | Parse error |
+| -32600 | Invalid request |
+| -32601 | Method not found |
+| -32602 | Invalid params |
+| -32603 | Internal error |
+| -32001 | Server not running |
+| -32002 | Not authorized |
+| -32003 | Not initialized |
+
+### 2. CLI Utilities (`internal/cliutil/`)
+
+**Runner** - Command execution with auto-start:
+
+```go
+runner := cliutil.NewRunnerFromCmd(cmd, jsonFlag)
+result := runner.Call("method", params)  // Auto-starts server
+runner.PrintResult(result, formatter)
+```
+
+**Recipient** - Peer identifier normalization:
+
+```go
+var to cliutil.Recipient
+cmd.Flags().Var(&to, "to", "Recipient (@user or ID)")
+
+// Usage
+to.Peer()           // Returns "@username" or "123456"
+to.AddToParams(m)   // Adds {"peer": "..."} to map
+```
+
+**Pagination**:
+
+```go
+pag := cliutil.NewPagination(cmd, 10, 100)  // default, max
+params["limit"] = pag.Limit
+params["offset"] = pag.Offset
+```
+
+### 3. Telegram Client (`telegram/`)
+
+**Domain-driven design** with separate clients:
+
+```go
+type Client struct {
+    // gotd/td client
+    client *telegram.Client
+
+    // Domain clients (lazy init)
+    message  *message.Client
+    chat     *chat.Client
+    user     *user.Client
+    media    *media.Client
+    // ...
+}
+
+// Accessors
+func (c *Client) Message() *message.Client
+func (c *Client) Chat() *chat.Client
+func (c *Client) User() *user.Client
+```
+
+### 4. Handler Registration (`internal/telegram/ipc/`)
+
+**Generic handler factory**:
+
+```go
+// Type-safe handler
+func Handler[T any, R any](
+    fn func(context.Context, T) (R, error),
+) HandlerFunc
+
+// File validation handler
+func FileHandler[T any, R any](
+    getFile func(T) string,
+    fn func(context.Context, T) (R, error),
+) HandlerFunc
+```
+
+**Registration pattern**:
+
+```go
+var methodHandlers = map[string]func(Client) HandlerFunc{
+    "send_message":   sendMessageHandler,
+    "get_chats":      getChatsHandler,
+    "delete_message": deleteMessageHandler,
+    // ... 95+ handlers
+}
+
+func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
+    for method, factory := range methodHandlers {
+        registerHandler(srv, method, factory(client))
+    }
+}
+```
 
 ---
 
 ## Adding a New Command
 
-### Pattern: CLI Command → IPC Handler → Client Method
+### Step 1: Add Telegram Client Method
 
-To add a new command (e.g., `send-message`), follow these steps:
-
----
-
-### Step 1: Add Client Method
-
-**File:** `telegram/client.go` or create `telegram/client_<feature>.go`
+**File**: `telegram/<domain>/client.go` or new file
 
 ```go
-// SendMessageParams holds parameters for sending a message.
-type SendMessageParams struct {
-    Peer    string
-    Message string
+// telegram/message/client.go
+
+type SendStickerParams struct {
+    Peer string
+    File string
 }
 
-// SendMessageResult is the result of SendMessage.
-type SendMessageResult struct {
-    ID        int64  `json:"id"`
-    Date      int64  `json:"date"`
-    Message   string `json:"message"`
+type SendStickerResult struct {
+    ID   int64  `json:"id"`
+    Peer string `json:"peer"`
 }
 
-// SendMessage sends a message to a peer.
-func (c *Client) SendMessage(ctx context.Context, params SendMessageParams) (*SendMessageResult, error) {
-    if c.client == nil {
-        return nil, fmt.Errorf("client not initialized")
+func (c *Client) SendSticker(ctx context.Context, p SendStickerParams) (*SendStickerResult, error) {
+    if c.api == nil {
+        return nil, ErrNotInitialized
     }
 
-    api := c.client.API()
-
-    // 1. Resolve peer (username → InputPeer)
-    inputPeer, err := c.resolveUsername(ctx, api, params.Peer)
+    inputPeer, err := c.parent.ResolvePeer(ctx, p.Peer)
     if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("resolve peer: %w", err)
     }
 
-    // 2. Call Telegram API
-    result, err := api.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
-        Peer:    inputPeer,
-        Message: params.Message,
-        // ... other fields
+    // Telegram API call
+    result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+        Peer:  inputPeer,
+        Media: &tg.InputMediaUploadedDocument{...},
     })
     if err != nil {
         return nil, err
     }
 
-    // 3. Return structured result
-    return &SendMessageResult{
-        ID:      result.ID,
-        Message: params.Message,
+    return &SendStickerResult{
+        ID:   extractMessageID(result),
+        Peer: p.Peer,
     }, nil
 }
 ```
 
----
+### Step 2: Add IPC Handler
 
-### Step 2: Update Client Interface
-
-**File:** `internal/telegram/ipc/getme.go`
-
-Add the method signature to the `Client` interface:
+**File**: `internal/telegram/ipc/handlers.go` (or new file)
 
 ```go
-// Client is an interface for Telegram operations.
-type Client interface {
-    GetMe(ctx context.Context) (*tg.User, error)
-    GetChats(ctx context.Context, limit, offset int) ([]map[string]interface{}, error)
-    GetUpdates(limit int) []telegram.StoredUpdate
-    GetMessages(ctx context.Context, params telegram.GetMessagesParams) (*telegram.GetMessagesResult, error)
-    SendMessage(ctx context.Context, params telegram.SendMessageParams) (*telegram.SendMessageResult, error)  // NEW
+type sendStickerParams struct {
+    Peer string `json:"peer"`
+    File string `json:"file"`
+}
+
+func sendStickerHandler(client Client) HandlerFunc {
+    return FileHandler(
+        func(p sendStickerParams) string { return p.File },
+        func(ctx context.Context, p sendStickerParams) (*message.SendStickerResult, error) {
+            return client.Message().SendSticker(ctx, message.SendStickerParams{
+                Peer: p.Peer,
+                File: p.File,
+            })
+        },
+    )
 }
 ```
 
----
+### Step 3: Register Handler
 
-### Step 3: Create IPC Handler
-
-**File:** Create `internal/telegram/ipc/sendmessage.go`
+**File**: `internal/telegram/ipc/register.go`
 
 ```go
-// Package ipc provides Telegram IPC handlers.
-package ipc
+var methodHandlers = map[string]func(Client) HandlerFunc{
+    // ... existing handlers
+    "send_sticker": sendStickerHandler,  // Add here
+}
+```
+
+### Step 4: Add CLI Command
+
+**File**: `cmd/send/send.go` (extend) or new file
+
+```go
+// cmd/send/sticker.go
+package send
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-
-    "agent-telegram/telegram"
-)
-
-// SendMessageParams represents parameters for send_message request.
-type SendMessageParams struct {
-    Peer    string `json:"peer"`
-    Message string `json:"message"`
-}
-
-// SendMessageHandler returns a handler for send_message requests.
-func SendMessageHandler(client Client) func(json.RawMessage) (interface{}, error) {
-    return func(params json.RawMessage) (interface{}, error) {
-        var p SendMessageParams
-        if err := json.Unmarshal(params, &p); err != nil {
-            return nil, fmt.Errorf("invalid params: %w", err)
-        }
-
-        // Validate
-        if p.Peer == "" {
-            return nil, fmt.Errorf("peer is required")
-        }
-        if p.Message == "" {
-            return nil, fmt.Errorf("message is required")
-        }
-
-        result, err := client.SendMessage(context.Background(), telegram.SendMessageParams{
-            Peer:    p.Peer,
-            Message: p.Message,
-        })
-        if err != nil {
-            return nil, fmt.Errorf("failed to send message: %w", err)
-        }
-
-        return result, nil
-    }
-}
-```
-
----
-
-### Step 4: Register Handler
-
-**File:** `internal/telegram/ipc/register.go`
-
-```go
-func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
-    // ... existing handlers ...
-
-    srv.Register("send_message", func(params json.RawMessage) (interface{}, *ipc.ErrorObject) {
-        result, err := SendMessageHandler(client)(params)
-        if err != nil {
-            return nil, &ipc.ErrorObject{
-                Code:    -32000,
-                Message: err.Error(),
-            }
-        }
-        return result, nil
-    })
-}
-```
-
----
-
-### Step 5: Create CLI Command
-
-**File:** Create `cmd/send_message.go`
-
-```go
-// Package cmd provides CLI commands.
-package cmd
-
-import (
-    "encoding/json"
-    "fmt"
-    "os"
-
     "github.com/spf13/cobra"
-
-    "agent-telegram/internal/ipc"
+    "agent-telegram/internal/cliutil"
 )
 
-var (
-    sendMessageJSON bool
-)
+var stickerFile string
 
-// sendMessageCmd represents the send-message command.
-var sendMessageCmd = &cobra.Command{
-    Use:   "send-message @peer <message>",
-    Short: "Send a message to a Telegram peer",
-    Long:  `Send a message to a Telegram user or chat by username.`,
-    Args:  cobra.MinimumNArgs(2),
-    Run:   runSendMessage,
+var sendStickerCmd = &cobra.Command{
+    Use:   "sticker",
+    Short: "Send a sticker",
+    Run: func(cmd *cobra.Command, args []string) {
+        runner := sendFlags.NewRunner()
+
+        params := map[string]any{
+            "file": stickerFile,
+        }
+        sendFlags.To.AddToParams(params)
+
+        result := runner.Call("send_sticker", params)
+        runner.PrintResult(result, func(r any) {
+            cliutil.FormatSuccess(r, "send_sticker")
+        })
+    },
 }
 
 func init() {
-    rootCmd.AddCommand(sendMessageCmd)
-    sendMessageCmd.Flags().BoolVarP(&sendMessageJSON, "json", "j", false, "Output as JSON")
-}
-
-func runSendMessage(_ *cobra.Command, args []string) {
-    socketPath, _ := rootCmd.Flags().GetString("socket")
-    peer := args[0]
-    message := args[1]
-
-    client := ipc.NewClient(socketPath)
-    result, err := client.Call("send_message", map[string]any{
-        "peer":    peer,
-        "message": message,
-    })
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-        os.Exit(1)
-    }
-
-    if sendMessageJSON {
-        data, _ := json.MarshalIndent(result, "", "  ")
-        fmt.Println(string(data))
-    } else {
-        fmt.Printf("Message sent successfully!\n")
-    }
+    SendCmd.AddCommand(sendStickerCmd)
+    sendFlags.Register(sendStickerCmd)
+    sendStickerCmd.Flags().StringVar(&stickerFile, "file", "", "Sticker file path")
+    sendStickerCmd.MarkFlagRequired("file")
 }
 ```
 
----
-
-### Step 6: Build and Test
+### Step 5: Build and Test
 
 ```bash
 # Build
 go build -o agent-telegram .
 
-# Run tests (if you have them)
-go test ./...
-
-# Run linter
+# Lint
 golangci-lint run
 
-# Test command
-./agent-telegram send-message @username "Hello, world!"
+# Test
+go test ./...
+
+# Manual test
+./agent-telegram send sticker --to @user --file sticker.webp
 ```
 
 ---
 
 ## Common Patterns
 
-### Pagination (Limit/Offset)
+### Pagination
 
 ```go
-// CLI command flags
-var (
-    cmdLimit  int
-    cmdOffset int
-)
+var cmdLimit, cmdOffset int
 
 func init() {
-    cmd.Flags().IntVarP(&cmdLimit, "limit", "l", 10, "Number of items (max 100)")
-    cmd.Flags().IntVarP(&cmdOffset, "offset", "o", 0, "Offset for pagination")
+    cmd.Flags().IntVarP(&cmdLimit, "limit", "l", 20, "Number of items")
+    cmd.Flags().IntVarP(&cmdOffset, "offset", "o", 0, "Offset")
 }
 
-// Validate
-if cmdLimit < 1 { cmdLimit = 1 }
-if cmdLimit > 100 { cmdLimit = 100 }
-if cmdOffset < 0 { cmdOffset = 0 }
+// In Run function
+pag := cliutil.NewPagination(cmd, 20, 100)
+params := map[string]any{
+    "limit":  pag.Limit,
+    "offset": pag.Offset,
+}
 ```
 
 ### JSON Output
 
 ```go
-if cmdJSON {
-    data, err := json.MarshalIndent(result, "", "  ")
-    if err != nil {
-        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-        os.Exit(1)
-    }
-    fmt.Println(string(data))
-} else {
-    // Human-readable output
-    printHumanReadable(result)
-}
+var jsonOutput bool
+
+cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "JSON output")
+
+// In Run function
+runner := cliutil.NewRunnerFromCmd(cmd, jsonOutput)
+result := runner.Call("method", params)
+runner.PrintResult(result, humanFormatter)
 ```
 
-### Resolving Username to InputPeer
+### Toggle Commands (pin/unpin, mute/unmute)
 
 ```go
-func (c *Client) resolveUsername(ctx context.Context, api *tg.Client, username string) (tg.InputPeerClass, error) {
-    peerClass, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
-        Username: strings.TrimPrefix(username, "@"),
-    })
-    if err != nil {
-        return nil, err
+// Use cliutil.ToggleCmd pattern
+toggle := cliutil.NewToggleCmd("pin", "unpin", "Pin or unpin chat")
+toggle.Register(parentCmd, func(enabled bool, args []string) {
+    method := "pin_chat"
+    if !enabled {
+        method = "unpin_chat"
     }
+    // ...
+})
+```
 
-    switch p := peerClass.Peer.(type) {
-    case *tg.PeerUser:
-        return &tg.InputPeerUser{
-            UserID:     p.UserID,
-            AccessHash: getAccessHash(peerClass, p.UserID),
-        }, nil
-    case *tg.PeerChat:
-        return &tg.InputPeerChat{ChatID: p.ChatID}, nil
-    case *tg.PeerChannel:
-        return &tg.InputPeerChannel{
-            ChannelID:  p.ChannelID,
-            AccessHash: getAccessHash(peerClass, p.ChannelID),
-        }, nil
-    default:
-        return nil, fmt.Errorf("unsupported peer type: %T", p)
-    }
+### Recipient Flag
+
+```go
+var to cliutil.Recipient
+
+cmd.Flags().Var(&to, "to", "Recipient (@username or chat ID)")
+
+// In Run function
+if to.IsEmpty() {
+    fmt.Fprintln(os.Stderr, "Error: --to is required")
+    os.Exit(1)
 }
+params := make(map[string]any)
+to.AddToParams(params)  // Adds "peer" key
 ```
 
 ---
 
-## File Structure
+## Server Lifecycle
 
-```
-agent-telegram/
-├── cmd/                          # CLI commands
-│   ├── root.go                  # Root command, global flags
-│   ├── serve.go                 # Start IPC server
-│   ├── get_me.go                # Example: simple command
-│   ├── chats.go                 # Example: pagination
-│   └── open.go                  # Example: with username argument
-│
-├── internal/
-│   ├── ipc/                     # IPC infrastructure
-│   │   ├── client.go           # JSON-RPC client
-│   │   ├── server.go           # JSON-RPC server
-│   │   └── socket.go           # Unix socket wrapper
-│   │
-│   └── telegram/ipc/            # Telegram IPC handlers
-│       ├── register.go         # Handler registration
-│       ├── getme.go            # get_me handler
-│       ├── chats.go            # get_chats handler
-│       ├── messages.go         # get_messages handler
-│       └── [new_handler].go    # Your new handler
-│
-├── telegram/                     # Telegram client
-│   ├── client.go               # Main client, auth
-│   ├── client_dialogs.go       # Dialog/chat operations
-│   ├── client_updates.go       # Update handling
-│   └── [client_new].go         # Your new operations
-│
-├── .env                         # Credentials (TELEGRAM_APP_ID, etc.)
-├── go.mod
-└── DEVELOPMENT.md              # This file
-```
+### Startup (`cmd/serve.go`)
+
+1. Load and validate credentials
+2. Fork to background (unless `-f`)
+3. Acquire lock file (`~/.agent-telegram/server.lock`)
+4. Write PID file (`~/.agent-telegram/server.pid`)
+5. Setup structured logging (`~/.agent-telegram/server.log`)
+6. Start Telegram client (with retry logic)
+7. Start IPC server on Unix socket
+8. Handle signals for graceful shutdown
+
+### Auto-Start (`internal/cliutil/runner.go`)
+
+Commands automatically start the server:
+
+1. Check if server running (status RPC)
+2. If not running, acquire start lock
+3. Fork server process
+4. Wait up to 30 seconds for startup
+5. Release lock
+6. Proceed with command
+
+### Shutdown (`cmd/stop.go`)
+
+1. Try graceful shutdown via RPC
+2. If fails, read PID from file
+3. Send SIGTERM
+4. Wait for process exit
+5. Clean up PID file
 
 ---
 
-## Key Dependencies
+## File Locations
 
-- **gotd/td** - Telegram MTProto client library
-- **cobra** - CLI framework
-- **godotenv** - Environment variable loading
+| File | Path | Purpose |
+|------|------|---------|
+| Socket | `/tmp/agent-telegram.sock` | IPC communication |
+| Session | `~/.agent-telegram/session.json` | Telegram auth state |
+| Log | `~/.agent-telegram/server.log` | Server logs (JSON) |
+| PID | `~/.agent-telegram/server.pid` | Running server PID |
+| Lock | `~/.agent-telegram/server.lock` | Instance lock (flock) |
 
 ---
 
@@ -382,52 +501,120 @@ agent-telegram/
 
 | Variable | Description |
 |----------|-------------|
-| `TELEGRAM_APP_ID` | Telegram API App ID (from my.telegram.org) |
-| `TELEGRAM_APP_HASH` | Telegram API App Hash (from my.telegram.org) |
+| `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
+| `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
 | `TELEGRAM_PHONE` | Phone number for auth |
-| `AGENT_TELEGRAM_SESSION_PATH` | Path to session file (optional) |
-
----
-
-## Common Gotchas
-
-1. **Access Hash**: When resolving usernames, you must extract and pass the `access_hash` for users and channels.
-
-2. **Message ID Types**: Telegram API uses `int` for IDs, but JSON uses `int64`. Always convert:
-   ```go
-   ID: int64(msg.ID)
-   ```
-
-3. **Response Types**: Telegram API returns variant types (e.g., `MessagesMessagesClass`). Use type switching:
-   ```go
-   switch m := messagesClass.(type) {
-   case *tg.MessagesMessages:
-       return m.Messages, m.Users
-   case *tg.MessagesMessagesSlice:
-       return m.Messages, m.Users
-   default:
-       return nil, nil
-   }
-   ```
-
-4. **Peer Types**: Always handle all peer types:
-   - `*tg.PeerUser` - Direct messages
-   - `*tg.PeerChat` - Legacy groups
-   - `*tg.PeerChannel` - Channels and supergroups
+| `AGENT_TELEGRAM_APP_ID` | Alternative for APP_ID |
+| `AGENT_TELEGRAM_APP_HASH` | Alternative for APP_HASH |
+| `AGENT_TELEGRAM_SESSION_PATH` | Custom session path |
 
 ---
 
 ## Testing
 
-Start the server first, then test commands:
+### Manual Testing
 
 ```bash
-# Terminal 1: Start server
-agent-telegram serve
+# Start server in foreground (see logs)
+./agent-telegram serve -f
 
-# Terminal 2: Test commands
-agent-telegram ping
-agent-telegram get-me
-agent-telegram chats -l 20
-agent-telegram open @username -l 10
+# In another terminal
+./agent-telegram status
+./agent-telegram chat list -l 5
+./agent-telegram send --to @user "Test"
 ```
+
+### IPC Testing
+
+```bash
+# Direct JSON-RPC call
+echo '{"jsonrpc":"2.0","method":"ping","id":1}' | nc -U /tmp/agent-telegram.sock
+
+# With jq
+echo '{"jsonrpc":"2.0","method":"get_me","id":1}' | nc -U /tmp/agent-telegram.sock | jq
+```
+
+### Unit Tests
+
+```bash
+go test ./...
+go test ./internal/ipc/...
+go test ./telegram/...
+```
+
+---
+
+## Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `github.com/gotd/td` | Telegram MTProto client |
+| `github.com/spf13/cobra` | CLI framework |
+| `github.com/charmbracelet/bubbletea` | Interactive TUI |
+| `github.com/charmbracelet/bubbles` | TUI components |
+| `github.com/knadh/koanf/v2` | Configuration |
+| `github.com/joho/godotenv` | .env loading |
+
+---
+
+## Common Gotchas
+
+### 1. Access Hash Required
+
+When resolving usernames, always use the full peer resolution:
+
+```go
+inputPeer, err := client.ResolvePeer(ctx, "@username")
+// NOT just the username string
+```
+
+### 2. Message ID Types
+
+Telegram uses `int`, JSON uses `float64`:
+
+```go
+// When extracting from map[string]any
+id := int64(m["id"].(float64))
+```
+
+### 3. Response Variants
+
+Telegram API returns variant types:
+
+```go
+switch m := messagesClass.(type) {
+case *tg.MessagesMessages:
+    return m.Messages, m.Users, nil
+case *tg.MessagesMessagesSlice:
+    return m.Messages, m.Users, nil
+case *tg.MessagesChannelMessages:
+    return m.Messages, m.Users, nil
+}
+```
+
+### 4. Peer Types
+
+Always handle all peer types:
+
+- `*tg.PeerUser` - Direct messages
+- `*tg.PeerChat` - Legacy groups
+- `*tg.PeerChannel` - Channels and supergroups
+
+### 5. Handler Panics
+
+Handlers have panic recovery - nil pointer → `ErrNotInitialized`:
+
+```go
+// This is safe - will return error instead of crash
+result, err := client.Message().Send(ctx, params)
+```
+
+---
+
+## Release Process
+
+1. Update version in `package.json`
+2. Create git tag: `git tag v0.1.0`
+3. Push tag: `git push origin v0.1.0`
+4. GoReleaser builds binaries for all platforms
+5. npm publish (if applicable)

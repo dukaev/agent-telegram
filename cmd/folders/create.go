@@ -37,7 +37,7 @@ Example:
 func AddCreateCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(CreateCmd)
 
-	CreateCmd.Flags().StringVarP(&createTitle, "title", "t", "", "Folder title")
+	CreateCmd.Flags().StringVarP(&createTitle, "title", "T", "", "Folder title")
 	CreateCmd.Flags().StringSliceVar(&createIncludedChats, "include", nil, "Chats to include")
 	CreateCmd.Flags().StringSliceVar(&createExcludedChats, "exclude", nil, "Chats to exclude")
 	CreateCmd.Flags().BoolVar(&createIncludeContacts, "include-contacts", false, "Include contacts")
@@ -65,6 +65,8 @@ func AddCreateCommand(parentCmd *cobra.Command) {
 		result := runner.CallWithParams("create_folder", params)
 		//nolint:errchkjson // Output to stdout
 		_ = json.NewEncoder(os.Stdout).Encode(result)
-		cliutil.PrintSuccessSummary(result, "Folder created")
+		if !runner.IsQuiet() {
+			cliutil.PrintSuccessSummary(result, "Folder created")
+		}
 	}
 }

@@ -11,9 +11,7 @@ import (
 	"agent-telegram/internal/cliutil"
 )
 
-var (
-	chatInfoPeer string
-)
+var chatInfoTo cliutil.Recipient
 
 // InfoCmd represents the chat info command.
 var InfoCmd = &cobra.Command{
@@ -23,10 +21,10 @@ var InfoCmd = &cobra.Command{
 
 This returns chat ID, title, username, member count, type, etc.
 
-Use --peer @username or --peer username to specify the chat/channel.
+Use --to @username or --to username to specify the chat/channel.
 
 Example:
-  agent-telegram chat info --peer @mychannel`,
+  agent-telegram chat info --to @mychannel`,
 	Args: cobra.NoArgs,
 }
 
@@ -34,8 +32,8 @@ Example:
 func AddInfoCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(InfoCmd)
 
-	InfoCmd.Flags().StringVarP(&chatInfoPeer, "peer", "p", "", "Chat/channel username (@username or username)")
-	_ = InfoCmd.MarkFlagRequired("peer")
+	InfoCmd.Flags().VarP(&chatInfoTo, "to", "t", "Chat/channel (@username or username)")
+	_ = InfoCmd.MarkFlagRequired("to")
 
 	InfoCmd.Run = func(*cobra.Command, []string) {
 		runner := cliutil.NewRunnerFromCmd(InfoCmd, true) // Always JSON
@@ -46,7 +44,7 @@ func AddInfoCommand(parentCmd *cobra.Command) {
 		})
 
 		// Filter the result to find the matching chat
-		filteredResult := filterChatInfo(result, chatInfoPeer)
+		filteredResult := filterChatInfo(result, chatInfoTo.Peer())
 		//nolint:errchkjson // Output to stdout, error handling not required
 		_ = json.NewEncoder(os.Stdout).Encode(filteredResult)
 	}

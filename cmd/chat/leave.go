@@ -11,9 +11,9 @@ import (
 var LeaveCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Use:     "leave",
 	Short:   "Leave a chat or channel",
-	Long:    "Leave a Telegram chat or channel.\n\nExample:\n  agent-telegram chat leave --peer @mychannel",
+	Long:    "Leave a Telegram chat or channel.\n\nExample:\n  agent-telegram chat leave --to @mychannel",
 	Method:  "leave",
-	Flags:   []cliutil.Flag{cliutil.PeerFlag},
+	Flags:   []cliutil.Flag{cliutil.ToFlag},
 	Success: "Left chat successfully",
 })
 

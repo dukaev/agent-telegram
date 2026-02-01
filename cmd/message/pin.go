@@ -3,6 +3,7 @@ package message
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -52,7 +53,7 @@ func AddPinMessageCommand(rootCmd *cobra.Command) {
 
 		result := runner.CallWithParams(method, params)
 		runner.PrintResult(result, func(any) {
-			fmt.Printf("%s\n", successMsg)
+			fmt.Fprintln(os.Stderr, successMsg)
 		})
 	}
 }

@@ -9,8 +9,7 @@ import (
 
 // UserInfoCmd represents the info command.
 var UserInfoCmd = &cobra.Command{
-	GroupID: "get",
-	Use:     "info [@username]",
+	Use: "info [@username]",
 	Short:   "Get information about a Telegram user",
 	Long: `Get detailed information about a Telegram user by username.
 If no username is provided, returns info about the current user (me).

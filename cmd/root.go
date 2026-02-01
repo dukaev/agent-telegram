@@ -31,8 +31,6 @@ var (
 	GroupIDMessage = "message"
 	// GroupIDChat is the command group ID for chat commands.
 	GroupIDChat = "chat"
-	// GroupIDGet is the command group ID for get commands.
-	GroupIDGet = "get"
 	// GroupIDServer is the command group ID for server commands.
 	GroupIDServer = "server"
 )
@@ -74,16 +72,15 @@ func printFullHelp() {
 	}
 
 	// Define group order
-	groupOrder := []string{"server", "auth", "message", "chat", "get", "Other"}
+	groupOrder := []string{"auth", "message", "chat", "server", "Other"}
 
 	// Get group titles
 	groupTitles := map[string]string{
-		"server":   "Server",
-		"auth":     "Authentication",
-		"message":  "Manage Messages",
-		"chat":     "Chat",
-		"get":      "Get",
-		"Other":    "Other",
+		"server":  "Server",
+		"auth":    "Authentication",
+		"message": "Manage Messages",
+		"chat":    "Chat",
+		"Other":   "Other",
 	}
 
 	for _, groupID := range groupOrder {
@@ -133,14 +130,15 @@ func Execute() {
 
 func init() {
 	// Add command groups
-	RootCmd.AddGroup(&cobra.Group{ID: GroupIDServer, Title: "Server"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDAuth, Title: "Authentication"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessage, Title: "Manage Messages"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDChat, Title: "Chat"})
-	RootCmd.AddGroup(&cobra.Group{ID: GroupIDGet, Title: "Get"})
+	RootCmd.AddGroup(&cobra.Group{ID: GroupIDServer, Title: "Server"})
 
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
 	RootCmd.PersistentFlags().BoolVar(&fullHelp, "full", false, "Show all commands and subcommands")
+	RootCmd.PersistentFlags().Bool("dry-run", false, "Show what would be executed without actually running")
+	RootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress status messages (data still goes to stdout)")
 }
 

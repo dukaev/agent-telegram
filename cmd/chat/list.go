@@ -17,9 +17,13 @@ var (
 // ListCmd represents the chat list command.
 var ListCmd = &cobra.Command{
 	Use:     "list",
+	Aliases: []string{"ls"},
 	Short:   "List Telegram chats",
-	Long:    `List all Telegram chats with optional pagination and filtering.`,
+	Long:    `List all Telegram chats with optional pagination and filtering.
+
+Shortcut: 'chats' command is an alias for 'chat list'.`,
 	Example: `  agent-telegram chat list
+  agent-telegram chats
   agent-telegram chat list --limit 50
   agent-telegram chat list --search mychannel
   agent-telegram chat list --type channel`,
@@ -31,8 +35,8 @@ func AddListCommand(parentCmd *cobra.Command) {
 
 	ListCmd.Flags().IntVarP(&listLimit, "limit", "l", 10, "Number of chats to return (max 100)")
 	ListCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset for pagination")
-	ListCmd.Flags().StringVarP(&listSearch, "search", "q", "", "Filter by title or username (case-insensitive)")
-	ListCmd.Flags().StringVarP(&listType, "type", "t", "", "Filter by type: user, chat, channel, or bot")
+	ListCmd.Flags().StringVarP(&listSearch, "search", "Q", "", "Filter by title or username (case-insensitive)")
+	ListCmd.Flags().StringVarP(&listType, "type", "T", "", "Filter by type: user, chat, channel, or bot")
 
 	ListCmd.Run = func(*cobra.Command, []string) {
 		cliutil.GetChats(ListCmd, listLimit, listOffset, listSearch, listType)

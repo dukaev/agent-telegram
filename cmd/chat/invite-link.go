@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	inviteLinkPeer string
+	inviteLinkTo        cliutil.Recipient
 	inviteLinkCreateNew bool
 )
 
@@ -21,12 +21,12 @@ var InviteLinkCmd = &cobra.Command{
 	Short:   "Get or create an invite link for a chat or channel",
 	Long: `Get an existing invite link or create a new one for a Telegram chat or channel.
 
-Use --peer @username or --peer username to specify the chat/channel.
+Use --to @username or --to username to specify the chat/channel.
 Use --create-new to create a new invite link instead of getting an existing one.
 
 Example:
-  agent-telegram invite-link --peer @mychannel
-  agent-telegram invite-link --peer @mychannel --create-new`,
+  agent-telegram chat invite-link --to @mychannel
+  agent-telegram chat invite-link --to @mychannel --create-new`,
 	Args: cobra.NoArgs,
 }
 
@@ -34,16 +34,16 @@ Example:
 func AddInviteLinkCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(InviteLinkCmd)
 
-	InviteLinkCmd.Flags().StringVarP(&inviteLinkPeer, "peer", "p", "", "Chat/channel username (@username or username)")
+	InviteLinkCmd.Flags().VarP(&inviteLinkTo, "to", "t", "Chat/channel (@username or username)")
 	InviteLinkCmd.Flags().BoolVarP(&inviteLinkCreateNew, "create-new", "n", false, "Create a new invite link")
-	_ = InviteLinkCmd.MarkFlagRequired("peer")
+	_ = InviteLinkCmd.MarkFlagRequired("to")
 
 	InviteLinkCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(InviteLinkCmd, true)
 		params := map[string]any{
-			"peer":       inviteLinkPeer,
-			"createNew":  inviteLinkCreateNew,
+			"createNew": inviteLinkCreateNew,
 		}
+		inviteLinkTo.AddToParams(params)
 
 		result := runner.CallWithParams("get_invite_link", params)
 		//nolint:errchkjson // Output to stdout, error handling not required

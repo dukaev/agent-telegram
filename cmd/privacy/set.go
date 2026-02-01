@@ -53,6 +53,8 @@ func AddSetCommand(parentCmd *cobra.Command) {
 		result := runner.CallWithParams("set_privacy", params)
 		//nolint:errchkjson // Output to stdout
 		_ = json.NewEncoder(os.Stdout).Encode(result)
-		cliutil.PrintSuccessSummary(result, "Privacy setting updated")
+		if !runner.IsQuiet() {
+			cliutil.PrintSuccessSummary(result, "Privacy setting updated")
+		}
 	}
 }

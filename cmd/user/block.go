@@ -3,6 +3,7 @@ package user
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -56,12 +57,12 @@ func AddBlockCommand(rootCmd *cobra.Command) {
 		runner.PrintResult(result, func(result any) {
 			r, ok := result.(map[string]any)
 			if !ok {
-				fmt.Printf("%s\n", successMsg)
+				fmt.Fprintln(os.Stderr, successMsg)
 				return
 			}
 			peer := cliutil.ExtractString(r, "peer")
-			fmt.Printf("%s\n", successMsg)
-			fmt.Printf("  Peer: %s\n", peer)
+			fmt.Fprintln(os.Stderr, successMsg)
+			fmt.Fprintf(os.Stderr, "  Peer: %s\n", peer)
 		})
 	}
 }

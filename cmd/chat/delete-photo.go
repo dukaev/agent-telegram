@@ -14,9 +14,9 @@ var DeletePhotoCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Long: `Delete the profile photo from a Telegram chat or channel.
 
 Example:
-  agent-telegram chat delete-photo --peer @mychannel`,
+  agent-telegram chat delete-photo --to @mychannel`,
 	Method:  "delete_photo",
-	Flags:   []cliutil.Flag{cliutil.PeerFlag},
+	Flags:   []cliutil.Flag{cliutil.ToFlag},
 	Success: "Photo deleted successfully",
 })
 

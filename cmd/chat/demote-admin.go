@@ -14,9 +14,9 @@ var DemoteAdminCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Long: `Demote an administrator to a regular user.
 
 Example:
-  agent-telegram chat demote-admin --peer @mychannel --user @username`,
+  agent-telegram chat demote-admin --to @mychannel --user @username`,
 	Method:  "demote_admin",
-	Flags:   []cliutil.Flag{cliutil.PeerFlag, cliutil.UserFlag},
+	Flags:   []cliutil.Flag{cliutil.ToFlag, cliutil.UserFlag},
 	Success: "Admin demoted successfully",
 })
 
