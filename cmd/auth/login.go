@@ -18,15 +18,21 @@ import (
 	"agent-telegram/internal/ipc"
 )
 
+// Default Telegram API credentials (public test credentials).
+const (
+	defaultAppID   = "2040"
+	defaultAppHash = "b18441a1ff607e10a989891a5462e627"
+)
+
 var (
 	// LoginAppID is the Telegram API App ID.
-	LoginAppID   string
+	LoginAppID string
 	// LoginAppHash is the Telegram API App Hash.
 	LoginAppHash string
 	// LoginPhone is the phone number for login.
 	LoginPhone string
 	// LoginMock enables mock mode for UI testing.
-	LoginMock    bool
+	LoginMock bool
 )
 
 // LoginCmd represents the login command.
@@ -41,16 +47,13 @@ This will guide you through the login process:
   2. Enter the verification code sent to Telegram
   3. Enter 2FA password if enabled
 
-Telegram API credentials (required):
-  Get your credentials at: https://my.telegram.org/apps
+Telegram API credentials (optional):
+  Default credentials are used if not provided.
 
-  Set via environment variables:
-    export TELEGRAM_APP_ID=12345
-    export TELEGRAM_APP_HASH=abcdef...
-
-  Or create a .env file in the current directory.
-
-  Or pass as flags: --app-id and --app-hash`,
+  To use your own credentials (https://my.telegram.org/apps):
+    - Set TELEGRAM_APP_ID and TELEGRAM_APP_HASH environment variables
+    - Or create a .env file in the current directory
+    - Or pass --app-id and --app-hash flags`,
 	Run: runLogin,
 }
 
@@ -76,12 +79,12 @@ func runLogin(_ *cobra.Command, _ []string) {
 		LoginAppHash = os.Getenv("TELEGRAM_APP_HASH")
 	}
 
-	// Validate required credentials
-	if LoginAppID == "" || LoginAppHash == "" {
-		fmt.Fprintln(os.Stderr, "Missing Telegram API credentials.")
-		fmt.Fprintln(os.Stderr, "Please provide --app-id and --app-hash flags, or set TELEGRAM_APP_ID and TELEGRAM_APP_HASH in .env")
-		fmt.Fprintln(os.Stderr, "\nGet your API credentials at: https://my.telegram.org/apps")
-		os.Exit(1)
+	// Use default credentials if not provided
+	if LoginAppID == "" {
+		LoginAppID = defaultAppID
+	}
+	if LoginAppHash == "" {
+		LoginAppHash = defaultAppHash
 	}
 
 	// Parse app ID

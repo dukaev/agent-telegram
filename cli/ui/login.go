@@ -5,6 +5,8 @@ import (
 	"context"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"agent-telegram/cli/components"
 	"agent-telegram/cli/steps"
 	"agent-telegram/internal/auth"
 	"agent-telegram/pkg/common"
@@ -119,10 +121,10 @@ func (m LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m LoginModel) View() string {
 	if m.quitting {
 		if m.errorMsg != "" {
-			return common.ErrorStyle.Render("✗ Error: " + m.errorMsg)
+			return components.ContainerStyle.Render(common.ErrorStyle.Render("✗ Error: " + m.errorMsg))
 		}
 		if m.successMsg != "" {
-			return common.TitleStyle.Render(m.successMsg)
+			return components.ContainerStyle.Render(common.TitleStyle.Render(m.successMsg))
 		}
 		return ""
 	}

@@ -14,6 +14,9 @@ import (
 // KeyEnter is the enter key string.
 const KeyEnter = "enter"
 
+// ContainerStyle adds left padding to the entire view.
+var ContainerStyle = lipgloss.NewStyle().PaddingLeft(2)
+
 // getCredentialsSubtitle returns a subtitle indicating whether custom or default API credentials are used.
 func getCredentialsSubtitle() string {
 	appID := os.Getenv("TELEGRAM_APP_ID")
@@ -39,13 +42,13 @@ func HandleQuitKeys(msg tea.Msg) (tea.Cmd, bool) {
 // RenderLoaderView renders the loading state with spinner.
 func RenderLoaderView(label, value string) string {
 	lines := []string{
-		common.TitleStyle.Render(" Telegram Login"),
+		common.TitleStyle.Render("Telegram Login"),
 		getCredentialsSubtitle(),
 		"",
 		common.LabelStyle.Render(label),
 		value,
 	}
-	return strings.Join(lines, "\n")
+	return ContainerStyle.Render(strings.Join(lines, "\n"))
 }
 
 // RenderInputView renders a standard input view with optional help text.
@@ -56,7 +59,7 @@ func RenderInputView(inputLine string, showHelp bool) string {
 // RenderInputViewWithError renders a standard input view with error and optional help text.
 func RenderInputViewWithError(inputLine, errMsg string, showHelp bool) string {
 	lines := []string{
-		common.TitleStyle.Render(" Telegram Login"),
+		common.TitleStyle.Render("Telegram Login"),
 		getCredentialsSubtitle(),
 		"",
 		inputLine,
@@ -71,7 +74,7 @@ func RenderInputViewWithError(inputLine, errMsg string, showHelp bool) string {
 		lines = append(lines, common.HelpStyle.Render("enter: submit • q: quit"))
 	}
 
-	return strings.Join(lines, "\n")
+	return ContainerStyle.Render(strings.Join(lines, "\n"))
 }
 
 // RenderLabeledInput renders a labeled input field with label above.
