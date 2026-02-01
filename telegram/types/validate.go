@@ -58,6 +58,15 @@ func validateField(field reflect.Value, fieldType reflect.StructField) error {
 
 // validateEmbedded validates an embedded struct if it has a Validate method.
 func validateEmbedded(field reflect.Value) error {
+	// Check if field is addressable before calling Addr()
+	if !field.CanAddr() {
+		// If not addressable, try to validate via the value directly
+		// This happens when the parent struct was passed by value
+		if validator, ok := field.Interface().(interface{ Validate() error }); ok {
+			return validator.Validate()
+		}
+		return nil
+	}
 	validator, ok := field.Addr().Interface().(interface{ Validate() error })
 	if !ok {
 		return nil

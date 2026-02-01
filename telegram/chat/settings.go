@@ -3,10 +3,107 @@ package chat
 import (
 	"context"
 	"fmt"
+	"math"
+	"os"
 
+	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
 )
+
+// Archive moves a chat to the archive folder.
+func (c *Client) Archive(ctx context.Context, params types.ArchiveParams) (*types.ArchiveResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	peer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
+	// Archive folder has ID 1
+	_, err = c.API.FoldersEditPeerFolders(ctx, []tg.InputFolderPeer{
+		{Peer: peer, FolderID: 1},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to archive chat: %w", err)
+	}
+
+	return &types.ArchiveResult{Success: true, Peer: params.Peer}, nil
+}
+
+// Unarchive moves a chat from the archive folder back to main list.
+func (c *Client) Unarchive(ctx context.Context, params types.UnarchiveParams) (*types.UnarchiveResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	peer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
+	// Main folder has ID 0
+	_, err = c.API.FoldersEditPeerFolders(ctx, []tg.InputFolderPeer{
+		{Peer: peer, FolderID: 0},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to unarchive chat: %w", err)
+	}
+
+	return &types.UnarchiveResult{Success: true, Peer: params.Peer}, nil
+}
+
+// Mute mutes notifications for a chat.
+func (c *Client) Mute(ctx context.Context, params types.MuteParams) (*types.MuteResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	peer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
+	// Mute until max int32 (forever)
+	_, err = c.API.AccountUpdateNotifySettings(ctx, &tg.AccountUpdateNotifySettingsRequest{
+		Peer: &tg.InputNotifyPeer{Peer: peer},
+		Settings: tg.InputPeerNotifySettings{
+			MuteUntil: math.MaxInt32,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to mute chat: %w", err)
+	}
+
+	return &types.MuteResult{Success: true, Peer: params.Peer}, nil
+}
+
+// Unmute unmutes notifications for a chat.
+func (c *Client) Unmute(ctx context.Context, params types.UnmuteParams) (*types.UnmuteResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	peer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
+	// Unmute by setting mute_until to 0
+	_, err = c.API.AccountUpdateNotifySettings(ctx, &tg.AccountUpdateNotifySettingsRequest{
+		Peer: &tg.InputNotifyPeer{Peer: peer},
+		Settings: tg.InputPeerNotifySettings{
+			MuteUntil: 0,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmute chat: %w", err)
+	}
+
+	return &types.UnmuteResult{Success: true, Peer: params.Peer}, nil
+}
 
 // EditTitle edits the title of a chat or channel.
 func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*types.EditTitleResult, error) {
@@ -50,14 +147,65 @@ func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*
 }
 
 // SetPhoto sets the photo for a chat or channel.
-func (c *Client) SetPhoto(_ context.Context, _ types.SetPhotoParams) (*types.SetPhotoResult, error) {
+func (c *Client) SetPhoto(ctx context.Context, params types.SetPhotoParams) (*types.SetPhotoResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
 	}
 
-	// This requires file upload functionality
-	// For now, return an error indicating this needs to be implemented
-	return nil, fmt.Errorf("set_photo requires file upload - use send_photo command or implement file upload")
+	peer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
+	// Upload the photo file
+	// #nosec G304 -- filePath is validated in handler
+	file, err := os.Open(params.File)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	u := uploader.NewUploader(c.API)
+	upload := uploader.NewUpload(fileInfo.Name(), file, fileInfo.Size())
+	uploadedFile, err := u.Upload(ctx, upload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload file: %w", err)
+	}
+
+	photo := &tg.InputChatUploadedPhoto{
+		File: uploadedFile,
+	}
+
+	switch p := peer.(type) {
+	case *tg.InputPeerChannel:
+		_, err := c.API.ChannelsEditPhoto(ctx, &tg.ChannelsEditPhotoRequest{
+			Channel: &tg.InputChannel{
+				ChannelID:  p.ChannelID,
+				AccessHash: p.AccessHash,
+			},
+			Photo: photo,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to set channel photo: %w", err)
+		}
+	case *tg.InputPeerChat:
+		_, err := c.API.MessagesEditChatPhoto(ctx, &tg.MessagesEditChatPhotoRequest{
+			ChatID: p.ChatID,
+			Photo:  photo,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to set chat photo: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("peer must be a chat or channel")
+	}
+
+	return &types.SetPhotoResult{Success: true}, nil
 }
 
 // DeletePhoto deletes the photo from a chat or channel.

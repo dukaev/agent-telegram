@@ -39,7 +39,7 @@ Example:
 func AddListContactsCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(ListContactsCmd)
 
-	ListContactsCmd.Flags().StringVarP(&listSearchQuery, "search", "s", "", "Search query to filter contacts")
+	ListContactsCmd.Flags().StringVarP(&listSearchQuery, "search", "S", "", "Search query to filter contacts")
 	ListContactsCmd.Flags().IntVarP(&listLimit, "limit", "l", cliutil.DefaultLimitLarge, "Max contacts (max 100)")
 	ListContactsCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset for pagination")
 

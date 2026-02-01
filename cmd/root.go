@@ -2,9 +2,7 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -22,8 +20,7 @@ import (
 )
 
 var (
-	version   = "dev"
-	fullHelp  bool
+	version = "dev"
 
 	// GroupIDAuth is the command group ID for authentication commands.
 	GroupIDAuth = "auth"
@@ -49,79 +46,9 @@ It provides commands to:
 	Version: version,
 }
 
-// printFullHelp prints all commands and subcommands recursively.
-func printFullHelp() {
-	fmt.Println("agent-telegram - Telegram IPC agent CLI")
-	fmt.Println()
-	fmt.Println("All commands and subcommands:")
-	fmt.Println()
-
-	// Group commands by their group
-	groups := make(map[string][]*cobra.Command)
-
-	for _, cmd := range RootCmd.Commands() {
-		if !cmd.IsAvailableCommand() || cmd.IsAdditionalHelpTopicCommand() {
-			continue
-		}
-
-		groupID := cmd.GroupID
-		if groupID == "" {
-			groupID = "Other"
-		}
-		groups[groupID] = append(groups[groupID], cmd)
-	}
-
-	// Define group order
-	groupOrder := []string{"auth", "message", "chat", "server", "Other"}
-
-	// Get group titles
-	groupTitles := map[string]string{
-		"server":  "Server",
-		"auth":    "Authentication",
-		"message": "Manage Messages",
-		"chat":    "Chat",
-		"Other":   "Other",
-	}
-
-	for _, groupID := range groupOrder {
-		cmds, ok := groups[groupID]
-		if !ok || len(cmds) == 0 {
-			continue
-		}
-
-		title := groupTitles[groupID]
-		fmt.Printf("%s\n", title)
-		fmt.Println(strings.Repeat("-", len(title)))
-
-		for _, cmd := range cmds {
-			printCommandTree(cmd, "  ")
-		}
-		fmt.Println()
-	}
-}
-
-// printCommandTree prints a command and all its subcommands recursively.
-func printCommandTree(cmd *cobra.Command, prefix string) {
-	fmt.Printf("%s%s\n", prefix, cmd.Name())
-
-	// Print subcommands
-	for _, subcmd := range cmd.Commands() {
-		if !subcmd.IsAvailableCommand() || subcmd.IsAdditionalHelpTopicCommand() {
-			continue
-		}
-		printCommandTree(subcmd, prefix+"  ")
-	}
-}
-
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the RootCmd.
 func Execute() {
-	// Parse flags manually to check for --full before cobra processes help
-	if len(os.Args) > 1 && os.Args[1] == "--full" {
-		printFullHelp()
-		os.Exit(0)
-	}
-
 	err := RootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -137,8 +64,6 @@ func init() {
 
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
-	RootCmd.PersistentFlags().BoolVar(&fullHelp, "full", false, "Show all commands and subcommands")
-	RootCmd.PersistentFlags().Bool("dry-run", false, "Show what would be executed without actually running")
 	RootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress status messages (data still goes to stdout)")
 }
 

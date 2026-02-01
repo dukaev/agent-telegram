@@ -209,11 +209,11 @@ func buildSendParams(args []string) (string, map[string]any) {
 
 	case replyToMessageID != 0:
 		if len(args) == 0 {
-			params["message"] = ""
+			params["text"] = ""
 		} else {
-			params["message"] = args[0]
+			params["text"] = args[0]
 		}
-		params["reply_to"] = replyToMessageID
+		params["messageId"] = replyToMessageID
 		return "send_reply", params
 
 	case len(args) > 0:

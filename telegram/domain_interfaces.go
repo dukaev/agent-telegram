@@ -35,6 +35,11 @@ type ChatClient interface {
 	GetFolders(ctx context.Context, params types.GetFoldersParams) (*types.GetFoldersResult, error)
 	CreateFolder(ctx context.Context, params types.CreateFolderParams) (*types.CreateFolderResult, error)
 	DeleteFolder(ctx context.Context, params types.DeleteFolderParams) (*types.DeleteFolderResult, error)
+	// Archive and mute
+	Archive(ctx context.Context, params types.ArchiveParams) (*types.ArchiveResult, error)
+	Unarchive(ctx context.Context, params types.UnarchiveParams) (*types.UnarchiveResult, error)
+	Mute(ctx context.Context, params types.MuteParams) (*types.MuteResult, error)
+	Unmute(ctx context.Context, params types.UnmuteParams) (*types.UnmuteResult, error)
 }
 
 // MessageClient defines the interface for message operations.

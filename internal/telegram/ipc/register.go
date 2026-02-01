@@ -25,6 +25,8 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"send_photo":      sendPhotoHandler,
 	"send_contact":    sendContactHandler,
 	"send_file":       sendFileHandler,
+	"send_document":   sendFileHandler, // alias for send_file
+	"send_audio":      sendFileHandler, // alias for send_file
 	"send_poll":       SendPollHandler,
 	"send_checklist":  SendChecklistHandler,
 	"send_video":      sendVideoHandler,
@@ -48,6 +50,10 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 
 	// Chat operations
 	"pin_chat":           func(c Client) HandlerFunc { return Handler(c.Chat().PinChat, "pin chat") },
+	"archive":            func(c Client) HandlerFunc { return Handler(c.Chat().Archive, "archive chat") },
+	"unarchive":          func(c Client) HandlerFunc { return Handler(c.Chat().Unarchive, "unarchive chat") },
+	"mute":               func(c Client) HandlerFunc { return Handler(c.Chat().Mute, "mute chat") },
+	"unmute":             func(c Client) HandlerFunc { return Handler(c.Chat().Unmute, "unmute chat") },
 	"join_chat":          joinChatHandler,
 	"subscribe_channel":  subscribeChannelHandler,
 	"leave":              leaveHandler,

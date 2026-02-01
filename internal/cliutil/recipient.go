@@ -35,7 +35,8 @@ func (r *Recipient) Type() string {
 // Peer returns normalized peer for API.
 // @user → @user
 // username → @username
-// 123456789 → 123456789 (chat ID)
+// 123456789 → 123456789 (user ID)
+// -123456789 → -123456789 (chat/channel ID)
 func (r *Recipient) Peer() string {
 	if r.value == "" {
 		return ""
@@ -43,7 +44,11 @@ func (r *Recipient) Peer() string {
 	if strings.HasPrefix(r.value, "@") {
 		return r.value
 	}
+	// Check if it's a numeric ID (positive or negative)
 	if r.value[0] >= '0' && r.value[0] <= '9' {
+		return r.value
+	}
+	if r.value[0] == '-' && len(r.value) > 1 && r.value[1] >= '0' && r.value[1] <= '9' {
 		return r.value
 	}
 	return "@" + r.value

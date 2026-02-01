@@ -36,11 +36,10 @@ func New(appID int, appHash, phone, sessionPath string) *Config {
 	}
 }
 
-// SessionStorage returns a session storage for the given user ID.
-func (c *Config) SessionStorage(userID int) session.Storage {
-	sessionDir := filepath.Join(c.SessionPath, fmt.Sprintf("user_%d", userID))
+// SessionStorage returns a session storage.
+func (c *Config) SessionStorage() session.Storage {
 	return &session.FileStorage{
-		Path: filepath.Join(sessionDir, "session.json"),
+		Path: filepath.Join(c.SessionPath, "session.json"),
 	}
 }
 

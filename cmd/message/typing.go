@@ -21,6 +21,9 @@ var TypingCmd = &cobra.Command{
 	Short: "Send typing indicator",
 	Long: `Send a typing indicator to a chat.
 
+The indicator automatically disappears after ~5 seconds.
+To maintain it continuously, repeat the command.
+
 Actions: typing (default), upload_photo, record_video, record_audio,
          upload_document, choose_sticker, record_round, cancel
 

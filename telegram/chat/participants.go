@@ -41,7 +41,8 @@ func (c *Client) GetParticipants(
 				ChannelID:  p.ChannelID,
 				AccessHash: p.AccessHash,
 			},
-			Limit: limit,
+			Filter: &tg.ChannelParticipantsRecent{},
+			Limit:  limit,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to get channel participants: %w", err)

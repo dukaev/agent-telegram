@@ -108,10 +108,11 @@ func (c *Client) SearchInChat(ctx context.Context, params types.SearchInChatPara
 		offsetID = 0
 	}
 
-	// Search in chat - without filter for now, will search all messages
+	// Search in chat - use InputMessagesFilterEmpty to search all messages
 	result, err := c.API.MessagesSearch(ctx, &tg.MessagesSearchRequest{
 		Peer:     inputPeer,
 		Q:        params.Query,
+		Filter:   &tg.InputMessagesFilterEmpty{},
 		TopMsgID: 0,
 		Limit:    limit,
 		OffsetID: offsetID,

@@ -97,3 +97,67 @@ type PinChatResult struct {
 	Peer    string `json:"peer"`
 	Pinned  bool   `json:"pinned"`
 }
+
+// ArchiveParams holds parameters for Archive.
+type ArchiveParams struct {
+	PeerInfo
+}
+
+// Validate validates ArchiveParams.
+func (p ArchiveParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// ArchiveResult is the result of Archive.
+type ArchiveResult struct {
+	Success bool   `json:"success"`
+	Peer    string `json:"peer"`
+}
+
+// UnarchiveParams holds parameters for Unarchive.
+type UnarchiveParams struct {
+	PeerInfo
+}
+
+// Validate validates UnarchiveParams.
+func (p UnarchiveParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// UnarchiveResult is the result of Unarchive.
+type UnarchiveResult struct {
+	Success bool   `json:"success"`
+	Peer    string `json:"peer"`
+}
+
+// MuteParams holds parameters for Mute.
+type MuteParams struct {
+	PeerInfo
+}
+
+// Validate validates MuteParams.
+func (p MuteParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// MuteResult is the result of Mute.
+type MuteResult struct {
+	Success bool   `json:"success"`
+	Peer    string `json:"peer"`
+}
+
+// UnmuteParams holds parameters for Unmute.
+type UnmuteParams struct {
+	PeerInfo
+}
+
+// Validate validates UnmuteParams.
+func (p UnmuteParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// UnmuteResult is the result of Unmute.
+type UnmuteResult struct {
+	Success bool   `json:"success"`
+	Peer    string `json:"peer"`
+}

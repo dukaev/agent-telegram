@@ -21,7 +21,7 @@ Example:
 	Method: "set_slow_mode",
 	Flags: []cliutil.Flag{
 		cliutil.ToFlag,
-		{Name: "seconds", Short: "s", Usage: "Seconds between messages (0 to disable)", Type: cliutil.FlagInt},
+		{Name: "seconds", Short: "S", Usage: "Seconds between messages (0 to disable)", Type: cliutil.FlagInt},
 	},
 	Success: "Slow mode updated",
 })

@@ -23,7 +23,6 @@ type RPCClient interface {
 type Runner struct {
 	socketFlag string
 	jsonOutput bool
-	dryRun     bool
 	quiet      bool
 }
 
@@ -32,20 +31,17 @@ func NewRunner(socketFlag string, jsonOutput bool) *Runner {
 	return &Runner{
 		socketFlag: socketFlag,
 		jsonOutput: jsonOutput,
-		dryRun:     false,
 	}
 }
 
 // NewRunnerFromCmd creates a runner from a cobra command.
-// It extracts the socket flag, dry-run flag, and quiet flag from the command's persistent flags.
+// It extracts the socket flag and quiet flag from the command's persistent flags.
 func NewRunnerFromCmd(cmd *cobra.Command, jsonOutput bool) *Runner {
 	socketPath, _ := cmd.Flags().GetString("socket")
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	quiet, _ := cmd.Flags().GetBool("quiet")
 	return &Runner{
 		socketFlag: socketPath,
 		jsonOutput: jsonOutput,
-		dryRun:     dryRun,
 		quiet:      quiet,
 	}
 }
@@ -192,13 +188,7 @@ func (r *Runner) CallDirect(method string, params any) any {
 
 // Call executes an RPC call and returns the result or exits on error.
 // Automatically starts the server if it's not running.
-// If dry-run is enabled, prints what would be executed and returns a mock result.
 func (r *Runner) Call(method string, params any) any {
-	// Handle dry-run mode
-	if r.dryRun {
-		return r.dryRunCall(method, params)
-	}
-
 	// Ensure server is running (auto-start if needed)
 	if err := r.ensureServer(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -211,24 +201,6 @@ func (r *Runner) Call(method string, params any) any {
 		r.handleError(err)
 	}
 	return result
-}
-
-// dryRunCall handles dry-run mode by printing what would be executed.
-func (r *Runner) dryRunCall(method string, params any) any {
-	fmt.Fprintln(os.Stderr, "[DRY-RUN] Would execute:")
-	fmt.Fprintf(os.Stderr, "  Method: %s\n", method)
-	if params != nil {
-		paramsJSON, err := json.MarshalIndent(params, "  ", "  ")
-		if err == nil {
-			fmt.Fprintf(os.Stderr, "  Params: %s\n", string(paramsJSON))
-		}
-	}
-	// Return a mock result
-	return map[string]any{
-		"dry_run": true,
-		"method":  method,
-		"params":  params,
-	}
 }
 
 // handleError handles RPC errors with user-friendly messages.

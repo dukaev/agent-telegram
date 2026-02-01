@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gotd/td/tg"
@@ -106,13 +105,10 @@ func (c *Client) SendLocation(ctx context.Context, params types.SendLocationPara
 		return nil, err
 	}
 
-	// Clean peer (remove @ prefix)
-	peer := strings.TrimPrefix(params.Peer, "@")
-
 	// Resolve username to get input peer
-	inputPeer, err := c.ResolvePeer(ctx, peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer @%s: %w", peer, err)
+		return nil, fmt.Errorf("failed to resolve peer %s: %w", params.Peer, err)
 	}
 
 	// Create geo point media
@@ -139,7 +135,7 @@ func (c *Client) SendLocation(ctx context.Context, params types.SendLocationPara
 	return &types.SendLocationResult{
 		ID:        msgID,
 		Date:      time.Now().Unix(),
-		Peer:      peer,
+		Peer:      params.Peer,
 		Latitude:  params.Latitude,
 		Longitude: params.Longitude,
 	}, nil

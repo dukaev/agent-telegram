@@ -31,7 +31,9 @@ func (c *Client) SendSticker(ctx context.Context, params types.SendStickerParams
 		}
 
 		attributes := []tg.DocumentAttributeClass{
-			&tg.DocumentAttributeSticker{},
+			&tg.DocumentAttributeSticker{
+				Stickerset: &tg.InputStickerSetEmpty{},
+			},
 		}
 
 		media = &tg.InputMediaUploadedDocument{
