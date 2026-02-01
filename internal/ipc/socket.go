@@ -4,6 +4,7 @@ package ipc
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"sync"
@@ -121,8 +122,6 @@ func (s *SocketServer) acceptLoop() {
 			}
 		}
 
-		fmt.Printf("📥 New connection from %s\n", conn.RemoteAddr())
-
 		s.wg.Add(1)
 		go s.handleConnection(conn)
 	}
@@ -131,13 +130,10 @@ func (s *SocketServer) acceptLoop() {
 // handleConnection handles a single connection.
 func (s *SocketServer) handleConnection(conn net.Conn) {
 	defer s.wg.Done()
-	defer func() {
-		_ = conn.Close()
-		fmt.Printf("📤 Connection closed\n")
-	}()
+	defer func() { _ = conn.Close() }()
 
 	if err := s.server.Serve(conn); err != nil {
-		fmt.Printf("Connection error: %v\n", err)
+		slog.Debug("connection error", "error", err)
 	}
 }
 

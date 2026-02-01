@@ -32,7 +32,7 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 	StatusCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(StatusCmd, true)
 
-		// Use CallDirect to avoid auto-starting the server
+		// Use Client directly to avoid auto-starting the server
 		client := runner.Client()
 		result, err := client.Call("status", nil)
 		if err != nil {
@@ -46,6 +46,12 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			return
 		}
 
+		if statusJSON {
+			runner.PrintJSON(result)
+			return
+		}
+
+		// Server status
 		status := cliutil.ExtractString(m, "status")
 		if status == "running" {
 			if pid, ok := m["pid"].(float64); ok {
@@ -55,6 +61,29 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			}
 		} else {
 			fmt.Println("Server: not running")
+			return
+		}
+
+		// Telegram status
+		initialized, _ := m["initialized"].(bool)
+		authorized, _ := m["authorized"].(bool)
+
+		//nolint:gocritic // ifElseChain is clearer than switch for boolean conditions
+		if !initialized {
+			fmt.Println("Telegram: initializing...")
+		} else if !authorized {
+			fmt.Println("Telegram: not authorized (run: agent-telegram login)")
+		} else {
+			username := cliutil.ExtractString(m, "username")
+			firstName := cliutil.ExtractString(m, "firstName")
+			switch {
+			case username != "":
+				fmt.Printf("Telegram: authorized (@%s)\n", username)
+			case firstName != "":
+				fmt.Printf("Telegram: authorized (%s)\n", firstName)
+			default:
+				fmt.Println("Telegram: authorized")
+			}
 		}
 	}
 }

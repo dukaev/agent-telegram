@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/paths"
 	telegramipc "agent-telegram/internal/telegram/ipc"
 	"agent-telegram/telegram"
 )
@@ -49,28 +50,63 @@ func init() {
 		"Run in foreground (default: background)")
 }
 
+//nolint:funlen // Server startup logic requires sequential steps
 func runServe(_ *cobra.Command, _ []string) {
 	_ = godotenv.Load()
 
+	// Validate credentials BEFORE daemonize so user sees errors
+	appID, appHash, phone := loadTelegramCredentials()
+
 	if !serveForeground {
 		if err := daemonize(); err != nil {
-			slog.Error("Failed to daemonize", "error", err)
+			fmt.Fprintf(os.Stderr, "Failed to daemonize: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
+	// Acquire lock to prevent multiple instances
+	lockPath, err := paths.LockFilePath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to get lock path: %v\n", err)
+		os.Exit(1)
+	}
+	lock := paths.NewLockFile(lockPath)
+	acquired, err := lock.TryLock()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to acquire lock: %v\n", err)
+		os.Exit(1)
+	}
+	if !acquired {
+		fmt.Fprintln(os.Stderr, "Another server instance is already running")
+		os.Exit(1)
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	// Write PID file (defer cleanup is set up after all early exits)
+	pidPath, err := paths.PIDFilePath()
+	if err != nil {
+		_ = lock.Unlock()
+		fmt.Fprintf(os.Stderr, "Failed to get PID path: %v\n", err)
+		os.Exit(1) //nolint:gocritic // lock.Unlock() called explicitly
+	}
+	if err := paths.WritePID(pidPath); err != nil {
+		_ = lock.Unlock()
+		fmt.Fprintf(os.Stderr, "Failed to write PID file: %v\n", err)
+		os.Exit(1)
+	}
+	defer func() { _ = paths.RemovePID(pidPath) }()
+
 	// Setup slog after daemonize (when in foreground mode or in child process)
 	setupLogger()
 
-	ctx := setupContext()
+	ctx, cancel := setupContext()
 	socketPath := getSocketPath()
 	sessionPath := getSessionPath()
-	appID, appHash, phone := loadTelegramCredentials()
 
 	tgClient := createTelegramClient(appID, appHash, phone, sessionPath)
 	startTelegramClient(ctx, tgClient)
 
-	srv := createIPCServer(socketPath, tgClient)
+	srv := createIPCServer(socketPath, tgClient, cancel)
 	if err := srv.Start(ctx); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
@@ -78,9 +114,18 @@ func runServe(_ *cobra.Command, _ []string) {
 	slog.Info("Server stopped")
 }
 
-// setupLogger configures structured logging to file.
+// setupLogger configures structured logging to file in ~/.agent-telegram/.
 func setupLogger() {
-	logFile, err := os.OpenFile("agent-telegram.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	logPath, err := paths.LogFilePath()
+	if err != nil {
+		// Fallback to stderr if path cannot be determined
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+		slog.Error("Failed to get log path, using stderr", "error", err)
+		return
+	}
+
+	//nolint:gosec // logPath is from trusted paths.LogFilePath()
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		// Fallback to stderr if file cannot be opened
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
@@ -95,7 +140,8 @@ func setupLogger() {
 }
 
 // setupContext creates a context with signal handling.
-func setupContext() context.Context {
+// Returns both the context and cancel function for use in shutdown handler.
+func setupContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	sigCh := make(chan os.Signal, 1)
@@ -106,7 +152,7 @@ func setupContext() context.Context {
 		cancel()
 	}()
 
-	return ctx
+	return ctx, cancel
 }
 
 // getSocketPath returns the socket path from flags or default.
@@ -191,20 +237,35 @@ func startTelegramClient(ctx context.Context, tgClient *telegram.Client) {
 }
 
 // createIPCServer creates and configures the IPC server.
-func createIPCServer(socketPath string, tgClient *telegram.Client) *ipc.SocketServer {
+func createIPCServer(socketPath string, tgClient *telegram.Client, cancel context.CancelFunc) *ipc.SocketServer {
 	srv := ipc.NewSocketServer(socketPath)
 	ipc.RegisterPingPong(srv)
 	telegramipc.RegisterHandlers(srv, tgClient)
 
 	srv.Register("status", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
+		// Create a short-lived context for the status check
+		ctx, statusCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer statusCancel()
+
+		tgStatus := tgClient.GetStatus(ctx)
+
 		return map[string]any{
-			"status": "running",
-			"pid":    os.Getpid(),
+			"status":      "running",
+			"pid":         os.Getpid(),
+			"initialized": tgStatus.Initialized,
+			"authorized":  tgStatus.Authorized,
+			"username":    tgStatus.Username,
+			"first_name":  tgStatus.FirstName,
+			"user_id":     tgStatus.UserID,
 		}, nil
 	})
 
 	srv.Register("shutdown", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
 		// Trigger graceful shutdown by canceling context
+		go func() {
+			time.Sleep(100 * time.Millisecond) // Small delay to send response first
+			cancel()
+		}()
 		return map[string]any{
 			"success": true,
 			"message": "Shutting down...",
@@ -224,26 +285,47 @@ func getEnv(keys ...string) string {
 	return ""
 }
 
+// isDaemonChild checks if this process is a daemon child.
+func isDaemonChild() bool {
+	return os.Getenv("AGENT_TELEGRAM_DAEMON") == "1"
+}
+
 // daemonize forks the process to run in background.
 func daemonize() error {
+	// If we're already a daemon child, don't fork again
+	if isDaemonChild() {
+		return nil
+	}
+
 	// Get the path to the current executable
-	exec, err := os.Executable()
+	execPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to get executable path: %w", err)
 	}
 
+	// Get log file path
+	logPath, err := paths.LogFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get log path: %w", err)
+	}
+
 	// Create log file
-	logFile, err := os.OpenFile("agent-telegram.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	//nolint:gosec // logPath is from trusted paths.LogFilePath()
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create log file: %w", err)
 	}
 
+	// Prepare environment with daemon marker
+	env := append(os.Environ(), "AGENT_TELEGRAM_DAEMON=1")
+
 	// Fork the process
 	attr := &os.ProcAttr{
+		Env:   env,
 		Files: []*os.File{nil, logFile, logFile}, // stdin: nil, stdout: logFile, stderr: logFile
 	}
 
-	proc, err := os.StartProcess(exec, os.Args, attr)
+	proc, err := os.StartProcess(execPath, os.Args, attr)
 	if err != nil {
 		_ = logFile.Close()
 		return fmt.Errorf("failed to start daemon process: %w", err)
@@ -251,7 +333,7 @@ func daemonize() error {
 
 	// Parent process exits
 	fmt.Printf("Daemon started with PID %d\n", proc.Pid)
-	fmt.Println("Logs are being written to agent-telegram.log")
+	fmt.Printf("Logs: %s\n", logPath)
 	os.Exit(0)
 
 	return nil

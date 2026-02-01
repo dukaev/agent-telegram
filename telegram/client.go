@@ -182,3 +182,39 @@ func (c *Client) setDomainAPIs() {
 	c.reaction.SetAPI(api)
 	c.search.SetAPI(api)
 }
+
+// ClientStatus represents the current status of the Telegram client.
+type ClientStatus struct {
+	Initialized bool   `json:"initialized"`
+	Authorized  bool   `json:"authorized"`
+	Username    string `json:"username,omitempty"`
+	FirstName   string `json:"firstName,omitempty"`
+	UserID      int64  `json:"userId,omitempty"`
+}
+
+// IsInitialized returns true if the client API is ready.
+func (c *Client) IsInitialized() bool {
+	return c.message != nil && c.message.IsInitialized()
+}
+
+// GetStatus returns the current client status.
+func (c *Client) GetStatus(ctx context.Context) ClientStatus {
+	status := ClientStatus{
+		Initialized: c.IsInitialized(),
+	}
+
+	if !status.Initialized || c.client == nil {
+		return status
+	}
+
+	// Try to get user info
+	userInfo, err := c.client.Self(ctx)
+	if err == nil {
+		status.Authorized = true
+		status.Username = userInfo.Username
+		status.FirstName = userInfo.FirstName
+		status.UserID = userInfo.ID
+	}
+
+	return status
+}

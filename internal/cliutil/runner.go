@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/paths"
 )
 
 // RPCClient defines the interface for RPC calls.
@@ -93,6 +94,8 @@ func (r *Runner) waitForServer(maxWait time.Duration) bool {
 }
 
 // ensureServer ensures the server is running, starting it if necessary.
+// Uses a lock file to prevent race conditions when multiple CLI processes
+// try to start the server simultaneously.
 func (r *Runner) ensureServer() error {
 	// Check if server is already running
 	client := r.Client()
@@ -102,21 +105,71 @@ func (r *Runner) ensureServer() error {
 	}
 
 	// Server not running, try to start it
-	if err.Code == ipc.ErrCodeServerNotRunning {
-		fmt.Fprintln(os.Stderr, "Server not running, starting...")
-		if startErr := r.startServer(); startErr != nil {
-			return startErr
-		}
+	if err.Code != ipc.ErrCodeServerNotRunning {
+		return fmt.Errorf("failed to connect to server: %s", err.Message)
+	}
 
-		// Wait for server to be ready
-		if !r.waitForServer(10 * time.Second) {
+	// Acquire lock to prevent multiple processes from starting server simultaneously
+	lockPath, lockErr := paths.LockFilePath()
+	if lockErr != nil {
+		// If we can't get lock path, try to start anyway
+		return r.startServerWithWait()
+	}
+
+	lock := paths.NewLockFile(lockPath)
+	acquired, lockErr := lock.TryLock()
+	if lockErr != nil {
+		// If lock fails, try to start anyway
+		return r.startServerWithWait()
+	}
+
+	if !acquired {
+		// Another process is starting the server, just wait for it
+		fmt.Fprintln(os.Stderr, "Another process is starting the server, waiting...")
+		if !r.waitForServer(15 * time.Second) {
 			return fmt.Errorf("server failed to start within timeout")
 		}
-		fmt.Fprintln(os.Stderr, "Server started successfully")
 		return nil
 	}
 
-	return fmt.Errorf("failed to connect to server: %s", err.Message)
+	// We have the lock, check again if server started while we were acquiring lock
+	_, err = client.Call("status", nil)
+	if err == nil {
+		_ = lock.Unlock()
+		return nil // Server started by another process
+	}
+
+	// Start the server
+	fmt.Fprintln(os.Stderr, "Server not running, starting...")
+	if startErr := r.startServer(); startErr != nil {
+		_ = lock.Unlock()
+		return startErr
+	}
+
+	// Wait for server to be ready
+	if !r.waitForServer(10 * time.Second) {
+		_ = lock.Unlock()
+		return fmt.Errorf("server failed to start within timeout")
+	}
+
+	// Release lock - server is now running and has its own lock
+	_ = lock.Unlock()
+	fmt.Fprintln(os.Stderr, "Server started successfully")
+	return nil
+}
+
+// startServerWithWait starts the server and waits for it to be ready.
+func (r *Runner) startServerWithWait() error {
+	fmt.Fprintln(os.Stderr, "Server not running, starting...")
+	if startErr := r.startServer(); startErr != nil {
+		return startErr
+	}
+
+	if !r.waitForServer(10 * time.Second) {
+		return fmt.Errorf("server failed to start within timeout")
+	}
+	fmt.Fprintln(os.Stderr, "Server started successfully")
+	return nil
 }
 
 // CallDirect executes an RPC call without auto-starting the server.
