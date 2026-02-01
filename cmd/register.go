@@ -5,9 +5,11 @@ import (
 	"agent-telegram/cmd/auth"
 	"agent-telegram/cmd/chat"
 	"agent-telegram/cmd/contact"
+	"agent-telegram/cmd/folders"
 	"agent-telegram/cmd/get"
 	"agent-telegram/cmd/message"
 	"agent-telegram/cmd/open"
+	"agent-telegram/cmd/privacy"
 	"agent-telegram/cmd/search"
 	"agent-telegram/cmd/sys"
 	"agent-telegram/cmd/user"
@@ -39,6 +41,12 @@ func init() {
 
 	// Chat commands
 	chat.AddChatCommand(RootCmd)
+
+	// Folders commands
+	folders.AddFoldersCommand(RootCmd)
+
+	// Privacy commands
+	privacy.AddPrivacyCommand(RootCmd)
 
 	// System commands
 	sys.AddStatusCommand(RootCmd)

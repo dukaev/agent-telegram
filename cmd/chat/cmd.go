@@ -38,6 +38,8 @@ func AddChatCommand(rootCmd *cobra.Command) {
 	AddListCommand(ChatCmd)
 	AddOpenCommand(ChatCmd)
 	AddInfoCommand(ChatCmd)
+	AddSlowModeCommand(ChatCmd)
+	AddPermissionsCommand(ChatCmd)
 
 	// Add the parent chat command to root
 	rootCmd.AddCommand(ChatCmd)

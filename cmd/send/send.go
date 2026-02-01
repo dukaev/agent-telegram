@@ -22,6 +22,11 @@ var (
 	sendVideo    string
 	sendAudio    string
 	sendDocument string
+	// New media types
+	sendVoice     string
+	sendVideoNote string
+	sendSticker   string
+	sendGIF       string
 	// Reply options
 	replyToMessageID int64
 	// Poll options
@@ -31,9 +36,9 @@ var (
 	latitude  float64
 	longitude float64
 	// Contact
-	sendContact    string
-	sendFirstName  string
-	sendLastName   string
+	sendContact   string
+	sendFirstName string
+	sendLastName  string
 )
 
 // SendCmd represents the unified send command.
@@ -46,15 +51,18 @@ var SendCmd = &cobra.Command{
 By default, sends a text message. Use flags to send other types:
 
   send --to @user "Hello world"
-  send --to @user --file photo.jpg
   send --to @user --photo image.png
   send --to @user --video video.mp4
+  send --to @user --voice voice.ogg
+  send --to @user --video-note circle.mp4
+  send --to @user --sticker sticker.webp
+  send --to @user --gif animation.mp4
   send --to @user --document file.pdf
   send --to @user --audio music.mp3
-  send --to @user --contact "+1234567890" --first-name "John" --last-name "Doe"
+  send --to @user --contact "+1234567890" --first-name "John"
   send --to @user --reply-to 123 "Reply text"
-  send --to @user --poll "Question?" "Opt1" "Opt2"
-  send --to @user --location 55.7558 37.6173
+  send --to @user --poll "Question?" --option "Yes" --option "No"
+  send --to @user --latitude 55.7558 --longitude 37.6173
 
 Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
 	Args: cobra.MaximumNArgs(1),
@@ -73,6 +81,10 @@ func AddSendCommand(rootCmd *cobra.Command) {
 	SendCmd.Flags().StringVar(&sendVideo, "video", "", "Send video")
 	SendCmd.Flags().StringVar(&sendAudio, "audio", "", "Send audio")
 	SendCmd.Flags().StringVar(&sendDocument, "document", "", "Send document")
+	SendCmd.Flags().StringVar(&sendVoice, "voice", "", "Send voice message (OGG/OPUS)")
+	SendCmd.Flags().StringVar(&sendVideoNote, "video-note", "", "Send video note (circle)")
+	SendCmd.Flags().StringVar(&sendSticker, "sticker", "", "Send sticker (WEBP)")
+	SendCmd.Flags().StringVar(&sendGIF, "gif", "", "Send GIF/animation")
 
 	// Reply flag
 	SendCmd.Flags().Int64Var(&replyToMessageID, "reply-to", 0, "Reply to message ID")
@@ -129,7 +141,8 @@ func buildSendParams(args []string) (string, map[string]any) {
 		params["caption"] = sendFlags.Caption
 	}
 
-	// Priority: contact > poll > location > photo > video > audio > document > file > message
+	// Priority: contact > poll > location > sticker > voice > video-note > gif >
+	// photo > video > audio > document > file > message
 	switch {
 	case sendContact != "":
 		params["phone"] = sendContact
@@ -157,6 +170,22 @@ func buildSendParams(args []string) (string, map[string]any) {
 		params["latitude"] = latitude
 		params["longitude"] = longitude
 		return "send_location", params
+
+	case sendSticker != "":
+		params["file"] = sendSticker
+		return "send_sticker", params
+
+	case sendVoice != "":
+		params["file"] = sendVoice
+		return "send_voice", params
+
+	case sendVideoNote != "":
+		params["file"] = sendVideoNote
+		return "send_video_note", params
+
+	case sendGIF != "":
+		params["file"] = sendGIF
+		return "send_gif", params
 
 	case sendPhoto != "":
 		params["file"] = sendPhoto

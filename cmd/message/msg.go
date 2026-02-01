@@ -26,6 +26,9 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	AddPressButtonCommand(MsgCmd)
 	AddReactionCommand(MsgCmd)
 	AddInspectKeyboardCommand(MsgCmd)
+	AddReadCommand(MsgCmd)
+	AddTypingCommand(MsgCmd)
+	AddScheduledCommand(MsgCmd)
 
 	// Update Use strings for subcommands
 	DeleteCmd.Use = "delete <message_id|id1,id2,...>"
