@@ -41,11 +41,41 @@ func NewSocketServer(path string) *SocketServer {
 	}
 }
 
+// IsServerRunning checks if a server is already running on the socket.
+func IsServerRunning(socketPath string) bool {
+	if socketPath == "" {
+		socketPath = defaultSocketPath
+	}
+
+	// Check if socket file exists
+	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
+		return false
+	}
+
+	// Try to connect to the socket
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	dialer := &net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "unix", socketPath)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
 // Start starts the socket server.
 func (s *SocketServer) Start(ctx context.Context) error {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
-	// Remove existing socket file if present
+	// Check if server is already running
+	//nolint:contextcheck // IsServerRunning uses its own timeout, no need for external context
+	if IsServerRunning(s.path) {
+		return fmt.Errorf("server is already running on %s", s.path)
+	}
+
+	// Remove stale socket file if present (server not running but file exists)
 	_ = os.Remove(s.path)
 
 	// Create Unix socket listener

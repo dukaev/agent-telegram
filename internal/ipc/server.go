@@ -10,17 +10,42 @@ import (
 	"sync"
 )
 
+// Error codes for JSON-RPC errors.
+const (
+	// Standard JSON-RPC error codes.
+	ErrCodeParseError     = -32700
+	ErrCodeInvalidRequest = -32600
+	ErrCodeMethodNotFound = -32601
+	ErrCodeInvalidParams  = -32602
+	ErrCodeInternalError  = -32603
+
+	// Custom error codes.
+	ErrCodeServerNotRunning = -32001
+	ErrCodeNotAuthorized    = -32002
+	ErrCodeNotInitialized   = -32003
+)
+
 var (
 	// ErrParseError is returned when JSON parsing fails.
-	ErrParseError = &ErrorObject{Code: -32700, Message: "Parse error"}
+	ErrParseError = &ErrorObject{Code: ErrCodeParseError, Message: "Parse error"}
 	// ErrInvalidRequest is returned when the request is invalid.
-	ErrInvalidRequest = &ErrorObject{Code: -32600, Message: "Invalid Request"}
+	ErrInvalidRequest = &ErrorObject{Code: ErrCodeInvalidRequest, Message: "Invalid Request"}
 	// ErrMethodNotFound is returned when the method is not found.
-	ErrMethodNotFound = &ErrorObject{Code: -32601, Message: "Method not found"}
+	ErrMethodNotFound = &ErrorObject{Code: ErrCodeMethodNotFound, Message: "Method not found"}
 	// ErrInvalidParams is returned when the parameters are invalid.
-	ErrInvalidParams = &ErrorObject{Code: -32602, Message: "Invalid params"}
+	ErrInvalidParams = &ErrorObject{Code: ErrCodeInvalidParams, Message: "Invalid params"}
 	// ErrInternalError is returned when an internal error occurs.
-	ErrInternalError = &ErrorObject{Code: -32603, Message: "Internal error"}
+	ErrInternalError = &ErrorObject{Code: ErrCodeInternalError, Message: "Internal error"}
+
+	// ErrServerNotRunning is returned when the server is not running.
+	ErrServerNotRunning = &ErrorObject{Code: ErrCodeServerNotRunning, Message: "Server is not running"}
+	// ErrNotAuthorized is returned when the user is not authorized.
+	ErrNotAuthorized = &ErrorObject{Code: ErrCodeNotAuthorized, Message: "Not authorized. Run: agent-telegram login"}
+	// ErrNotInitialized is returned when the client is not initialized.
+	ErrNotInitialized = &ErrorObject{
+		Code:    ErrCodeNotInitialized,
+		Message: "Client not initialized (server may still be starting)",
+	}
 )
 
 // Server represents a JSON-RPC server.

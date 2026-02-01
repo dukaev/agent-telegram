@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix build run test test-contracts validate-fixtures clean build-all npm-pack
+.PHONY: lint lint-fix build run test test-contracts validate-fixtures clean release-local npm-pack npm-publish
 
 REVIVE = $(shell go env GOPATH)/bin/revive
 AIR = $(shell go env GOPATH)/bin/air
@@ -56,13 +56,11 @@ dev-args: ## Run with live reload (air) with custom args
 install-air: ## Install air for live reloading
 	go install github.com/air-verse/air@latest
 
-build-all: ## Build binaries for all platforms
-	./scripts/build-all.sh
+release-local: ## Build release locally (for testing)
+	goreleaser release --snapshot --clean
 
-npm-pack: build-all ## Pack npm package (builds all platforms first)
-	cp dist/agent-telegram-$$(go env GOOS)-$$(go env GOARCH)* bin/agent-telegram 2>/dev/null || true
+npm-pack: ## Pack npm package
 	npm pack
 
-npm-publish: build-all ## Publish to npm (requires npm login)
-	cp dist/agent-telegram-$$(go env GOOS)-$$(go env GOARCH)* bin/agent-telegram 2>/dev/null || true
+npm-publish: ## Publish to npm (requires npm login)
 	npm publish

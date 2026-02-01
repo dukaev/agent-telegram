@@ -38,10 +38,13 @@ func (b *BaseClient) IsInitialized() bool {
 	return b.API != nil
 }
 
+// ErrNotInitialized is returned when the API client is not set.
+var ErrNotInitialized = fmt.Errorf("client not initialized (server may still be starting)")
+
 // CheckInitialized returns an error if the API client is not set.
 func (b *BaseClient) CheckInitialized() error {
 	if !b.IsInitialized() {
-		return fmt.Errorf("api client not set")
+		return ErrNotInitialized
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -45,9 +46,16 @@ func (c *Client) Call(method string, params interface{}) (interface{}, *ErrorObj
 	dialer := &net.Dialer{Timeout: c.timeout}
 	conn, err := dialer.Dial("unix", c.path)
 	if err != nil {
+		// Check if server is not running
+		errStr := err.Error()
+		if strings.Contains(errStr, "no such file") ||
+			strings.Contains(errStr, "connection refused") ||
+			strings.Contains(errStr, "connect: no such file or directory") {
+			return nil, ErrServerNotRunning
+		}
 		return nil, &ErrorObject{
 			Code:    -32000,
-			Message: fmt.Sprintf("Failed to connect: %v", err),
+			Message: "Failed to connect: " + errStr,
 		}
 	}
 	defer func() { _ = conn.Close() }()

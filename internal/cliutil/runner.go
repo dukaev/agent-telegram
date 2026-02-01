@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -54,15 +56,113 @@ func (r *Runner) Client() RPCClient {
 	return ipc.NewClient(r.socketFlag)
 }
 
-// Call executes an RPC call and returns the result or exits on error.
-func (r *Runner) Call(method string, params any) any {
+// startServer attempts to start the serve command in the background.
+func (r *Runner) startServer() error {
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Build args for serve command
+	args := []string{"serve"}
+	if r.socketFlag != "" {
+		args = append(args, "--socket", r.socketFlag)
+	}
+
+	//nolint:gosec,noctx // execPath from os.Executable() is safe; background server needs no context
+	cmd := exec.Command(execPath, args...)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start server: %w", err)
+	}
+
+	return nil
+}
+
+// waitForServer waits for the server to become available.
+func (r *Runner) waitForServer(maxWait time.Duration) bool {
+	deadline := time.Now().Add(maxWait)
+	for time.Now().Before(deadline) {
+		client := r.Client()
+		_, err := client.Call("status", nil)
+		if err == nil {
+			return true
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return false
+}
+
+// ensureServer ensures the server is running, starting it if necessary.
+func (r *Runner) ensureServer() error {
+	// Check if server is already running
+	client := r.Client()
+	_, err := client.Call("status", nil)
+	if err == nil {
+		return nil // Server is running
+	}
+
+	// Server not running, try to start it
+	if err.Code == ipc.ErrCodeServerNotRunning {
+		fmt.Fprintln(os.Stderr, "Server not running, starting...")
+		if startErr := r.startServer(); startErr != nil {
+			return startErr
+		}
+
+		// Wait for server to be ready
+		if !r.waitForServer(10 * time.Second) {
+			return fmt.Errorf("server failed to start within timeout")
+		}
+		fmt.Fprintln(os.Stderr, "Server started successfully")
+		return nil
+	}
+
+	return fmt.Errorf("failed to connect to server: %s", err.Message)
+}
+
+// CallDirect executes an RPC call without auto-starting the server.
+// Use this for commands like "status" that check if the server is running.
+func (r *Runner) CallDirect(method string, params any) any {
 	client := r.Client()
 	result, err := client.Call(method, params)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Message)
-		os.Exit(1)
+		r.handleError(err)
 	}
 	return result
+}
+
+// Call executes an RPC call and returns the result or exits on error.
+// Automatically starts the server if it's not running.
+func (r *Runner) Call(method string, params any) any {
+	// Ensure server is running (auto-start if needed)
+	if err := r.ensureServer(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	client := r.Client()
+	result, err := client.Call(method, params)
+	if err != nil {
+		r.handleError(err)
+	}
+	return result
+}
+
+// handleError handles RPC errors with user-friendly messages.
+func (r *Runner) handleError(err *ipc.ErrorObject) {
+	switch err.Code {
+	case ipc.ErrCodeServerNotRunning:
+		fmt.Fprintln(os.Stderr, "Error: Server is not running")
+		fmt.Fprintln(os.Stderr, "Run: agent-telegram serve")
+	case ipc.ErrCodeNotAuthorized:
+		fmt.Fprintln(os.Stderr, "Error: Not authorized")
+		fmt.Fprintln(os.Stderr, "Please login first: agent-telegram login")
+	case ipc.ErrCodeNotInitialized:
+		fmt.Fprintln(os.Stderr, "Error: Client not initialized")
+		fmt.Fprintln(os.Stderr, "The server may still be starting up. Please try again in a few seconds.")
+	default:
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Message)
+	}
+	os.Exit(1)
 }
 
 // CallWithParams executes an RPC call with parameters.

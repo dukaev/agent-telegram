@@ -3,8 +3,10 @@ package ipc
 
 import (
 	"encoding/json"
+	"errors"
 
 	"agent-telegram/internal/ipc"
+	"agent-telegram/telegram/client"
 )
 
 // methodHandlers maps method names to handler factory functions.
@@ -104,6 +106,10 @@ func registerHandler(srv ipc.MethodRegistrar, method string, handler HandlerFunc
 	srv.Register(method, func(params json.RawMessage) (interface{}, *ipc.ErrorObject) {
 		result, err := handler(params)
 		if err != nil {
+			// Check for specific error types
+			if errors.Is(err, client.ErrNotInitialized) {
+				return nil, ipc.ErrNotInitialized
+			}
 			return nil, &ipc.ErrorObject{Code: -32000, Message: err.Error()}
 		}
 		return result, nil
