@@ -3,7 +3,6 @@ package chat
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -35,7 +34,8 @@ func AddCreateGroupCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(CreateGroupCmd)
 
 	CreateGroupCmd.Flags().StringVarP(&createGroupTitle, "title", "t", "", "Group title")
-	CreateGroupCmd.Flags().StringSliceVarP(&createGroupMembers, "members", "m", []string{}, "Group members (can be specified multiple times)")
+	CreateGroupCmd.Flags().StringSliceVarP(&createGroupMembers, "members", "m", []string{},
+		"Group members (can be specified multiple times)")
 	_ = CreateGroupCmd.MarkFlagRequired("title")
 	_ = CreateGroupCmd.MarkFlagRequired("members")
 
@@ -51,17 +51,8 @@ func AddCreateGroupCommand(rootCmd *cobra.Command) {
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 
 		// Print human-readable summary
-		r, ok := result.(map[string]any)
-		if ok {
-			if success, ok := r["success"].(bool); ok && success {
-				fmt.Fprintf(os.Stderr, "Group created successfully\n")
-				if title, ok := r["title"].(string); ok {
-					fmt.Fprintf(os.Stderr, "  Title: %s\n", title)
-				}
-				if chatID, ok := r["chatId"].(float64); ok {
-					fmt.Fprintf(os.Stderr, "  Chat ID: %d\n", int64(chatID))
-				}
-			}
-		}
+		cliutil.PrintSuccessSummary(result, "Group created successfully")
+		cliutil.PrintResultField(result, "title", "  Title: %s\n")
+		cliutil.PrintResultField(result, "chatId", "  Chat ID: %d\n")
 	}
 }

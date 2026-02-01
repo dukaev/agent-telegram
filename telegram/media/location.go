@@ -102,7 +102,7 @@ func (g *GeoCoder) Geocode(city string) (*GeocodeResult, error) {
 
 // SendLocation sends a location to a peer.
 func (c *Client) SendLocation(ctx context.Context, params types.SendLocationParams) (*types.SendLocationResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
@@ -110,7 +110,7 @@ func (c *Client) SendLocation(ctx context.Context, params types.SendLocationPara
 	peer := strings.TrimPrefix(params.Peer, "@")
 
 	// Resolve username to get input peer
-	inputPeer, err := c.resolvePeer(ctx, peer)
+	inputPeer, err := c.ResolvePeer(ctx, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer @%s: %w", peer, err)
 	}
@@ -124,7 +124,7 @@ func (c *Client) SendLocation(ctx context.Context, params types.SendLocationPara
 	}
 
 	// Send location using MessagesSendMedia
-	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    geoPoint,
 		RandomID: time.Now().UnixNano(),

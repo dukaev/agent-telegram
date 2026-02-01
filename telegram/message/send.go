@@ -12,18 +12,18 @@ import (
 
 // SendMessage sends a message to a peer.
 func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams) (*types.SendMessageResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
 	// Resolve username to get input peer
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer @%s: %w", params.Peer, err)
 	}
 
 	// Send message
-	result, err := c.api.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+	result, err := c.API.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
 		Peer:     inputPeer,
 		Message:  params.Message,
 		RandomID: time.Now().UnixNano(),
@@ -45,16 +45,16 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 
 // SendReply sends a reply to a message.
 func (c *Client) SendReply(ctx context.Context, params types.SendReplyParams) (*types.SendReplyResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := c.api.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+	result, err := c.API.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
 		Peer:     inputPeer,
 		Message:  params.Text,
 		ReplyTo:  &tg.InputReplyToMessage{ReplyToMsgID: int(params.MessageID)},

@@ -46,9 +46,7 @@ func runLogout(_ *cobra.Command, _ []string) {
 
 	// Also try to remove the user directory if it's empty
 	userDir := filepath.Dir(sessionPath)
-	if err := os.Remove(userDir); err != nil {
-		// Directory might not be empty, that's okay
-	}
+	_ = os.Remove(userDir) // Directory might not be empty, that's okay
 
 	fmt.Println("Logged out successfully!")
 	fmt.Printf("Session removed from: %s\n", sessionPath)

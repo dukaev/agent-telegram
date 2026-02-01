@@ -14,16 +14,16 @@ import (
 func (c *Client) UpdateMessage(
 	ctx context.Context, params types.UpdateMessageParams,
 ) (*types.UpdateMessageResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.api.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
+	_, err = c.API.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
 		Peer:    inputPeer,
 		ID:      int(params.MessageID),
 		Message: params.Text,
@@ -42,11 +42,11 @@ func (c *Client) UpdateMessage(
 func (c *Client) DeleteMessage(
 	ctx context.Context, params types.DeleteMessageParams,
 ) (*types.DeleteMessageResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	_, err := c.api.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
+	_, err := c.API.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
 		ID:     []int{int(params.MessageID)},
 		Revoke: true,
 	})
@@ -64,21 +64,21 @@ func (c *Client) DeleteMessage(
 func (c *Client) ForwardMessage(
 	ctx context.Context, params types.ForwardMessageParams,
 ) (*types.ForwardMessageResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	fromPeer, err := c.resolvePeer(ctx, params.FromPeer)
+	fromPeer, err := c.ResolvePeer(ctx, params.FromPeer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve fromPeer: %w", err)
 	}
 
-	toPeer, err := c.resolvePeer(ctx, params.ToPeer)
+	toPeer, err := c.ResolvePeer(ctx, params.ToPeer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve toPeer: %w", err)
 	}
 
-	result, err := c.api.MessagesForwardMessages(ctx, &tg.MessagesForwardMessagesRequest{
+	result, err := c.API.MessagesForwardMessages(ctx, &tg.MessagesForwardMessagesRequest{
 		FromPeer: fromPeer,
 		ID:       []int{int(params.MessageID)},
 		ToPeer:   toPeer,

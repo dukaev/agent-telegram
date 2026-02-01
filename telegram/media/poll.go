@@ -13,11 +13,11 @@ import (
 
 // SendPoll sends a poll to a peer.
 func (c *Client) SendPoll(ctx context.Context, params types.SendPollParams) (*types.SendPollResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (c *Client) SendPoll(ctx context.Context, params types.SendPollParams) (*ty
 	}
 
 	// Send the poll
-	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    poll,
 		RandomID: time.Now().UnixNano(),

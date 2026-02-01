@@ -3,7 +3,6 @@ package chat
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -57,34 +56,7 @@ func AddAdminsCommand(rootCmd *cobra.Command) {
 		//nolint:errchkjson // Output to stdout, error handling not required
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 
-		// Also print human-readable summary
-		r, ok := result.(map[string]any)
-		if ok {
-			if count, ok := r["count"].(float64); ok {
-				fmt.Fprintf(os.Stderr, "Found %d admin(s)\n", int(count))
-			}
-			if admins, ok := r["admins"].([]any); ok {
-				for _, a := range admins {
-					if admin, ok := a.(map[string]any); ok {
-						name := "Unknown"
-						if fn, ok := admin["firstName"].(string); ok {
-							name = fn
-							if ln, ok := admin["lastName"].(string); ok && ln != "" {
-								name += " " + ln
-							}
-						}
-						peer := "N/A"
-						if pr, ok := admin["peer"].(string); ok {
-							peer = pr
-						}
-						isCreator := ""
-						if creator, ok := admin["creator"].(bool); ok && creator {
-							isCreator = " (Creator)"
-						}
-						fmt.Fprintf(os.Stderr, "  - %s (%s)%s\n", name, peer, isCreator)
-					}
-				}
-			}
-		}
+		// Print human-readable summary
+		cliutil.PrintAdmins(result, unknownName, naValue)
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 // ChatCmd represents the parent chat command.
 var ChatCmd = &cobra.Command{
+	GroupID: "chat",
 	Use:     "chat",
 	Short:   "Manage Telegram chats and channels",
 	Long:    `Commands for managing Telegram chats, channels, groups, and their settings.`,

@@ -12,11 +12,11 @@ import (
 
 // SendContact sends a contact to a peer.
 func (c *Client) SendContact(ctx context.Context, params types.SendContactParams) (*types.SendContactResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func (c *Client) SendContact(ctx context.Context, params types.SendContactParams
 		LastName:    params.LastName,
 	}
 
-	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    contact,
 		RandomID: time.Now().UnixNano(),

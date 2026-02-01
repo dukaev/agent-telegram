@@ -14,16 +14,16 @@ import (
 func (c *Client) SendDocument(
 	ctx context.Context, peer, file, mimeType, caption string,
 ) (*types.SendFileResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, peer)
+	inputPeer, err := c.ResolvePeer(ctx, peer)
 	if err != nil {
 		return nil, err
 	}
 
-	uploadedFile, err := uploadFile(ctx, c.api, file)
+	uploadedFile, err := uploadFile(ctx, c.API, file)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (c *Client) SendDocument(
 		MimeType: mimeType,
 	}
 
-	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
 		RandomID: time.Now().UnixNano(),

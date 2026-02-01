@@ -12,23 +12,23 @@ import (
 
 // SendPhoto sends a photo to a peer.
 func (c *Client) SendPhoto(ctx context.Context, params types.SendPhotoParams) (*types.SendPhotoResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
 
-	uploadedFile, err := uploadFile(ctx, c.api, params.File)
+	uploadedFile, err := uploadFile(ctx, c.API, params.File)
 	if err != nil {
 		return nil, err
 	}
 
 	media := &tg.InputMediaUploadedPhoto{File: uploadedFile}
 
-	result, err := c.api.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
 		RandomID: time.Now().UnixNano(),

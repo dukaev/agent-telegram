@@ -3,7 +3,6 @@ package chat
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -57,30 +56,7 @@ func AddBannedCommand(rootCmd *cobra.Command) {
 		//nolint:errchkjson // Output to stdout, error handling not required
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 
-		// Also print human-readable summary
-		r, ok := result.(map[string]any)
-		if ok {
-			if count, ok := r["count"].(float64); ok {
-				fmt.Fprintf(os.Stderr, "Found %d banned user(s)\n", int(count))
-			}
-			if banned, ok := r["banned"].([]any); ok {
-				for _, b := range banned {
-					if user, ok := b.(map[string]any); ok {
-						peer := "N/A"
-						if pr, ok := user["peer"].(string); ok {
-							peer = pr
-						}
-						name := "Unknown"
-						if fn, ok := user["firstName"].(string); ok {
-							name = fn
-							if ln, ok := user["lastName"].(string); ok && ln != "" {
-								name += " " + ln
-							}
-						}
-						fmt.Fprintf(os.Stderr, "  - %s (%s)\n", name, peer)
-					}
-				}
-			}
-		}
+		// Print human-readable summary
+		cliutil.PrintBanned(result, unknownName, naValue)
 	}
 }

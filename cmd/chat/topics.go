@@ -3,7 +3,6 @@ package chat
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -57,27 +56,7 @@ func AddTopicsCommand(rootCmd *cobra.Command) {
 		//nolint:errchkjson // Output to stdout, error handling not required
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 
-		// Also print human-readable summary
-		r, ok := result.(map[string]any)
-		if ok {
-			if count, ok := r["count"].(float64); ok {
-				fmt.Fprintf(os.Stderr, "Found %d topic(s)\n", int(count))
-			}
-			if topics, ok := r["topics"].([]any); ok {
-				for _, t := range topics {
-					if topic, ok := t.(map[string]any); ok {
-						title := "N/A"
-						if t, ok := topic["title"].(string); ok {
-							title = t
-						}
-						id := "N/A"
-						if i, ok := topic["id"].(float64); ok {
-							id = fmt.Sprintf("%.0f", i)
-						}
-						fmt.Fprintf(os.Stderr, "  - [%s] %s\n", id, title)
-					}
-				}
-			}
-		}
+		// Print human-readable summary
+		cliutil.PrintTopics(result, naValue)
 	}
 }

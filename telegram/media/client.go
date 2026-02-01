@@ -8,37 +8,19 @@ import (
 
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/client"
 )
 
 // Client provides media operations.
 type Client struct {
-	api    *tg.Client
-	parent ParentClient
-}
-
-// ParentClient is an interface for accessing parent client methods.
-type ParentClient interface {
-	ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error)
+	*client.BaseClient
 }
 
 // NewClient creates a new media client.
-func NewClient(tc ParentClient) *Client {
+func NewClient(tc client.ParentClient) *Client {
 	return &Client{
-		parent: tc,
+		BaseClient: &client.BaseClient{Parent: tc},
 	}
-}
-
-// SetAPI sets the API client (called when the telegram client is initialized).
-func (c *Client) SetAPI(api *tg.Client) {
-	c.api = api
-}
-
-// resolvePeer resolves a peer string to InputPeerClass using the parent client's cache.
-func (c *Client) resolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error) {
-	if c.parent == nil {
-		return nil, fmt.Errorf("parent client not set")
-	}
-	return c.parent.ResolvePeer(ctx, peer)
 }
 
 // uploadFile uploads a file to Telegram.

@@ -3,7 +3,6 @@ package chat
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -58,17 +57,8 @@ func AddCreateChannelCommand(rootCmd *cobra.Command) {
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 
 		// Print human-readable summary
-		r, ok := result.(map[string]any)
-		if ok {
-			if success, ok := r["success"].(bool); ok && success {
-				fmt.Fprintf(os.Stderr, "Channel created successfully\n")
-				if title, ok := r["title"].(string); ok {
-					fmt.Fprintf(os.Stderr, "  Title: %s\n", title)
-				}
-				if chatID, ok := r["chatId"].(float64); ok {
-					fmt.Fprintf(os.Stderr, "  Chat ID: %d\n", int64(chatID))
-				}
-			}
-		}
+		cliutil.PrintSuccessSummary(result, "Channel created successfully")
+		cliutil.PrintResultField(result, "title", "  Title: %s\n")
+		cliutil.PrintResultField(result, "chatId", "  Chat ID: %d\n")
 	}
 }

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"sync"
 	"path/filepath"
+	"sync"
 
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
@@ -20,7 +20,6 @@ import (
 	"agent-telegram/telegram/pin"
 	"agent-telegram/telegram/reaction"
 	"agent-telegram/telegram/search"
-	"agent-telegram/telegram/types"
 	"agent-telegram/telegram/user"
 )
 
@@ -105,7 +104,7 @@ func (c *Client) Start(ctx context.Context) error {
 	// Create client
 	c.client = telegram.NewClient(c.appID, c.appHash, telegram.Options{
 		SessionStorage: &session.FileStorage{Path: sessionPath},
-		UpdateHandler: dispatcher,
+		UpdateHandler:  dispatcher,
 	})
 
 	c.initDomainClients()
@@ -190,135 +189,4 @@ func (c *Client) setDomainAPIs() {
 	c.pin.SetAPI(api)
 	c.reaction.SetAPI(api)
 	c.search.SetAPI(api)
-}
-
-// Client returns the underlying telegram.Client
-func (c *Client) Client() *telegram.Client {
-	return c.client
-}
-
-// Message returns the message client.
-func (c *Client) Message() *message.Client {
-	return c.message
-}
-
-// Media returns the media client.
-func (c *Client) Media() *media.Client {
-	return c.media
-}
-
-// Chat returns the chat client.
-func (c *Client) Chat() *chat.Client {
-	return c.chat
-}
-
-// User returns the user client.
-func (c *Client) User() *user.Client {
-	return c.user
-}
-
-// Pin returns the pin client.
-func (c *Client) Pin() *pin.Client {
-	return c.pin
-}
-
-// Reaction returns the reaction client.
-func (c *Client) Reaction() *reaction.Client {
-	return c.reaction
-}
-
-// Search returns the search client.
-func (c *Client) Search() *search.Client {
-	return c.search
-}
-
-// GetMe returns the current user information.
-func (c *Client) GetMe(ctx context.Context) (*tg.User, error) {
-	if c.client == nil {
-		return nil, fmt.Errorf("client not initialized")
-	}
-	return c.client.Self(ctx)
-}
-
-// GetUpdates pops and returns stored updates.
-func (c *Client) GetUpdates(limit int) []types.StoredUpdate {
-	if c.updateStore == nil {
-		return []types.StoredUpdate{}
-	}
-	return c.updateStore.Get(limit)
-}
-
-// InspectReplyKeyboard inspects the reply keyboard from a chat.
-func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error) {
-	return c.message.InspectReplyKeyboard(ctx, params)
-}
-
-// ResolvePeer resolves a peer string to InputPeerClass with caching.
-// This method is shared across all domain clients to avoid duplicate API calls.
-func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error) {
-	// If peer starts with @, it's a username - resolve it with cache
-	if len(peer) > 0 && peer[0] == '@' {
-		// Check cache first
-		if cached, ok := c.peerCache.Load(peer); ok {
-			if inputPeer, ok := cached.(tg.InputPeerClass); ok {
-				return inputPeer, nil
-			}
-		}
-
-		// Not in cache, resolve from API
-		peerClass, err := c.client.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: peer[1:]})
-		if err != nil {
-			return nil, err
-		}
-
-		var inputPeer tg.InputPeerClass
-		switch p := peerClass.Peer.(type) {
-		case *tg.PeerUser:
-			inputPeer = &tg.InputPeerUser{
-				UserID:     p.UserID,
-				AccessHash: getAccessHashFromPeerClass(peerClass, p.UserID),
-			}
-		case *tg.PeerChat:
-			inputPeer = &tg.InputPeerChat{
-				ChatID: p.ChatID,
-			}
-		case *tg.PeerChannel:
-			inputPeer = &tg.InputPeerChannel{
-				ChannelID:  p.ChannelID,
-				AccessHash: getAccessHashFromPeerClass(peerClass, p.ChannelID),
-			}
-		default:
-			return nil, fmt.Errorf("unknown peer type")
-		}
-
-		// Store in cache
-		c.peerCache.Store(peer, inputPeer)
-		return inputPeer, nil
-	}
-
-	// Try to parse as user ID
-	// For now, just return empty peer (will be expanded later)
-	return &tg.InputPeerEmpty{}, nil
-}
-
-// getAccessHashFromPeerClass extracts access hash from the resolved peer.
-func getAccessHashFromPeerClass(peerClass *tg.ContactsResolvedPeer, id int64) int64 {
-	for _, chat := range peerClass.Chats {
-		switch c := chat.(type) {
-		case *tg.Channel:
-			if c.ID == id {
-				return c.AccessHash
-			}
-		case *tg.Chat:
-			if c.ID == id {
-				return 0
-			}
-		}
-	}
-	for _, user := range peerClass.Users {
-		if u, ok := user.(*tg.User); ok && u.ID == id {
-			return u.AccessHash
-		}
-	}
-	return 0
 }

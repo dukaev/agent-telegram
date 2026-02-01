@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
@@ -20,15 +21,15 @@ import (
 )
 
 var (
-	serveSocket   string
-	serveSession  string
+	serveSocket     string
+	serveSession    string
 	serveForeground bool
 )
 
 // serveCmd represents the serve command.
 var serveCmd = &cobra.Command{
-	Use:     "serve",
-	Short:   "Start IPC server with Telegram (Unix socket)",
+	Use:   "serve",
+	Short: "Start IPC server with Telegram (Unix socket)",
 	Long: `Start the IPC server with a Telegram client in the background.
 
 The server listens on a Unix socket and handles requests from other commands.
@@ -53,9 +54,13 @@ func runServe(_ *cobra.Command, _ []string) {
 
 	if !serveForeground {
 		if err := daemonize(); err != nil {
-			log.Fatalf("Failed to daemonize: %v", err)
+			slog.Error("Failed to daemonize", "error", err)
+			os.Exit(1)
 		}
 	}
+
+	// Setup slog after daemonize (when in foreground mode or in child process)
+	setupLogger()
 
 	ctx := setupContext()
 	socketPath := getSocketPath()
@@ -68,7 +73,24 @@ func runServe(_ *cobra.Command, _ []string) {
 	srv := createIPCServer(socketPath, tgClient)
 	startServer(ctx, srv)
 
+	slog.Info("Server stopped")
 	fmt.Println("Server stopped.")
+}
+
+// setupLogger configures structured logging to file.
+func setupLogger() {
+	logFile, err := os.OpenFile("agent-telegram.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		// Fallback to stderr if file cannot be opened
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+		slog.Error("Failed to open log file, using stderr", "error", err)
+		return
+	}
+
+	logger := slog.New(slog.NewJSONHandler(logFile, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
 }
 
 // setupContext creates a context with signal handling.
@@ -124,7 +146,8 @@ func loadTelegramCredentials() (appID int, appHash, phone string) {
 	var err error
 	appID, err = strconv.Atoi(appIDStr)
 	if err != nil {
-		log.Fatalf("Invalid APP_ID: %v", err)
+		slog.Error("Invalid APP_ID", "error", err)
+		os.Exit(1)
 	}
 
 	return appID, appHash, phone
@@ -139,12 +162,30 @@ func createTelegramClient(appID int, appHash, phone, sessionPath string) *telegr
 	return tgClient.WithUpdateStore(telegram.NewUpdateStore(1000))
 }
 
-// startTelegramClient starts the Telegram client in background.
+// startTelegramClient starts the Telegram client in background with retry logic.
 func startTelegramClient(ctx context.Context, tgClient *telegram.Client) {
+	const maxRetries = 5
+
 	go func() {
-		if err := tgClient.Start(ctx); err != nil {
-			log.Printf("Telegram client error: %v", err)
+		for retry := 1; retry <= maxRetries; retry++ {
+			err := tgClient.Start(ctx)
+			if err == nil || ctx.Err() != nil {
+				return
+			}
+
+			wait := time.Duration(retry) * 5 * time.Second
+			slog.Error("telegram client error", "error", err,
+				"attempt", retry, "max_retries", maxRetries,
+				"retry_after", wait.String())
+
+			select {
+			case <-time.After(wait):
+				// Continue retry
+			case <-ctx.Done():
+				return
+			}
 		}
+		slog.Error("telegram client failed after retries", "retries", maxRetries)
 	}()
 }
 
@@ -175,7 +216,8 @@ func createIPCServer(socketPath string, tgClient *telegram.Client) *ipc.SocketSe
 // startServer starts the IPC server.
 func startServer(ctx context.Context, srv *ipc.SocketServer) {
 	if err := srv.Start(ctx); err != nil {
-		log.Fatalf("Server error: %v", err)
+		slog.Error("server error", "error", err)
+		os.Exit(1)
 	}
 }
 

@@ -64,3 +64,19 @@ ignoreFailures = false
 	arguments = [
 		{ max = 200, skipBlankLines = true, skipComments = true }
 	]
+
+# Limit function return values
+[rule.function-result-limit]
+	severity = "error"
+	arguments = [3]
+
+# Cyclomatic complexity limit (each switch case adds 1)
+# Use map/strategy pattern for large switches
+[rule.cyclomatic]
+	severity = "error"
+	arguments = [10]
+
+# Cognitive complexity limit
+[rule.cognitive-complexity]
+	severity = "error"
+	arguments = [10]

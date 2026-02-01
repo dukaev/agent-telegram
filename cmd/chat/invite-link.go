@@ -3,7 +3,6 @@ package chat
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -51,17 +50,6 @@ func AddInviteLinkCommand(rootCmd *cobra.Command) {
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 
 		// Print human-readable summary
-		r, ok := result.(map[string]any)
-		if ok {
-			if link, ok := r["link"].(string); ok {
-				fmt.Fprintf(os.Stderr, "Invite link: %s\n", link)
-				if usage, ok := r["usage"].(float64); ok {
-					fmt.Fprintf(os.Stderr, "Usage: %d\n", int(usage))
-				}
-				if limit, ok := r["usageLimit"].(float64); ok {
-					fmt.Fprintf(os.Stderr, "Usage limit: %d\n", int(limit))
-				}
-			}
-		}
+		cliutil.PrintInviteLinkSummary(result)
 	}
 }

@@ -2,7 +2,9 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -20,24 +22,19 @@ import (
 )
 
 var (
-	version = "dev"
+	version   = "dev"
+	fullHelp  bool
 
 	// GroupIDAuth is the command group ID for authentication commands.
 	GroupIDAuth = "auth"
 	// GroupIDMessage is the command group ID for message management commands.
 	GroupIDMessage = "message"
-	// GroupIDUser is the command group ID for user commands.
-	GroupIDUser = "user"
 	// GroupIDChat is the command group ID for chat commands.
 	GroupIDChat = "chat"
 	// GroupIDGet is the command group ID for get commands.
 	GroupIDGet = "get"
-	// GroupIDSystem is the command group ID for system commands.
-	GroupIDSystem = "system"
 	// GroupIDServer is the command group ID for server commands.
 	GroupIDServer = "server"
-	// GroupIDSearch is the command group ID for search commands.
-	GroupIDSearch = "search"
 )
 
 // RootCmd represents the base command when called without any subcommands.
@@ -54,9 +51,80 @@ It provides commands to:
 	Version: version,
 }
 
+// printFullHelp prints all commands and subcommands recursively.
+func printFullHelp() {
+	fmt.Println("agent-telegram - Telegram IPC agent CLI")
+	fmt.Println()
+	fmt.Println("All commands and subcommands:")
+	fmt.Println()
+
+	// Group commands by their group
+	groups := make(map[string][]*cobra.Command)
+
+	for _, cmd := range RootCmd.Commands() {
+		if !cmd.IsAvailableCommand() || cmd.IsAdditionalHelpTopicCommand() {
+			continue
+		}
+
+		groupID := cmd.GroupID
+		if groupID == "" {
+			groupID = "Other"
+		}
+		groups[groupID] = append(groups[groupID], cmd)
+	}
+
+	// Define group order
+	groupOrder := []string{"server", "auth", "message", "chat", "get", "Other"}
+
+	// Get group titles
+	groupTitles := map[string]string{
+		"server":   "Server",
+		"auth":     "Authentication",
+		"message":  "Manage Messages",
+		"chat":     "Chat",
+		"get":      "Get",
+		"Other":    "Other",
+	}
+
+	for _, groupID := range groupOrder {
+		cmds, ok := groups[groupID]
+		if !ok || len(cmds) == 0 {
+			continue
+		}
+
+		title := groupTitles[groupID]
+		fmt.Printf("%s\n", title)
+		fmt.Println(strings.Repeat("-", len(title)))
+
+		for _, cmd := range cmds {
+			printCommandTree(cmd, "  ")
+		}
+		fmt.Println()
+	}
+}
+
+// printCommandTree prints a command and all its subcommands recursively.
+func printCommandTree(cmd *cobra.Command, prefix string) {
+	fmt.Printf("%s%s\n", prefix, cmd.Name())
+
+	// Print subcommands
+	for _, subcmd := range cmd.Commands() {
+		if !subcmd.IsAvailableCommand() || subcmd.IsAdditionalHelpTopicCommand() {
+			continue
+		}
+		printCommandTree(subcmd, prefix+"  ")
+	}
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the RootCmd.
 func Execute() {
+	// Parse flags manually to check for --full before cobra processes help
+	if len(os.Args) > 1 && os.Args[1] == "--full" {
+		printFullHelp()
+		os.Exit(0)
+	}
+
 	err := RootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -68,13 +136,11 @@ func init() {
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDServer, Title: "Server"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDAuth, Title: "Authentication"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessage, Title: "Manage Messages"})
-	RootCmd.AddGroup(&cobra.Group{ID: GroupIDUser, Title: "User"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDChat, Title: "Chat"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDGet, Title: "Get"})
-	RootCmd.AddGroup(&cobra.Group{ID: GroupIDSearch, Title: "Search"})
-	RootCmd.AddGroup(&cobra.Group{ID: GroupIDSystem, Title: "System"})
 
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
+	RootCmd.PersistentFlags().BoolVar(&fullHelp, "full", false, "Show all commands and subcommands")
 }
 

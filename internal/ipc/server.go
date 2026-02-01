@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -59,17 +60,15 @@ func (s *Server) Serve(rwc io.ReadWriteCloser) error {
 		}
 
 		// Log incoming request
-		reqJSON, err := json.Marshal(req)
-		if err == nil {
-			fmt.Printf("→ Received: %s\n", string(reqJSON))
-		}
+		slog.Debug("received request", "method", req.Method, "id", req.ID)
 
 		resp := s.handleRequest(&req)
 
 		// Log outgoing response
-		respJSON, err := json.Marshal(resp)
-		if err == nil {
-			fmt.Printf("← Sending: %s\n", string(respJSON))
+		if resp.Error != nil {
+			slog.Debug("sending error response", "error", resp.Error.Message, "code", resp.Error.Code, "id", resp.ID)
+		} else {
+			slog.Debug("sending success response", "id", resp.ID)
 		}
 
 		if err := encoder.Encode(resp); err != nil {
@@ -81,13 +80,27 @@ func (s *Server) Serve(rwc io.ReadWriteCloser) error {
 // ServeStdinStdout serves JSON-RPC over stdin/stdout.
 func (s *Server) ServeStdinStdout() error {
 	return s.Serve(&readWriteCloser{
-		Reader:   os.Stdin,
-		Writer:   os.Stdout,
+		Reader:    os.Stdin,
+		Writer:    os.Stdout,
 		CloseFunc: func() error { return nil },
 	})
 }
 
-func (s *Server) handleRequest(req *Request) *Response {
+func (s *Server) handleRequest(req *Request) (resp *Response) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("handler panic", "panic", r, "method", req.Method)
+			resp = &Response{
+				JSONRPC: "2.0",
+				Error: &ErrorObject{
+					Code:    -32603,
+					Message: fmt.Sprintf("Handler panic: %v", r),
+				},
+				ID: req.ID,
+			}
+		}
+	}()
+
 	s.mu.RLock()
 	handler, ok := s.methods[req.Method]
 	s.mu.RUnlock()
@@ -116,7 +129,7 @@ func (s *Server) handleRequest(req *Request) *Response {
 	}
 }
 
-func (s *Server) sendError(encoder *json.Encoder, id interface{}, err *ErrorObject) {
+func (s *Server) sendError(encoder *json.Encoder, id any, err *ErrorObject) {
 	resp := &Response{
 		JSONRPC: "2.0",
 		Error:   err,
@@ -124,7 +137,7 @@ func (s *Server) sendError(encoder *json.Encoder, id interface{}, err *ErrorObje
 	}
 	if encErr := encoder.Encode(resp); encErr != nil {
 		// Last resort error logging
-		fmt.Printf("Failed to encode error response: %v\n", encErr)
+		slog.Error("failed to encode error response", "error", encErr)
 	}
 }
 

@@ -3,12 +3,16 @@ package chat
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
+)
+
+const (
+	unknownName = "Unknown"
+	naValue     = "N/A"
 )
 
 var (
@@ -57,30 +61,7 @@ func AddParticipantsCommand(rootCmd *cobra.Command) {
 		//nolint:errchkjson // Output to stdout, error handling not required
 		_ = json.NewEncoder(os.Stdout).Encode(result)
 
-		// Also print human-readable summary
-		r, ok := result.(map[string]any)
-		if ok {
-			if count, ok := r["count"].(float64); ok {
-				fmt.Fprintf(os.Stderr, "Found %d participant(s)\n", int(count))
-			}
-			if participants, ok := r["participants"].([]any); ok {
-				for _, p := range participants {
-					if participant, ok := p.(map[string]any); ok {
-						name := "Unknown"
-						if fn, ok := participant["firstName"].(string); ok {
-							name = fn
-							if ln, ok := participant["lastName"].(string); ok && ln != "" {
-								name += " " + ln
-							}
-						}
-						peer := "N/A"
-						if pr, ok := participant["peer"].(string); ok {
-							peer = pr
-						}
-						fmt.Fprintf(os.Stderr, "  - %s (%s)\n", name, peer)
-					}
-				}
-			}
-		}
+		// Print human-readable summary
+		cliutil.PrintParticipants(result, unknownName, naValue)
 	}
 }

@@ -12,7 +12,7 @@ import (
 
 // GetMessages returns messages from a dialog with the given username.
 func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
@@ -23,13 +23,13 @@ func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams
 	}
 
 	// Resolve username to get input peer
-	inputPeer, err := c.resolvePeer(ctx, username)
+	inputPeer, err := c.ResolvePeer(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve username @%s: %w", username, err)
 	}
 
 	// Get messages from the peer
-	messagesClass, err := c.api.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+	messagesClass, err := c.API.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
 		Peer:      inputPeer,
 		Limit:     params.Limit,
 		OffsetID:  params.Offset,

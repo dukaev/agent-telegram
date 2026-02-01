@@ -13,12 +13,12 @@ import (
 func (c *Client) InspectInlineButtons(
 	ctx context.Context, params types.InspectInlineButtonsParams,
 ) (*types.InspectInlineButtonsResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
 	// Get messages to find the one with inline buttons
-	messages, err := c.api.MessagesGetMessages(ctx, []tg.InputMessageClass{
+	messages, err := c.API.MessagesGetMessages(ctx, []tg.InputMessageClass{
 		&tg.InputMessageID{ID: int(params.MessageID)},
 	})
 	if err != nil {
@@ -109,12 +109,12 @@ func extractButtons(markup tg.ReplyMarkupClass) []types.InlineButton {
 func (c *Client) PressInlineButton(
 	ctx context.Context, params types.PressInlineButtonParams,
 ) (*types.PressInlineButtonResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
 	// Resolve peer for the callback request
-	peer, err := c.resolvePeer(ctx, params.Peer)
+	peer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer: %w", err)
 	}
@@ -135,7 +135,7 @@ func (c *Client) PressInlineButton(
 	button := inspectResult.Buttons[params.ButtonIndex]
 
 	// Press the button using the callback data
-	_, err = c.api.MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
+	_, err = c.API.MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
 		Peer:  peer,
 		MsgID: int(params.MessageID),
 		Data:  []byte(button.Data),

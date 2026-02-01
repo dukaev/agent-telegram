@@ -12,7 +12,7 @@ import (
 // InspectReplyKeyboard inspects the reply keyboard from a chat.
 //nolint:funlen // Function requires iterating through messages to find keyboard markup
 func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
@@ -23,13 +23,13 @@ func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo
 	}
 
 	// Resolve peer
-	inputPeer, err := c.resolvePeer(ctx, peer)
+	inputPeer, err := c.ResolvePeer(ctx, peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer: %w", err)
 	}
 
 	// Get recent messages to find reply keyboard
-	messagesClass, err := c.api.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+	messagesClass, err := c.API.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
 		Peer:      inputPeer,
 		Limit:     50,
 		OffsetID:  0,

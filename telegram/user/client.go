@@ -6,38 +6,20 @@ import (
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/client"
 	"agent-telegram/telegram/types"
 )
 
 // Client provides user operations.
 type Client struct {
-	api    *tg.Client
-	parent ParentClient
-}
-
-// ParentClient is an interface for accessing parent client methods.
-type ParentClient interface {
-	ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error)
+	*client.BaseClient
 }
 
 // NewClient creates a new user client.
-func NewClient(tc ParentClient) *Client {
+func NewClient(tc client.ParentClient) *Client {
 	return &Client{
-		parent: tc,
+		BaseClient: &client.BaseClient{Parent: tc},
 	}
-}
-
-// SetAPI sets the API client (called when the telegram client is initialized).
-func (c *Client) SetAPI(api *tg.Client) {
-	c.api = api
-}
-
-// resolvePeer resolves a peer string to InputPeerClass using the parent client's cache.
-func (c *Client) resolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error) {
-	if c.parent == nil {
-		return nil, fmt.Errorf("parent client not set")
-	}
-	return c.parent.ResolvePeer(ctx, peer)
 }
 
 // trimUsernamePrefix removes the @ prefix from username.
@@ -50,7 +32,7 @@ func trimUsernamePrefix(username string) string {
 
 // GetContacts returns the user's contact list with optional search filter.
 func (c *Client) GetContacts(ctx context.Context, params types.GetContactsParams) (*types.GetContactsResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("api client not set")
 	}
 
@@ -60,7 +42,7 @@ func (c *Client) GetContacts(ctx context.Context, params types.GetContactsParams
 	}
 
 	// Get all contacts (hash 0 means get all)
-	contactsClass, err := c.api.ContactsGetContacts(ctx, 0)
+	contactsClass, err := c.API.ContactsGetContacts(ctx, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contacts: %w", err)
 	}
@@ -195,12 +177,12 @@ func findSubstring(s, substr string) int {
 
 // AddContact adds a new contact to the user's contact list.
 func (c *Client) AddContact(ctx context.Context, params types.AddContactParams) (*types.AddContactResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("api client not set")
 	}
 
 	// Import contact using phone number
-	contactClass, err := c.api.ContactsImportContacts(ctx, []tg.InputPhoneContact{
+	contactClass, err := c.API.ContactsImportContacts(ctx, []tg.InputPhoneContact{
 		{
 			ClientID:  0,
 			Phone:     params.Phone,
@@ -226,7 +208,7 @@ func (c *Client) AddContact(ctx context.Context, params types.AddContactParams) 
 
 // DeleteContact deletes a contact from the user's contact list.
 func (c *Client) DeleteContact(ctx context.Context, params types.DeleteContactParams) (*types.DeleteContactResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("api client not set")
 	}
 
@@ -237,7 +219,7 @@ func (c *Client) DeleteContact(ctx context.Context, params types.DeleteContactPa
 	} else if params.Username != "" {
 		// Resolve username to get user ID
 		username := trimUsernamePrefix(params.Username)
-		peerClass, err := c.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
+		peerClass, err := c.API.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve username: %w", err)
 		}
@@ -251,7 +233,7 @@ func (c *Client) DeleteContact(ctx context.Context, params types.DeleteContactPa
 	}
 
 	// Delete the contact using the ID
-	_, err := c.api.ContactsDeleteByPhones(ctx, []string{fmt.Sprintf("%d", userID)})
+	_, err := c.API.ContactsDeleteByPhones(ctx, []string{fmt.Sprintf("%d", userID)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete contact: %w", err)
 	}

@@ -72,7 +72,7 @@ func filterChatsResult(result any) any {
 	}
 
 	chats, _ := rMap["chats"].([]any)
-	var filteredChats []any
+	filteredChats := make([]any, 0, len(chats))
 
 	searchLower := strings.ToLower(ChatsSearch)
 

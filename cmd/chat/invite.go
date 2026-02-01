@@ -35,7 +35,8 @@ func AddInviteCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(InviteCmd)
 
 	InviteCmd.Flags().StringVarP(&invitePeer, "peer", "p", "", "Chat/channel username (@username or username)")
-	InviteCmd.Flags().StringSliceVarP(&inviteMembers, "members", "m", []string{}, "Users to invite (can be specified multiple times)")
+	InviteCmd.Flags().StringSliceVarP(&inviteMembers, "members", "m", []string{},
+		"Users to invite (can be specified multiple times)")
 	_ = InviteCmd.MarkFlagRequired("peer")
 	_ = InviteCmd.MarkFlagRequired("members")
 

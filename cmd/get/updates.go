@@ -21,10 +21,10 @@ var (
 
 // UpdatesCmd represents the get-updates command.
 var UpdatesCmd = &cobra.Command{
-	GroupID: "get",
-	Use:   "updates",
-	Short: "Get Telegram updates (pops from store)",
-	Long:  `Retrieve Telegram updates from the update store. This removes them from the store.`,
+	GroupID: "chat",
+	Use:     "updates",
+	Short:   "Get Telegram updates (pops from store)",
+	Long:    `Retrieve Telegram updates from the update store. This removes them from the store.`,
 }
 
 // AddUpdatesCommand adds the updates command to the root command.

@@ -4,7 +4,6 @@ package chat
 import (
 	"encoding/json"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -67,7 +66,6 @@ func AddListCommand(parentCmd *cobra.Command) {
 }
 
 // filterChatsResult filters and transforms the chats result.
-//nolint:gocognit,funlen // Function requires filtering by multiple criteria
 func filterChatsResult(result any) any {
 	rMap, ok := result.(map[string]any)
 	if !ok {
@@ -75,106 +73,76 @@ func filterChatsResult(result any) any {
 	}
 
 	chats, _ := rMap["chats"].([]any)
-	var filteredChats []any
 
-	searchLower := strings.ToLower(listSearch)
-
+	// Convert to []map[string]any for filtering
+	chatMaps := make([]map[string]any, 0, len(chats))
 	for _, chat := range chats {
-		chatInfo, ok := chat.(map[string]any)
-		if !ok {
-			continue
+		if chatInfo, ok := chat.(map[string]any); ok {
+			chatMaps = append(chatMaps, chatInfo)
 		}
+	}
 
-		chatType := cliutil.ExtractString(chatInfo, "type")
-		if chatType == "" {
-			continue
-		}
+	// Apply generic filters
+	filterOpts := cliutil.FilterOptions{
+		Search: listSearch,
+		Type:   listType,
+	}
+	filtered := cliutil.FilterItems(chatMaps, filterOpts)
 
-		// Filter by type if specified
-		if listType != "" {
-			// Special case for "bot" type - filter users that are bots
-			if listType == "bot" {
-				isBot, _ := chatInfo["bot"].(bool)
-				if chatType != "user" || !isBot {
-					continue
-				}
-			} else if chatType != listType {
-				continue
-			}
-		}
-
-		// Filter by search term if specified
-		if listSearch != "" {
-			title := cliutil.ExtractString(chatInfo, "title")
-			username := cliutil.ExtractString(chatInfo, "peer")
-			if !containsSearch(title, username, searchLower) {
-				continue
-			}
-		}
-
-		// Build simplified chat object with only requested fields
-		simplified := map[string]any{
-			"type": chatType,
-		}
-
-		// Add channel_id for channels
-		if channelID, ok := chatInfo["channel_id"].(int64); ok && channelID != 0 {
-			simplified["channel_id"] = channelID
-		}
-		if channelID, ok := chatInfo["channel_id"].(float64); ok && channelID != 0 {
-			simplified["channel_id"] = int64(channelID)
-		}
-
-		// Add chat_id for groups
-		if chatID, ok := chatInfo["chat_id"].(int64); ok && chatID != 0 {
-			simplified["channel_id"] = chatID
-		}
-		if chatID, ok := chatInfo["chat_id"].(float64); ok && chatID != 0 {
-			simplified["channel_id"] = int64(chatID)
-		}
-
-		// Add user_id for users
-		if userID, ok := chatInfo["user_id"].(int64); ok && userID != 0 {
-			simplified["channel_id"] = userID
-		}
-		if userID, ok := chatInfo["user_id"].(float64); ok && userID != 0 {
-			simplified["channel_id"] = int64(userID)
-		}
-
-		// Add peer
-		if peer := cliutil.ExtractString(chatInfo, "peer"); peer != "" {
-			simplified["peer"] = peer
-		}
-
-		// Add title
-		if title := cliutil.ExtractString(chatInfo, "title"); title != "" {
-			simplified["title"] = title
-		}
-
-		// Add username (from peer field or username field)
-		if username := cliutil.ExtractString(chatInfo, "username"); username != "" {
-			simplified["username"] = username
-		}
-
-		filteredChats = append(filteredChats, simplified)
+	// Transform filtered items to simplified format
+	simplifiedItems := make([]map[string]any, 0, len(filtered.Items))
+	for _, item := range filtered.Items {
+		simplified := simplifyChatItem(item)
+		simplifiedItems = append(simplifiedItems, simplified)
 	}
 
 	return map[string]any{
-		"chats":  filteredChats,
+		"chats":  simplifiedItems,
 		"limit":  cliutil.ExtractFloat64(rMap, "limit"),
 		"offset": cliutil.ExtractFloat64(rMap, "offset"),
-		"count":  len(filteredChats),
-		"total":  cliutil.ExtractFloat64(rMap, "count"),
+		"count":  len(simplifiedItems),
+		"total":  float64(filtered.Total),
 	}
 }
 
-// containsSearch checks if the title or username contains the search term.
-func containsSearch(title, username, searchLower string) bool {
-	if title != "" && strings.Contains(strings.ToLower(title), searchLower) {
-		return true
+// simplifyChatItem creates a simplified chat object with key fields.
+func simplifyChatItem(chatInfo map[string]any) map[string]any {
+	simplified := map[string]any{
+		"type": cliutil.ExtractString(chatInfo, "type"),
 	}
-	if username != "" && strings.Contains(strings.ToLower(username), searchLower) {
-		return true
+
+	// Add ID based on type
+	if channelID := extractInt64(chatInfo, "channel_id"); channelID != 0 {
+		simplified["channel_id"] = channelID
 	}
-	return false
+	if chatID := extractInt64(chatInfo, "chat_id"); chatID != 0 {
+		simplified["chat_id"] = chatID
+	}
+	if userID := extractInt64(chatInfo, "user_id"); userID != 0 {
+		simplified["user_id"] = userID
+	}
+
+	// Add common fields
+	if peer := cliutil.ExtractString(chatInfo, "peer"); peer != "" {
+		simplified["peer"] = peer
+	}
+	if title := cliutil.ExtractString(chatInfo, "title"); title != "" {
+		simplified["title"] = title
+	}
+	if username := cliutil.ExtractString(chatInfo, "username"); username != "" {
+		simplified["username"] = username
+	}
+
+	return simplified
+}
+
+// extractInt64 extracts an int64 value from a map, handling both int64 and float64 types.
+func extractInt64(m map[string]any, key string) int64 {
+	if v, ok := m[key].(int64); ok {
+		return v
+	}
+	if v, ok := m[key].(float64); ok {
+		return int64(v)
+	}
+	return 0
 }

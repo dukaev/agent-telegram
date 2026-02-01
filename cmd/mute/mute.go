@@ -32,12 +32,21 @@ Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
 func AddMuteCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(MuteCmd)
 
-	MuteCmd.Flags().VarP(&muteTo, "to", "t", "Recipient (@username, username, or chat ID)")
-	MuteCmd.Flags().BoolVarP(&muteDisable, "disable", "d", false, "Unmute the chat")
-	_ = MuteCmd.MarkFlagRequired("to")
+	SetupMuteFlags(MuteCmd)
+	SetMuteRun(MuteCmd)
+}
 
-	MuteCmd.Run = func(_ *cobra.Command, _ []string) {
-		runner := cliutil.NewRunnerFromCmd(MuteCmd, false)
+// SetupMuteFlags configures the flags for a mute command.
+func SetupMuteFlags(cmd *cobra.Command) {
+	cmd.Flags().VarP(&muteTo, "to", "t", "Recipient (@username, username, or chat ID)")
+	cmd.Flags().BoolVarP(&muteDisable, "disable", "d", false, "Unmute the chat")
+	_ = cmd.MarkFlagRequired("to")
+}
+
+// SetMuteRun sets the Run function for a mute command.
+func SetMuteRun(cmd *cobra.Command) {
+	cmd.Run = func(_ *cobra.Command, _ []string) {
+		runner := cliutil.NewRunnerFromCmd(cmd, false)
 		params := map[string]any{}
 		muteTo.AddToParams(params)
 

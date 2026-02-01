@@ -34,6 +34,7 @@ Example:
 }
 
 // AddListContactsCommand adds the list contacts command to the root command.
+//nolint:gocognit,funlen // Command setup requires conditional logic
 func AddListContactsCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(ListContactsCmd)
 

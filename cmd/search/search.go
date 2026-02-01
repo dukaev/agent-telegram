@@ -24,7 +24,7 @@ var (
 
 // SearchCmd represents the search command.
 var SearchCmd = &cobra.Command{
-	GroupID: "search",
+	GroupID: "chat",
 	Use:     "search",
 	Short:   "Search Telegram content",
 	Long:    `Search for public chats, channels, bots globally, or search within a specific chat.`,
@@ -73,72 +73,83 @@ func AddSearchCommand(rootCmd *cobra.Command) {
 	SearchCmd.AddCommand(SearchGlobalCmd)
 	SearchCmd.AddCommand(SearchInChatCmd)
 
-	// Global search flags
-	SearchGlobalCmd.Flags().IntVarP(&globalLimit, "limit", "l", 20, "Number of results (max 100)")
-	SearchGlobalCmd.Flags().StringVarP(&globalType, "type", "t", "", "Filter by type: bots, users, chats, channels, or empty for all")
+	setupGlobalSearchFlags()
+	setupInChatSearchFlags()
 
-	// In-chat search flags
+	SearchGlobalCmd.Run = runSearchGlobal
+	SearchInChatCmd.Run = runSearchInChat
+}
+
+// setupGlobalSearchFlags configures global search command flags.
+func setupGlobalSearchFlags() {
+	SearchGlobalCmd.Flags().IntVarP(&globalLimit, "limit", "l", 20, "Number of results (max 100)")
+	SearchGlobalCmd.Flags().StringVarP(&globalType, "type", "t", "",
+		"Filter by type: bots, users, chats, channels, or empty for all")
+}
+
+// setupInChatSearchFlags configures in-chat search command flags.
+func setupInChatSearchFlags() {
 	SearchInChatCmd.Flags().VarP(&inChatPeer, "to", "t", "Recipient (@username, username, or chat ID)")
 	SearchInChatCmd.Flags().IntVarP(&inChatLimit, "limit", "l", 20, "Number of results (max 100)")
-	SearchInChatCmd.Flags().StringVarP(&inChatType, "type", "T", "", "Filter by message type: text, photos, videos, documents, links, audio, voice")
+	SearchInChatCmd.Flags().StringVarP(&inChatType, "type", "T", "",
+		"Filter by message type: text, photos, videos, documents, links, audio, voice")
 	SearchInChatCmd.Flags().IntVarP(&inChatOffset, "offset", "o", 0, "Offset for pagination (message ID)")
 	_ = SearchInChatCmd.MarkFlagRequired("to")
+}
 
-	// Global search command handler
-	SearchGlobalCmd.Run = func(_ *cobra.Command, args []string) {
-		globalQuery = args[0]
+// runSearchGlobal executes the global search command.
+func runSearchGlobal(_ *cobra.Command, args []string) {
+	globalQuery = args[0]
 
-		// Validate and sanitize limit
-		if globalLimit < 1 {
-			globalLimit = 1
-		}
-		if globalLimit > 100 {
-			globalLimit = 100
-		}
-
-		runner := cliutil.NewRunnerFromCmd(SearchGlobalCmd, true) // Always JSON
-		params := map[string]any{
-			"query": globalQuery,
-			"limit": globalLimit,
-		}
-		if globalType != "" {
-			params["type"] = globalType
-		}
-
-		result := runner.CallWithParams("search_global", params)
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
+	// Validate and sanitize limit
+	if globalLimit < 1 {
+		globalLimit = 1
+	}
+	if globalLimit > 100 {
+		globalLimit = 100
 	}
 
-	// In-chat search command handler
-	SearchInChatCmd.Run = func(_ *cobra.Command, args []string) {
-		inChatQuery = args[0]
-
-		// Validate and sanitize limit
-		if inChatLimit < 1 {
-			inChatLimit = 1
-		}
-		if inChatLimit > 100 {
-			inChatLimit = 100
-		}
-
-		if inChatOffset < 0 {
-			inChatOffset = 0
-		}
-
-		runner := cliutil.NewRunnerFromCmd(SearchInChatCmd, true) // Always JSON
-		params := map[string]any{
-			"peer":   inChatPeer.String(),
-			"query":  inChatQuery,
-			"limit":  inChatLimit,
-			"offset": inChatOffset,
-		}
-		if inChatType != "" {
-			params["type"] = inChatType
-		}
-
-		result := runner.CallWithParams("search_in_chat", params)
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
+	runner := cliutil.NewRunnerFromCmd(SearchGlobalCmd, true)
+	params := map[string]any{
+		"query": globalQuery,
+		"limit": globalLimit,
 	}
+	if globalType != "" {
+		params["type"] = globalType
+	}
+
+	result := runner.CallWithParams("search_global", params)
+	//nolint:errchkjson // Output to stdout, error handling not required
+	_ = json.NewEncoder(os.Stdout).Encode(result)
+}
+
+// runSearchInChat executes the in-chat search command.
+func runSearchInChat(_ *cobra.Command, args []string) {
+	inChatQuery = args[0]
+
+	// Validate and sanitize limit
+	if inChatLimit < 1 {
+		inChatLimit = 1
+	}
+	if inChatLimit > 100 {
+		inChatLimit = 100
+	}
+	if inChatOffset < 0 {
+		inChatOffset = 0
+	}
+
+	runner := cliutil.NewRunnerFromCmd(SearchInChatCmd, true)
+	params := map[string]any{
+		"peer":   inChatPeer.String(),
+		"query":  inChatQuery,
+		"limit":  inChatLimit,
+		"offset": inChatOffset,
+	}
+	if inChatType != "" {
+		params["type"] = inChatType
+	}
+
+	result := runner.CallWithParams("search_in_chat", params)
+	//nolint:errchkjson // Output to stdout, error handling not required
+	_ = json.NewEncoder(os.Stdout).Encode(result)
 }

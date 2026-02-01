@@ -131,7 +131,10 @@ func (c *Client) JoinChat(ctx context.Context, params types.JoinChatParams) (*ty
 }
 
 // SubscribeChannel subscribes to a public channel.
-func (c *Client) SubscribeChannel(ctx context.Context, params types.SubscribeChannelParams) (*types.SubscribeChannelResult, error) {
+func (c *Client) SubscribeChannel(
+	ctx context.Context,
+	params types.SubscribeChannelParams,
+) (*types.SubscribeChannelResult, error) {
 	return c.chat.SubscribeChannel(ctx, params)
 }
 
@@ -196,7 +199,10 @@ func (c *Client) AddContact(ctx context.Context, params types.AddContactParams) 
 }
 
 // DeleteContact deletes a contact from the user's contact list.
-func (c *Client) DeleteContact(ctx context.Context, params types.DeleteContactParams) (*types.DeleteContactResult, error) {
+func (c *Client) DeleteContact(
+	ctx context.Context,
+	params types.DeleteContactParams,
+) (*types.DeleteContactResult, error) {
 	return c.user.DeleteContact(ctx, params)
 }
 
@@ -211,7 +217,10 @@ func (c *Client) CreateGroup(ctx context.Context, params types.CreateGroupParams
 }
 
 // CreateChannel creates a new channel or supergroup.
-func (c *Client) CreateChannel(ctx context.Context, params types.CreateChannelParams) (*types.CreateChannelResult, error) {
+func (c *Client) CreateChannel(
+	ctx context.Context,
+	params types.CreateChannelParams,
+) (*types.CreateChannelResult, error) {
 	return c.chat.CreateChannel(ctx, params)
 }
 
@@ -241,7 +250,10 @@ func (c *Client) Invite(ctx context.Context, params types.InviteParams) (*types.
 }
 
 // GetParticipants retrieves participants from a chat or channel.
-func (c *Client) GetParticipants(ctx context.Context, params types.GetParticipantsParams) (*types.GetParticipantsResult, error) {
+func (c *Client) GetParticipants(
+	ctx context.Context,
+	params types.GetParticipantsParams,
+) (*types.GetParticipantsResult, error) {
 	return c.chat.GetParticipants(ctx, params)
 }
 
@@ -266,6 +278,9 @@ func (c *Client) DemoteAdmin(ctx context.Context, params types.DemoteAdminParams
 }
 
 // GetInviteLink gets or creates an invite link for a chat or channel.
-func (c *Client) GetInviteLink(ctx context.Context, params types.GetInviteLinkParams) (*types.GetInviteLinkResult, error) {
+func (c *Client) GetInviteLink(
+	ctx context.Context,
+	params types.GetInviteLinkParams,
+) (*types.GetInviteLinkResult, error) {
 	return c.chat.GetInviteLink(ctx, params)
 }

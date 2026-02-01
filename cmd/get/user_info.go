@@ -75,3 +75,19 @@ func AddUserInfoCommand(rootCmd *cobra.Command) {
 	UserInfoCmd.Run = run
 	MyInfoCmd.Run = run
 }
+
+// AddMyInfoCommand adds only the my-info command to the root command.
+func AddMyInfoCommand(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(MyInfoCmd)
+
+	// Setup flags
+	MyInfoCmd.Flags().BoolVarP(&GetUserInfoJSON, "json", "j", false, "Output as JSON")
+
+	// Set Run function
+	MyInfoCmd.Run = func(_ *cobra.Command, _ []string) {
+		runner := cliutil.NewRunnerFromCmd(MyInfoCmd, true) // Always JSON
+		result := runner.Call("get_me", nil)
+		//nolint:errchkjson // Output to stdout, error handling not required
+		_ = json.NewEncoder(os.Stdout).Encode(result)
+	}
+}

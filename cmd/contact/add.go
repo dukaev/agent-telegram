@@ -39,60 +39,66 @@ func AddAddContactCommand(rootCmd *cobra.Command) {
 	_ = AddContactCmd.MarkFlagRequired("phone")
 	_ = AddContactCmd.MarkFlagRequired("first-name")
 
-	AddContactCmd.Run = func(_ *cobra.Command, _ []string) {
-		runner := cliutil.NewRunnerFromCmd(AddContactCmd, false)
-		params := map[string]any{
-			"phone":     addPhone,
-			"firstName": addFirstName,
-		}
-		if addLastName != "" {
-			params["lastName"] = addLastName
-		}
+	AddContactCmd.Run = runAddContact
+}
 
-		result := runner.CallWithParams("add_contact", params)
-		runner.PrintResult(result, func(result any) {
-			r, ok := result.(map[string]any)
-			if !ok {
-				fmt.Println("Contact added successfully!")
-				return
-			}
-
-			contact, ok := r["contact"].(map[string]any)
-			if !ok {
-				fmt.Println("Contact added successfully!")
-				return
-			}
-
-			firstName, _ := contact["firstName"].(string)
-			lastName, _ := contact["lastName"].(string)
-			username, _ := contact["username"].(string)
-			phone, _ := contact["phone"].(string)
-			peer, _ := contact["peer"].(string)
-
-			// Build display name
-			name := firstName
-			if lastName != "" {
-				if name != "" {
-					name += " " + lastName
-				} else {
-					name = lastName
-				}
-			}
-			if name == "" {
-				name = "Contact"
-			}
-
-			fmt.Printf("Added contact: %s", name)
-			if username != "" {
-				fmt.Printf(" (@%s)", username)
-			}
-			if peer != "" {
-				fmt.Printf(" [%s]", peer)
-			}
-			if phone != "" {
-				fmt.Printf(" - %s", phone)
-			}
-			fmt.Println()
-		})
+// runAddContact executes the add contact command.
+func runAddContact(_ *cobra.Command, _ []string) {
+	runner := cliutil.NewRunnerFromCmd(AddContactCmd, false)
+	params := map[string]any{
+		"phone":     addPhone,
+		"firstName": addFirstName,
 	}
+	if addLastName != "" {
+		params["lastName"] = addLastName
+	}
+
+	result := runner.CallWithParams("add_contact", params)
+	runner.PrintResult(result, printContactResult)
+}
+
+// printContactResult prints the contact result.
+func printContactResult(result any) {
+	r, ok := result.(map[string]any)
+	if !ok {
+		fmt.Println("Contact added successfully!")
+		return
+	}
+
+	contact, ok := r["contact"].(map[string]any)
+	if !ok {
+		fmt.Println("Contact added successfully!")
+		return
+	}
+
+	firstName, _ := contact["firstName"].(string)
+	lastName, _ := contact["lastName"].(string)
+	username, _ := contact["username"].(string)
+	phone, _ := contact["phone"].(string)
+	peer, _ := contact["peer"].(string)
+
+	// Build display name
+	name := firstName
+	if lastName != "" {
+		if name != "" {
+			name += " " + lastName
+		} else {
+			name = lastName
+		}
+	}
+	if name == "" {
+		name = "Contact"
+	}
+
+	fmt.Printf("Added contact: %s", name)
+	if username != "" {
+		fmt.Printf(" (@%s)", username)
+	}
+	if peer != "" {
+		fmt.Printf(" [%s]", peer)
+	}
+	if phone != "" {
+		fmt.Printf(" - %s", phone)
+	}
+	fmt.Println()
 }

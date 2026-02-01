@@ -10,11 +10,11 @@ import (
 
 // GetChats returns the list of dialogs/chats with pagination.
 func (c *Client) GetChats(ctx context.Context, limit, _ int) ([]map[string]any, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	dialogsClass, err := c.api.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
+	dialogsClass, err := c.API.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
 		Limit:      limit,
 		OffsetDate: 0,
 		OffsetID:   0,

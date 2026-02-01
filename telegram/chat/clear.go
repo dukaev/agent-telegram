@@ -13,7 +13,7 @@ import (
 func (c *Client) ClearMessages(
 	ctx context.Context, params types.ClearMessagesParams,
 ) (*types.ClearMessagesResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
@@ -23,7 +23,7 @@ func (c *Client) ClearMessages(
 		ids[i] = int(id)
 	}
 
-	_, err := c.api.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
+	_, err := c.API.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
 		ID:     ids,
 		Revoke: true,
 	})
@@ -40,16 +40,16 @@ func (c *Client) ClearMessages(
 
 // ClearHistory clears all chat history for a peer.
 func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.api.MessagesDeleteHistory(ctx, &tg.MessagesDeleteHistoryRequest{
+	_, err = c.API.MessagesDeleteHistory(ctx, &tg.MessagesDeleteHistoryRequest{
 		Peer:   inputPeer,
 		Revoke: params.Revoke,
 	})
@@ -66,11 +66,11 @@ func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryPara
 
 // PinChat pins or unpins a chat in the dialog list.
 func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*type
 		Peer: inputPeer,
 	}
 
-	_, err = c.api.MessagesToggleDialogPin(ctx, &tg.MessagesToggleDialogPinRequest{
+	_, err = c.API.MessagesToggleDialogPin(ctx, &tg.MessagesToggleDialogPinRequest{
 		Pinned: !params.Disable,
 		Peer:   dialogPeer,
 	})

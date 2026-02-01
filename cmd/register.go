@@ -6,8 +6,8 @@ import (
 	"agent-telegram/cmd/chat"
 	"agent-telegram/cmd/contact"
 	"agent-telegram/cmd/get"
+	"agent-telegram/cmd/info"
 	"agent-telegram/cmd/message"
-	"agent-telegram/cmd/mute"
 	"agent-telegram/cmd/open"
 	"agent-telegram/cmd/search"
 	"agent-telegram/cmd/sys"
@@ -18,6 +18,7 @@ func init() {
 	// Auth commands
 	auth.AddLoginCommand(RootCmd)
 	auth.AddLogoutCommand(RootCmd)
+	get.AddMyInfoCommand(RootCmd)
 
 	// Get commands
 	get.AddUpdatesCommand(RootCmd)
@@ -28,8 +29,8 @@ func init() {
 	// Open command
 	open.AddOpenCommand(RootCmd)
 
-	// Mute command
-	mute.AddMuteCommand(RootCmd)
+	// Info command
+	info.AddInfoCommand(RootCmd)
 
 	// Message commands
 	message.AddMsgCommand(RootCmd)

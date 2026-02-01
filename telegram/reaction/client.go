@@ -6,38 +6,20 @@ import (
 	"fmt"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/client"
 	"agent-telegram/telegram/types"
 )
 
 // Client provides reaction operations.
 type Client struct {
-	api    *tg.Client
-	parent ParentClient
-}
-
-// ParentClient is an interface for accessing parent client methods.
-type ParentClient interface {
-	ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error)
+	*client.BaseClient
 }
 
 // NewClient creates a new reaction client.
-func NewClient(tc ParentClient) *Client {
+func NewClient(tc client.ParentClient) *Client {
 	return &Client{
-		parent: tc,
+		BaseClient: &client.BaseClient{Parent: tc},
 	}
-}
-
-// SetAPI sets the API client (called when the telegram client is initialized).
-func (c *Client) SetAPI(api *tg.Client) {
-	c.api = api
-}
-
-// resolvePeer resolves a peer string to InputPeerClass using the parent client's cache.
-func (c *Client) resolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error) {
-	if c.parent == nil {
-		return nil, fmt.Errorf("parent client not set")
-	}
-	return c.parent.ResolvePeer(ctx, peer)
 }
 
 // createReaction creates a Reaction from emoji string.
@@ -49,11 +31,11 @@ func createReaction(emoji string) tg.ReactionClass {
 
 // AddReaction adds a reaction to a message.
 func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams) (*types.AddReactionResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +43,7 @@ func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams
 	// Create reaction from emoji
 	reaction := createReaction(params.Emoji)
 
-	_, err = c.api.MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
+	_, err = c.API.MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
 		Peer:     inputPeer,
 		MsgID:    int(params.MessageID),
 		Reaction: []tg.ReactionClass{reaction},
@@ -82,16 +64,16 @@ func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams
 func (c *Client) RemoveReaction(
 	ctx context.Context, params types.RemoveReactionParams,
 ) (*types.RemoveReactionResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	inputPeer, err := c.resolvePeer(ctx, params.Peer)
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = c.api.MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
+	_, err = c.API.MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
 		Peer:     inputPeer,
 		MsgID:    int(params.MessageID),
 		Reaction: []tg.ReactionClass{},
@@ -140,12 +122,12 @@ func extractReactions(msgReactions tg.MessageReactions) []types.Reaction {
 func (c *Client) ListReactions(
 	ctx context.Context, params types.ListReactionsParams,
 ) (*types.ListReactionsResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
 	// Get messages to find reactions
-	messages, err := c.api.MessagesGetMessages(ctx, []tg.InputMessageClass{
+	messages, err := c.API.MessagesGetMessages(ctx, []tg.InputMessageClass{
 		&tg.InputMessageID{ID: int(params.MessageID)},
 	})
 	if err != nil {

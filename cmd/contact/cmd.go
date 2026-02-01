@@ -7,6 +7,7 @@ import (
 
 // ContactCmd represents the parent contact command.
 var ContactCmd = &cobra.Command{
+	GroupID: "chat",
 	Use:     "contact",
 	Short:   "Manage Telegram contacts",
 	Long:    `Commands for managing Telegram contacts - add, delete, and list.`,

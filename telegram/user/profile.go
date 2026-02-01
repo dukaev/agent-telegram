@@ -15,11 +15,11 @@ import (
 func (c *Client) UpdateProfile(
 	ctx context.Context, params types.UpdateProfileParams,
 ) (*types.UpdateProfileResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
-	_, err := c.api.AccountUpdateProfile(ctx, &tg.AccountUpdateProfileRequest{
+	_, err := c.API.AccountUpdateProfile(ctx, &tg.AccountUpdateProfileRequest{
 		FirstName: params.FirstName,
 		LastName:  params.LastName,
 		About:     params.Bio,
@@ -35,7 +35,7 @@ func (c *Client) UpdateProfile(
 
 // UpdateAvatar updates the user's avatar/profile photo.
 func (c *Client) UpdateAvatar(ctx context.Context, params types.UpdateAvatarParams) (*types.UpdateAvatarResult, error) {
-	if c.api == nil {
+	if c.API == nil {
 		return nil, fmt.Errorf("client not initialized")
 	}
 
@@ -51,7 +51,7 @@ func (c *Client) UpdateAvatar(ctx context.Context, params types.UpdateAvatarPara
 		return nil, fmt.Errorf("failed to get file info: %w", err)
 	}
 
-	u := uploader.NewUploader(c.api)
+	u := uploader.NewUploader(c.API)
 	upload := uploader.NewUpload(fileInfo.Name(), file, fileInfo.Size())
 
 	uploadedFile, err := u.Upload(ctx, upload)
@@ -59,7 +59,7 @@ func (c *Client) UpdateAvatar(ctx context.Context, params types.UpdateAvatarPara
 		return nil, fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	_, err = c.api.PhotosUploadProfilePhoto(ctx, &tg.PhotosUploadProfilePhotoRequest{
+	_, err = c.API.PhotosUploadProfilePhoto(ctx, &tg.PhotosUploadProfilePhotoRequest{
 		File: uploadedFile,
 	})
 	if err != nil {
