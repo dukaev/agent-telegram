@@ -18,10 +18,10 @@ import (
 	"agent-telegram/internal/ipc"
 )
 
-// Default Telegram API credentials (public test credentials).
+// Default Telegram API credentials.
 const (
-	defaultAppID   = "2040"
-	defaultAppHash = "b18441a1ff607e10a989891a5462e627"
+	defaultAppID   = "23027031"
+	defaultAppHash = "1c6f5d81f2a754e0d2f0e3f06b1cbe17"
 )
 
 var (
