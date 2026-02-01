@@ -12,6 +12,14 @@ Telegram IPC agent CLI - A command-line tool for interacting with Telegram via a
 
 ## Installation
 
+### npm (recommended)
+
+```bash
+npm install -g agent-telegram
+```
+
+### From source
+
 ```bash
 go build -o agent-telegram .
 ```

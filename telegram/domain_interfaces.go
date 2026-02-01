@@ -29,6 +29,12 @@ type ChatClient interface {
 	PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error)
 	JoinChat(ctx context.Context, params types.JoinChatParams) (*types.JoinChatResult, error)
 	SubscribeChannel(ctx context.Context, params types.SubscribeChannelParams) (*types.SubscribeChannelResult, error)
+	// New features
+	SetSlowMode(ctx context.Context, params types.SetSlowModeParams) (*types.SetSlowModeResult, error)
+	SetChatPermissions(ctx context.Context, params types.SetChatPermissionsParams) (*types.SetChatPermissionsResult, error)
+	GetFolders(ctx context.Context, params types.GetFoldersParams) (*types.GetFoldersResult, error)
+	CreateFolder(ctx context.Context, params types.CreateFolderParams) (*types.CreateFolderResult, error)
+	DeleteFolder(ctx context.Context, params types.DeleteFolderParams) (*types.DeleteFolderResult, error)
 }
 
 // MessageClient defines the interface for message operations.
@@ -44,6 +50,12 @@ type MessageClient interface {
 	) (*types.InspectInlineButtonsResult, error)
 	PressInlineButton(ctx context.Context, params types.PressInlineButtonParams) (*types.PressInlineButtonResult, error)
 	InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error)
+	// New features
+	ReadMessages(ctx context.Context, params types.ReadMessagesParams) (*types.ReadMessagesResult, error)
+	SetTyping(ctx context.Context, params types.SetTypingParams) (*types.SetTypingResult, error)
+	GetScheduledMessages(
+		ctx context.Context, params types.GetScheduledMessagesParams,
+	) (*types.GetScheduledMessagesResult, error)
 }
 
 // MediaClient defines the interface for media operations.
@@ -54,6 +66,12 @@ type MediaClient interface {
 	SendContact(ctx context.Context, params types.SendContactParams) (*types.SendContactResult, error)
 	SendLocation(ctx context.Context, params types.SendLocationParams) (*types.SendLocationResult, error)
 	SendPoll(ctx context.Context, params types.SendPollParams) (*types.SendPollResult, error)
+	// New features
+	SendVoice(ctx context.Context, params types.SendVoiceParams) (*types.SendVoiceResult, error)
+	SendVideoNote(ctx context.Context, params types.SendVideoNoteParams) (*types.SendVideoNoteResult, error)
+	SendSticker(ctx context.Context, params types.SendStickerParams) (*types.SendStickerResult, error)
+	GetStickerPacks(ctx context.Context, params types.GetStickerPacksParams) (*types.GetStickerPacksResult, error)
+	SendGIF(ctx context.Context, params types.SendGIFParams) (*types.SendGIFResult, error)
 }
 
 // UserClient defines the interface for user operations.
@@ -66,6 +84,9 @@ type UserClient interface {
 	UpdateAvatar(ctx context.Context, params types.UpdateAvatarParams) (*types.UpdateAvatarResult, error)
 	BlockPeer(ctx context.Context, params types.BlockPeerParams) (*types.BlockPeerResult, error)
 	UnblockPeer(ctx context.Context, params types.UnblockPeerParams) (*types.UnblockPeerResult, error)
+	// New features
+	GetPrivacy(ctx context.Context, params types.GetPrivacyParams) (*types.GetPrivacyResult, error)
+	SetPrivacy(ctx context.Context, params types.SetPrivacyParams) (*types.SetPrivacyResult, error)
 }
 
 // PinClient defines the interface for pin operations.

@@ -97,3 +97,98 @@ func (c *Client) DeletePhoto(ctx context.Context, params types.DeletePhotoParams
 
 	return &types.DeletePhotoResult{Success: true}, nil
 }
+
+// SetSlowMode sets slow mode for a channel/supergroup.
+func (c *Client) SetSlowMode(ctx context.Context, params types.SetSlowModeParams) (*types.SetSlowModeResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	peer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
+	inputChannel, ok := peer.(*tg.InputPeerChannel)
+	if !ok {
+		return nil, fmt.Errorf("peer must be a channel or supergroup")
+	}
+
+	_, err = c.API.ChannelsToggleSlowMode(ctx, &tg.ChannelsToggleSlowModeRequest{
+		Channel: &tg.InputChannel{
+			ChannelID:  inputChannel.ChannelID,
+			AccessHash: inputChannel.AccessHash,
+		},
+		Seconds: params.Seconds,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to set slow mode: %w", err)
+	}
+
+	return &types.SetSlowModeResult{
+		Success: true,
+		Seconds: params.Seconds,
+	}, nil
+}
+
+// SetChatPermissions sets default permissions for a chat/channel.
+//
+func (c *Client) SetChatPermissions(
+	ctx context.Context,
+	params types.SetChatPermissionsParams,
+) (*types.SetChatPermissionsResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	peer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+	}
+
+	// Build banned rights (inverted - true means banned)
+	rights := &tg.ChatBannedRights{
+		UntilDate:    0, // Permanent
+		ViewMessages: false,
+		SendMessages: !params.SendMessages,
+		SendMedia:    !params.SendMedia,
+		SendStickers: !params.SendStickers,
+		SendGifs:     !params.SendGifs,
+		SendGames:    !params.SendGames,
+		SendInline:   !params.SendInline,
+		EmbedLinks:   !params.EmbedLinks,
+		SendPolls:    !params.SendPolls,
+		ChangeInfo:   !params.ChangeInfo,
+		InviteUsers:  !params.InviteUsers,
+		PinMessages:  !params.PinMessages,
+		ManageTopics: !params.ManageTopics,
+		SendPhotos:   !params.SendPhotos,
+		SendVideos:   !params.SendVideos,
+		SendRoundvideos: !params.SendRoundvideos,
+		SendAudios:   !params.SendAudios,
+		SendVoices:   !params.SendVoices,
+		SendDocs:     !params.SendDocs,
+		SendPlain:    !params.SendPlain,
+	}
+
+	switch p := peer.(type) {
+	case *tg.InputPeerChannel:
+		_, err = c.API.MessagesEditChatDefaultBannedRights(ctx, &tg.MessagesEditChatDefaultBannedRightsRequest{
+			Peer:         p,
+			BannedRights: *rights,
+		})
+	case *tg.InputPeerChat:
+		_, err = c.API.MessagesEditChatDefaultBannedRights(ctx, &tg.MessagesEditChatDefaultBannedRightsRequest{
+			Peer:         p,
+			BannedRights: *rights,
+		})
+	default:
+		return nil, fmt.Errorf("peer must be a chat or channel")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to set chat permissions: %w", err)
+	}
+
+	return &types.SetChatPermissionsResult{Success: true}, nil
+}

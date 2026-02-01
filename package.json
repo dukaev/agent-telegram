@@ -1,0 +1,30 @@
+{
+  "name": "agent-telegram",
+  "version": "0.1.0",
+  "description": "Telegram IPC agent CLI - interact with Telegram via command line",
+  "bin": {
+    "agent-telegram": "./bin/run.js"
+  },
+  "scripts": {
+    "postinstall": "node ./scripts/install.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/"
+  ],
+  "keywords": [
+    "telegram",
+    "cli",
+    "ipc",
+    "agent",
+    "messaging"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/user/agent-telegram.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  }
+}

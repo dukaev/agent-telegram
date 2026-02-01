@@ -29,9 +29,12 @@ go.work
 Thumbs.db
 
 # Build output
-/bin/
 /dist/
 /tmp/
+
+# Lint tools in bin (but keep npm wrapper)
+/bin/custom-gcl
+/bin/golangci-lint
 
 # Air
 build-errors.log

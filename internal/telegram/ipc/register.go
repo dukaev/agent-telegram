@@ -73,6 +73,23 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"get_contacts":   getContactsHandler,
 	"add_contact":    addContactHandler,
 	"delete_contact": deleteContactHandler,
+
+	// New features
+	"read_messages":          readMessagesHandler,
+	"set_typing":             setTypingHandler,
+	"get_scheduled_messages": getScheduledMessagesHandler,
+	"send_voice":             sendVoiceHandler,
+	"send_video_note":        sendVideoNoteHandler,
+	"send_sticker":           sendStickerHandler,
+	"get_sticker_packs":      getStickerPacksHandler,
+	"send_gif":               sendGIFHandler,
+	"set_slow_mode":          setSlowModeHandler,
+	"set_chat_permissions":   setChatPermissionsHandler,
+	"get_folders":            getFoldersHandler,
+	"create_folder":          createFolderHandler,
+	"delete_folder":          deleteFolderHandler,
+	"get_privacy":            getPrivacyHandler,
+	"set_privacy":            setPrivacyHandler,
 }
 
 // RegisterHandlers registers all Telegram IPC handlers.

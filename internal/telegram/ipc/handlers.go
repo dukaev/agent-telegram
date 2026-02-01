@@ -118,3 +118,52 @@ func searchGlobalHandler(c Client) HandlerFunc {
 func searchInChatHandler(c Client) HandlerFunc {
 	return Handler(c.Search().SearchInChat, "search in chat")
 }
+
+// New feature handlers.
+func readMessagesHandler(c Client) HandlerFunc {
+	return Handler(c.Message().ReadMessages, "read messages")
+}
+func setTypingHandler(c Client) HandlerFunc {
+	return Handler(c.Message().SetTyping, "set typing")
+}
+func getScheduledMessagesHandler(c Client) HandlerFunc {
+	return Handler(c.Message().GetScheduledMessages, "get scheduled messages")
+}
+func sendVoiceHandler(c Client) HandlerFunc {
+	return FileHandler(func(p types.SendVoiceParams) string { return p.File }, c.Media().SendVoice, "send voice")
+}
+func sendVideoNoteHandler(c Client) HandlerFunc {
+	return FileHandler(
+		func(p types.SendVideoNoteParams) string { return p.File }, c.Media().SendVideoNote, "send video note",
+	)
+}
+func sendStickerHandler(c Client) HandlerFunc {
+	return Handler(c.Media().SendSticker, "send sticker")
+}
+func getStickerPacksHandler(c Client) HandlerFunc {
+	return Handler(c.Media().GetStickerPacks, "get sticker packs")
+}
+func sendGIFHandler(c Client) HandlerFunc {
+	return FileHandler(func(p types.SendGIFParams) string { return p.File }, c.Media().SendGIF, "send gif")
+}
+func setSlowModeHandler(c Client) HandlerFunc {
+	return Handler(c.Chat().SetSlowMode, "set slow mode")
+}
+func setChatPermissionsHandler(c Client) HandlerFunc {
+	return Handler(c.Chat().SetChatPermissions, "set chat permissions")
+}
+func getFoldersHandler(c Client) HandlerFunc {
+	return Handler(c.Chat().GetFolders, "get folders")
+}
+func createFolderHandler(c Client) HandlerFunc {
+	return Handler(c.Chat().CreateFolder, "create folder")
+}
+func deleteFolderHandler(c Client) HandlerFunc {
+	return Handler(c.Chat().DeleteFolder, "delete folder")
+}
+func getPrivacyHandler(c Client) HandlerFunc {
+	return Handler(c.User().GetPrivacy, "get privacy")
+}
+func setPrivacyHandler(c Client) HandlerFunc {
+	return Handler(c.User().SetPrivacy, "set privacy")
+}

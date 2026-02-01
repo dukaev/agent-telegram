@@ -1,5 +1,5 @@
 // Package types provides common types for Telegram client chat creation operations.
-package types
+package types // revive:disable:var-naming
 
 import "fmt"
 

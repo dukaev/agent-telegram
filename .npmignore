@@ -1,0 +1,32 @@
+# Source code (users download pre-built binaries)
+*.go
+go.mod
+go.sum
+
+# Development
+.air.toml
+.env
+.env.*
+!.env.example
+.git
+.github
+.gitignore
+.golangci*
+.revive.toml
+.vscode
+tmp/
+testdata/
+*.log
+
+# Build artifacts
+dist/
+agent-telegram
+ipc-client
+
+# Docs
+DEVELOPMENT.md
+docs/
+
+# Lint tools (not needed for npm users)
+bin/custom-gcl
+bin/golangci-lint
