@@ -4,14 +4,16 @@ package auth
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/tgauth"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Result represents the result of an authentication operation.
@@ -41,13 +43,15 @@ func NewService(ctx context.Context) (*Service, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	telegramService := tgauth.NewService(cfg, slog.Default())
+	// Use silent logger to avoid breaking TUI
+	silentLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	telegramService := tgauth.NewService(cfg, silentLogger)
 
 	return &Service{
 		telegramService: telegramService,
 		userID:          1, // Default user ID
 		ctx:             ctx,
-		logger:          slog.Default(),
+		logger:          silentLogger,
 	}, nil
 }
 
@@ -56,13 +60,15 @@ func NewServiceWithConfig(ctx context.Context, appID int, appHash, phone string)
 	sessionPath := filepath.Join(getConfigDir(), ".agent-telegram")
 	cfg := config.LoadFromArgs(appID, appHash, phone, sessionPath)
 
-	telegramService := tgauth.NewService(cfg, slog.Default())
+	// Use silent logger to avoid breaking TUI
+	silentLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	telegramService := tgauth.NewService(cfg, silentLogger)
 
 	return &Service{
 		telegramService: telegramService,
 		userID:          1, // Default user ID
 		ctx:             ctx,
-		logger:          slog.Default(),
+		logger:          silentLogger,
 		phoneNumber:     phone,
 	}, nil
 }
@@ -124,7 +130,7 @@ func (s *Service) SignInWith2FA(password string) tea.Cmd {
 
 // GetSessionPath returns the session path for the current user.
 func (s *Service) GetSessionPath() string {
-	return filepath.Join(getConfigDir(), ".agent-telegram", fmt.Sprintf("user_%d", s.userID), "session.json")
+	return filepath.Join(getConfigDir(), ".agent-telegram", "session.json")
 }
 
 // GetPhoneNumber returns the stored phone number.

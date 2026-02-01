@@ -14,6 +14,7 @@ type CodeStep struct {
 	codeInput   components.Input
 	loader      components.Loader
 	authService *auth.Service
+	errorMsg    string
 }
 
 // NewCodeStep creates a new code input step.
@@ -60,6 +61,11 @@ func (m CodeStep) Update(msg tea.Msg) (CodeStep, tea.Cmd) {
 		return m, nil
 	}
 
+	// Clear error when user types
+	if _, ok := msg.(tea.KeyMsg); ok {
+		m.errorMsg = ""
+	}
+
 	var cmd tea.Cmd
 	m.codeInput.Model, cmd = m.codeInput.Update(msg)
 	return m, cmd
@@ -96,12 +102,22 @@ func (m CodeStep) View() string {
 		return components.RenderLoaderView(
 			m.codeInput.GetLabel(),
 			m.codeInput.ViewWithSpinner(m.loader.Frame()),
-			m.loader.Frame(),
 		)
 	}
 
 	inputLine := components.RenderLabeledInput(m.codeInput.GetLabel(), m.codeInput.View())
-	return components.RenderInputView(inputLine, true)
+	return components.RenderInputViewWithError(inputLine, m.errorMsg, true)
+}
+
+// SetError sets an error message to display.
+func (m CodeStep) SetError(err string) CodeStep {
+	m.errorMsg = err
+	return m
+}
+
+// GetError returns the current error message.
+func (m CodeStep) GetError() string {
+	return m.errorMsg
 }
 
 // GetCode returns the entered code.

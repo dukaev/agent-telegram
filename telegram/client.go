@@ -2,7 +2,6 @@
 package telegram
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log/slog"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
-	"github.com/gotd/td/telegram/auth"
 	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/chat"
 	"agent-telegram/telegram/media"
@@ -28,11 +26,13 @@ type Client struct {
 	client      *telegram.Client
 	appID       int
 	appHash     string
-	phone       string
 	sessionPath string
 	updateStore *UpdateStore
 	peerCache   sync.Map // username → InputPeerClass cache
 	ready       chan struct{} // closed when client is fully initialized
+	reloadCh    chan struct{} // signals session reload request
+	cancelFn    context.CancelFunc // cancels current client context
+	mu          sync.Mutex // protects cancelFn
 	// Domain clients
 	message  *message.Client
 	media    *media.Client
@@ -43,32 +43,14 @@ type Client struct {
 	search   *search.Client
 }
 
-// codeAuth reads verification code from stdin
-type codeAuth struct{}
-
-func (c codeAuth) Code(_ context.Context, _ *tg.AuthSentCode) (string, error) {
-	fmt.Print("Enter verification code: ")
-	reader := bufio.NewReader(os.Stdin)
-	code, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-	return code[:len(code)-1], nil
-}
-
-func (c codeAuth) AcceptTOS(_ context.Context, _ tg.HelpTermsOfService) error {
-	slog.Info("Accepted TOS")
-	return nil
-}
-
 // NewClient creates a new Telegram client.
 // Domain clients are created lazily in Start() when the Telegram client is ready.
-func NewClient(appID int, appHash, phone string) *Client {
+func NewClient(appID int, appHash string) *Client {
 	return &Client{
-		appID:   appID,
-		appHash: appHash,
-		phone:   phone,
-		ready:   make(chan struct{}),
+		appID:    appID,
+		appHash:  appHash,
+		ready:    make(chan struct{}),
+		reloadCh: make(chan struct{}, 1),
 	}
 }
 
@@ -86,7 +68,7 @@ func (c *Client) WithUpdateStore(store *UpdateStore) *Client {
 
 // Start starts the Telegram client
 func (c *Client) Start(ctx context.Context) error {
-	sessionPath, err := c.getSessionPath()
+	sessionPath, err := c.GetSessionPath()
 	if err != nil {
 		return err
 	}
@@ -107,8 +89,8 @@ func (c *Client) Start(ctx context.Context) error {
 	return c.client.Run(ctx, c.runClient)
 }
 
-// getSessionPath returns the session path to use.
-func (c *Client) getSessionPath() (string, error) {
+// GetSessionPath returns the session path to use.
+func (c *Client) GetSessionPath() (string, error) {
 	if c.sessionPath != "" {
 		return c.sessionPath, nil
 	}
@@ -140,9 +122,9 @@ func (c *Client) runClient(ctx context.Context) error {
 	}
 
 	if !status.Authorized {
-		if err := c.authenticate(ctx); err != nil {
-			return err
-		}
+		// Server mode: don't try to authenticate, just fail
+		// User should run 'login' command first
+		return fmt.Errorf("not authenticated - please run 'agent-telegram login' first")
 	}
 
 	// Get current user and log
@@ -163,18 +145,6 @@ func (c *Client) runClient(ctx context.Context) error {
 	return nil
 }
 
-// authenticate performs the phone authentication flow.
-func (c *Client) authenticate(ctx context.Context) error {
-	flow := auth.NewFlow(
-		auth.CodeOnly(c.phone, codeAuth{}),
-		auth.SendCodeOptions{},
-	)
-
-	if err := c.client.Auth().IfNecessary(ctx, flow); err != nil {
-		return fmt.Errorf("auth failed: %w", err)
-	}
-	return nil
-}
 
 // setDomainAPIs sets the API client for all domain clients.
 func (c *Client) setDomainAPIs() {
@@ -232,4 +202,50 @@ func (c *Client) GetStatus(ctx context.Context) ClientStatus {
 	}
 
 	return status
+}
+
+// ReloadCh returns the channel that signals reload requests.
+func (c *Client) ReloadCh() <-chan struct{} {
+	return c.reloadCh
+}
+
+// Reload signals the client to reload the session.
+// This will disconnect and reconnect with the new session file.
+func (c *Client) Reload() {
+	// Reset ready channel for new connection
+	c.mu.Lock()
+	c.ready = make(chan struct{})
+	// Clear peer cache since we might be a different user
+	c.peerCache = sync.Map{}
+	cancelFn := c.cancelFn
+	c.mu.Unlock()
+
+	// Signal reload request first
+	select {
+	case c.reloadCh <- struct{}{}:
+	default:
+		// Already pending reload
+	}
+
+	// Cancel current client to trigger disconnect
+	if cancelFn != nil {
+		cancelFn()
+	}
+}
+
+// SetCancelFn stores the cancel function for the current client context.
+func (c *Client) SetCancelFn(cancel context.CancelFunc) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cancelFn = cancel
+}
+
+// cancelClient cancels the current client connection.
+func (c *Client) cancelClient() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cancelFn != nil {
+		c.cancelFn()
+		c.cancelFn = nil
+	}
 }

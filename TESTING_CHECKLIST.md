@@ -1,6 +1,6 @@
 # Testing Checklist
 
-**Test Chat:** `@current_user`
+**Test Chat:** `@user`
 **Date:** 2026-02-01
 **Tester:** Claude
 
@@ -26,40 +26,40 @@
 
 ## 3. Send Messages
 
-- [x] 3.1 `send --to @current_user "Hello"` — Text message
-- [x] 3.2 `send --to @current_user --photo test.png` — Photo
-- [x] 3.3 `send --to @current_user --video test.mov` — Video
-- [x] 3.4 `send --to @current_user --audio test.m4a` — Audio
-- [x] 3.5 `send --to @current_user --document test.txt` — Document
-- [x] 3.6 `send --to @current_user --voice test.m4a` — Voice message
-- [x] 3.7 `send --to @current_user --video-note test.mov` — Video note
-- [x] 3.8 `send --to @current_user --sticker test.png` — Sticker
-- [x] 3.9 `send --to @current_user --gif test.gif` — GIF
-- [x] 3.10 `send --to @current_user --file test.png` — Auto-detect type
-- [x] 3.11 `send --to @current_user --photo test.png --caption "Cap"` — With caption
-- [x] 3.12 `send --to @current_user --reply-to <id> "Reply"` — Reply
+- [x] 3.1 `send --to @user "Hello"` — Text message
+- [x] 3.2 `send --to @user --photo test.png` — Photo
+- [x] 3.3 `send --to @user --video test.mov` — Video
+- [x] 3.4 `send --to @user --audio test.m4a` — Audio
+- [x] 3.5 `send --to @user --document test.txt` — Document
+- [x] 3.6 `send --to @user --voice test.m4a` — Voice message
+- [x] 3.7 `send --to @user --video-note test.mov` — Video note
+- [x] 3.8 `send --to @user --sticker test.png` — Sticker
+- [x] 3.9 `send --to @user --gif test.gif` — GIF
+- [x] 3.10 `send --to @user --file test.png` — Auto-detect type
+- [x] 3.11 `send --to @user --photo test.png --caption "Cap"` — With caption
+- [x] 3.12 `send --to @user --reply-to <id> "Reply"` — Reply
 - [x] 3.13 `send --to @bot --poll "Q?" --option "A" --option "B"` — Poll (not in Saved Messages)
-- [x] 3.14 `send --to @current_user --latitude 55.75 --longitude 37.62` — Location
-- [x] 3.15 `send --to @current_user --contact "+123" --first-name "John"` — Contact
-- [x] 3.16 `send update --to @current_user --message-id <id> "Edited"` — Edit
+- [x] 3.14 `send --to @user --latitude 55.75 --longitude 37.62` — Location
+- [x] 3.15 `send --to @user --contact "+123" --first-name "John"` — Contact
+- [x] 3.16 `send update --to @user --message-id <id> "Edited"` — Edit
 
 ---
 
 ## 4. Message Operations
 
-- [x] 4.1 `msg read --to @current_user` — Mark as read
-- [x] 4.2 `msg read --to @current_user --max-id <id>` — Mark up to ID
-- [x] 4.3 `msg typing --to @current_user` — Typing indicator
-- [x] 4.4 `msg scheduled --to @current_user` — Scheduled messages
-- [x] 4.5 `msg delete --to @current_user --message-id <id>` — Delete
-- [x] 4.6 `msg forward --to @current_user --from <peer> --message-id <id>` — Forward
-- [x] 4.7 `msg pin --to @current_user --message-id <id>` — Pin
-- [x] 4.8 `msg pin --to @current_user --message-id <id> --disable` — Unpin
+- [x] 4.1 `msg read --to @user` — Mark as read
+- [x] 4.2 `msg read --to @user --max-id <id>` — Mark up to ID
+- [x] 4.3 `msg typing --to @user` — Typing indicator
+- [x] 4.4 `msg scheduled --to @user` — Scheduled messages
+- [x] 4.5 `msg delete --to @user --message-id <id>` — Delete
+- [x] 4.6 `msg forward --to @user --from <peer> --message-id <id>` — Forward
+- [x] 4.7 `msg pin --to @user --message-id <id>` — Pin
+- [x] 4.8 `msg pin --to @user --message-id <id> --disable` — Unpin
 - [x] 4.9 `msg inspect-buttons --to @bot --message-id <id>` — Buttons
 - [x] 4.10 `msg press-button --to @bot --message-id <id> <row> <col>` — Press
-- [x] 4.11 `msg inspect-keyboard --to @current_user` — Keyboard
-- [x] 4.12 `msg reaction <id> "emoji" --to @current_user` — Add reaction
-- [x] 4.13 `msg reaction <id> "emoji" --to @current_user --big` — Big reaction
+- [x] 4.11 `msg inspect-keyboard --to @user` — Keyboard
+- [x] 4.12 `msg reaction <id> "emoji" --to @user` — Add reaction
+- [x] 4.13 `msg reaction <id> "emoji" --to @user --big` — Big reaction
 
 ---
 
@@ -69,21 +69,21 @@
 - [x] 5.2 `chat list --limit 5` — With limit
 - [x] 5.3 `chat list --search "query"` — Filter by name
 - [x] 5.4 `chat list --type channel` — Filter by type
-- [x] 5.5 `chat info --to @current_user` — Chat info
-- [x] 5.6 `chat open @current_user` — Get messages
-- [x] 5.7 `chat open @current_user --limit 5` — With limit
+- [x] 5.5 `chat info --to @user` — Chat info
+- [x] 5.6 `chat open @user` — Get messages
+- [x] 5.7 `chat open @user --limit 5` — With limit
 - [x] 5.8 `chat topics --to -100XXXXXXXXX` — Forum topics
 
 ---
 
 ## 6. Chat — Actions
 
-- [x] 6.1 `chat archive --to @current_user` — Archive
-- [x] 6.2 `chat archive --to @current_user --disable` — Unarchive
-- [x] 6.3 `chat mute --to @current_user` — Mute
-- [x] 6.4 `chat mute --to @current_user --disable` — Unmute
-- [x] 6.5 `chat pin --to @current_user` — Pin chat
-- [x] 6.6 `chat pin --to @current_user --disable` — Unpin chat
+- [x] 6.1 `chat archive --to @user` — Archive
+- [x] 6.2 `chat archive --to @user --disable` — Unarchive
+- [x] 6.3 `chat mute --to @user` — Mute
+- [x] 6.4 `chat mute --to @user --disable` — Unmute
+- [x] 6.5 `chat pin --to @user` — Pin chat
+- [x] 6.6 `chat pin --to @user --disable` — Unpin chat
 
 ---
 
@@ -127,8 +127,8 @@
 - [x] 10.2 `chats --limit 5` — With limit
 - [x] 10.3 `chats --search "query"` — Filter
 - [x] 10.4 `chats --type user` — By type
-- [x] 10.5 `open @current_user` — Open messages
-- [x] 10.6 `open @current_user --limit 5` — With limit
+- [x] 10.5 `open @user` — Open messages
+- [x] 10.6 `open @user --limit 5` — With limit
 - [x] 10.7 `open <invite_link>` — Join via invite
 - [x] 10.8 `updates` — Get updates
 - [x] 10.9 `updates --limit 10` — With limit
@@ -139,8 +139,8 @@
 
 - [x] 11.1 `search global "query"` — Global search
 - [x] 11.2 `search global "query" --limit 10` — With limit
-- [x] 11.3 `search in-chat --to @current_user "query"` — In chat
-- [x] 11.4 `search in-chat --to @current_user "query" --limit 5` — With limit
+- [x] 11.3 `search in-chat --to @user "query"` — In chat
+- [x] 11.4 `search in-chat --to @user "query" --limit 5` — With limit
 
 ---
 
@@ -159,8 +159,8 @@
 - [x] 13.2 `user info` — Own info
 - [x] 13.3 `user ban --to @username` — Block
 - [x] 13.4 `user ban --to @username --disable` — Unblock
-- [x] 13.5 `user mute --to @current_user` — Mute
-- [x] 13.6 `user mute --to @current_user --disable` — Unmute
+- [x] 13.5 `user mute --to @user` — Mute
+- [x] 13.6 `user mute --to @user --disable` — Unmute
 
 ---
 

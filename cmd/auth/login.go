@@ -7,11 +7,15 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 
 	"agent-telegram/cli/ui"
 	"agent-telegram/internal/auth"
+	"agent-telegram/internal/config"
+	"agent-telegram/internal/ipc"
 )
 
 var (
@@ -43,22 +47,37 @@ This will guide you through the login process:
 func AddLoginCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(LoginCmd)
 
-	LoginCmd.Flags().StringVar(&LoginAppID, "app-id", os.Getenv("AGENT_TELEGRAM_APP_ID"), "Telegram API App ID")
-	LoginCmd.Flags().StringVar(&LoginAppHash, "app-hash", os.Getenv("AGENT_TELEGRAM_APP_HASH"), "Telegram API App Hash")
+	LoginCmd.Flags().StringVar(&LoginAppID, "app-id", os.Getenv("TELEGRAM_APP_ID"), "Telegram API App ID")
+	LoginCmd.Flags().StringVar(&LoginAppHash, "app-hash", os.Getenv("TELEGRAM_APP_HASH"), "Telegram API App Hash")
 	LoginCmd.Flags().StringVar(&LoginPhone, "phone", os.Getenv("AGENT_TELEGRAM_PHONE"), "Phone number")
 	LoginCmd.Flags().BoolVar(&LoginMock, "mock", false, "Mock mode for UI testing (no real API calls)")
 }
 
 func runLogin(_ *cobra.Command, _ []string) {
-	// Parse app ID (optional, uses hardcoded default if not provided)
-	var appID int
-	var err error
-	if LoginAppID != "" {
-		appID, err = strconv.Atoi(LoginAppID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid app-id: %v\n", err)
-			os.Exit(1)
-		}
+	// Load .env file
+	_ = godotenv.Load()
+
+	// Re-read env vars after loading .env (flags are evaluated before .env is loaded)
+	if LoginAppID == "" {
+		LoginAppID = os.Getenv("TELEGRAM_APP_ID")
+	}
+	if LoginAppHash == "" {
+		LoginAppHash = os.Getenv("TELEGRAM_APP_HASH")
+	}
+
+	// Validate required credentials
+	if LoginAppID == "" || LoginAppHash == "" {
+		fmt.Fprintln(os.Stderr, "Missing Telegram API credentials.")
+		fmt.Fprintln(os.Stderr, "Please provide --app-id and --app-hash flags, or set TELEGRAM_APP_ID and TELEGRAM_APP_HASH in .env")
+		fmt.Fprintln(os.Stderr, "\nGet your API credentials at: https://my.telegram.org/apps")
+		os.Exit(1)
+	}
+
+	// Parse app ID
+	appID, err := strconv.Atoi(LoginAppID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid app-id: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Create context
@@ -79,18 +98,61 @@ func runLogin(_ *cobra.Command, _ []string) {
 		log.Fatalf("Login failed: %v", err)
 	}
 
+	// Save credentials to config.json
+	if err := config.SaveConfig(appID, LoginAppHash); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to save config: %v\n", err)
+	}
+
 	fmt.Printf("\nSession saved to: %s\n", sessionPath)
-	fmt.Println("You can now use the serve command to start the server")
+
+	// Try to reload session if server is running
+	if reloadServerSession() {
+		fmt.Println("Server session reloaded successfully")
+	} else {
+		fmt.Println("You can now use the serve command to start the server")
+	}
+}
+
+// reloadServerSession attempts to reload the session on a running server.
+// Returns true if server was running and session was reloaded.
+func reloadServerSession() bool {
+	client := ipc.NewClient("/tmp/agent-telegram.sock")
+
+	// Check if server is running
+	_, err := client.Call("status", nil)
+	if err != nil {
+		// Server not running
+		return false
+	}
+
+	// Server is running, request session reload
+	_, err = client.Call("reload_session", nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to reload server session: %v\n", err)
+		fmt.Fprintln(os.Stderr, "Please restart the server manually: agent-telegram stop && agent-telegram serve")
+		return false
+	}
+
+	// Wait a bit for the reload to complete
+	time.Sleep(2 * time.Second)
+
+	// Verify the reload worked
+	_, err = client.Call("status", nil)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Warning: Server may still be reloading...")
+	}
+
+	return true
 }
 
 // createAuthService creates an auth service based on the provided parameters.
-// If phone is provided with appID and appHash, it uses NewServiceWithConfig.
-// Otherwise, it uses NewService.
+// If appID and appHash are provided, it uses NewServiceWithConfig.
+// Otherwise, it uses NewService which loads from environment.
 func createAuthService(ctx context.Context, appID int, appHash, phone string) (*auth.Service, error) {
-	// Use configured values if phone is provided with valid app credentials
-	if phone != "" && appID != 0 && appHash != "" {
+	// Use provided credentials if available
+	if appID != 0 && appHash != "" {
 		return auth.NewServiceWithConfig(ctx, appID, appHash, phone)
 	}
-	// Use default service (will prompt for credentials)
+	// Use default service (loads from AGENT_TELEGRAM_* env vars)
 	return auth.NewService(ctx)
 }

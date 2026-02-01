@@ -64,6 +64,11 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			return
 		}
 
+		// Session path
+		if sessionPath := cliutil.ExtractString(m, "session_path"); sessionPath != "" {
+			fmt.Printf("Session: %s\n", sessionPath)
+		}
+
 		// Telegram status
 		initialized, _ := m["initialized"].(bool)
 		authorized, _ := m["authorized"].(bool)

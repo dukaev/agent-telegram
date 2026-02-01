@@ -195,8 +195,6 @@ agent-telegram updates -l 50              # Get 50 updates
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
 | `TELEGRAM_PHONE` | Phone number for auth (optional) |
-| `AGENT_TELEGRAM_APP_ID` | Alternative for `TELEGRAM_APP_ID` |
-| `AGENT_TELEGRAM_APP_HASH` | Alternative for `TELEGRAM_APP_HASH` |
 | `AGENT_TELEGRAM_SESSION_PATH` | Custom session file path |
 
 Default API credentials are built-in, so you can start using agent-telegram immediately. To use your own credentials, get them at https://my.telegram.org and set via environment variables or `.env` file.

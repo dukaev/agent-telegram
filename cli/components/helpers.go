@@ -2,15 +2,27 @@
 package components
 
 import (
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
 	"agent-telegram/pkg/common"
 )
 
 // KeyEnter is the enter key string.
 const KeyEnter = "enter"
+
+// getCredentialsSubtitle returns a subtitle indicating whether custom or default API credentials are used.
+func getCredentialsSubtitle() string {
+	appID := os.Getenv("TELEGRAM_APP_ID")
+	appHash := os.Getenv("TELEGRAM_APP_HASH")
+	if appID != "" && appHash != "" {
+		return common.HelpStyle.Render("Using custom API credentials")
+	}
+	return common.HelpStyle.Render("Using default API credentials")
+}
 
 // HandleQuitKeys returns tea.Quit if msg is a quit key.
 // Returns ok=true if key was handled, ok=false otherwise.
@@ -25,14 +37,12 @@ func HandleQuitKeys(msg tea.Msg) (tea.Cmd, bool) {
 }
 
 // RenderLoaderView renders the loading state with spinner.
-func RenderLoaderView(label, value, frame string) string {
-	labelWithSpinner := common.LabelStyle.Render(label) + " " +
-		lipgloss.NewStyle().Foreground(common.TelegramBlue).Render(frame)
-
+func RenderLoaderView(label, value string) string {
 	lines := []string{
 		common.TitleStyle.Render(" Telegram Login"),
+		getCredentialsSubtitle(),
 		"",
-		labelWithSpinner,
+		common.LabelStyle.Render(label),
 		value,
 	}
 	return strings.Join(lines, "\n")
@@ -40,10 +50,20 @@ func RenderLoaderView(label, value, frame string) string {
 
 // RenderInputView renders a standard input view with optional help text.
 func RenderInputView(inputLine string, showHelp bool) string {
+	return RenderInputViewWithError(inputLine, "", showHelp)
+}
+
+// RenderInputViewWithError renders a standard input view with error and optional help text.
+func RenderInputViewWithError(inputLine, errMsg string, showHelp bool) string {
 	lines := []string{
 		common.TitleStyle.Render(" Telegram Login"),
+		getCredentialsSubtitle(),
 		"",
 		inputLine,
+	}
+
+	if errMsg != "" {
+		lines = append(lines, RenderErrorBox(errMsg))
 	}
 
 	if showHelp {
@@ -57,4 +77,19 @@ func RenderInputView(inputLine string, showHelp bool) string {
 // RenderLabeledInput renders a labeled input field with label above.
 func RenderLabeledInput(label, input string) string {
 	return common.LabelStyle.Render(label) + "\n" + input
+}
+
+// ErrorBoxStyle is the style for error boxes.
+var ErrorBoxStyle = lipgloss.NewStyle().
+	Border(lipgloss.RoundedBorder()).
+	BorderForeground(common.ErrorColor).
+	Foreground(common.ErrorColor).
+	Padding(0, 1)
+
+// RenderErrorBox renders an error message in a styled box.
+func RenderErrorBox(errMsg string) string {
+	if errMsg == "" {
+		return ""
+	}
+	return ErrorBoxStyle.Render("✗ " + errMsg)
 }

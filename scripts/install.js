@@ -8,7 +8,7 @@ const zlib = require("zlib");
 
 const PACKAGE = require("../package.json");
 const BINARY_NAME = "agent-telegram";
-const REPO = "user/agent-telegram"; // Change to your GitHub username/repo
+const REPO = "dukaev/agent-telegram";
 
 // Map Node.js platform/arch to Go GOOS/GOARCH
 const PLATFORM_MAP = {

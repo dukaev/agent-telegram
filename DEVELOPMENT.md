@@ -504,8 +504,6 @@ Commands automatically start the server:
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
 | `TELEGRAM_PHONE` | Phone number for auth |
-| `AGENT_TELEGRAM_APP_ID` | Alternative for APP_ID |
-| `AGENT_TELEGRAM_APP_HASH` | Alternative for APP_HASH |
 | `AGENT_TELEGRAM_SESSION_PATH` | Custom session path |
 
 ---

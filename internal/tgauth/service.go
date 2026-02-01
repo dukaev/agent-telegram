@@ -39,17 +39,16 @@ func NewServiceFromEnv(logger *slog.Logger) (*Service, error) {
 	return NewService(cfg, logger), nil
 }
 
-// CreateClient creates a new Telegram client for the given user ID.
-func (s *Service) CreateClient(userID int) (*gottg.Client, error) {
-	// Create user session directory
-	sessionDir := filepath.Join(s.cfg.SessionPath, fmt.Sprintf("user_%d", userID))
-	if err := os.MkdirAll(sessionDir, 0700); err != nil {
+// CreateClient creates a new Telegram client.
+func (s *Service) CreateClient(_ int) (*gottg.Client, error) {
+	// Create session directory
+	if err := os.MkdirAll(s.cfg.SessionPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create session directory: %w", err)
 	}
 
-	// Create session storage
+	// Create session storage - use same path as serve command
 	sessionStorage := &session.FileStorage{
-		Path: filepath.Join(sessionDir, "session.json"),
+		Path: filepath.Join(s.cfg.SessionPath, "session.json"),
 	}
 
 	client := gottg.NewClient(s.cfg.AppID, s.cfg.AppHash, gottg.Options{

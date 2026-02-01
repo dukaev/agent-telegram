@@ -4,6 +4,7 @@ package tgauth
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"agent-telegram/internal/types"
 
@@ -22,54 +23,92 @@ type signInResult struct {
 func (s *Service) SendCode(ctx context.Context, userID int, phoneNumber string) (*types.SendCodeResult, error) {
 	s.logger.Info("Sending verification code",
 		"user_id", userID,
-		"phone_number", phoneNumber)
+		"phone_number", phoneNumber,
+		"app_id", s.cfg.AppID,
+		"session_path", s.cfg.SessionPath)
 
 	client, err := s.CreateClient(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	var phoneCodeHash string
-	var timeout int
+	s.logger.Info("Client created, starting connection...")
 
-	err = client.Run(ctx, func(ctx context.Context) error {
-		api := client.API()
-
-		sentCode, err := api.AuthSendCode(ctx, &tg.AuthSendCodeRequest{
-			PhoneNumber: phoneNumber,
-			APIID:       s.cfg.AppID,
-			APIHash:     s.cfg.AppHash,
-		})
-		if err != nil {
-			s.logger.Error("Failed to send verification code",
-				"phone_number", phoneNumber,
-				"error", err)
-			return fmt.Errorf("failed to send verification code: %w", err)
-		}
-
-		switch code := sentCode.(type) {
-		case *tg.AuthSentCode:
-			phoneCodeHash = code.PhoneCodeHash
-			timeout = code.Timeout
-			s.logger.Info("Verification code sent successfully",
-				"phone_number", phoneNumber,
-				"phone_code_hash", phoneCodeHash,
-				"timeout", timeout)
-		default:
-			return fmt.Errorf("unexpected response type: %T", sentCode)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to send verification code: %w", err)
+	// Use channels to get result from goroutine
+	type result struct {
+		phoneCodeHash string
+		timeout       int
+		err           error
 	}
+	resultCh := make(chan result, 1)
 
-	return &types.SendCodeResult{
-		PhoneCodeHash: phoneCodeHash,
-		Timeout:       timeout,
-	}, nil
+	// Create cancellable context
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Run client in goroutine
+	go func() {
+		s.logger.Info("Starting client.Run()...")
+		err := client.Run(runCtx, func(ctx context.Context) error {
+			s.logger.Info("Connected to Telegram, sending code...")
+			api := client.API()
+
+			sentCode, err := api.AuthSendCode(ctx, &tg.AuthSendCodeRequest{
+				PhoneNumber: phoneNumber,
+				APIID:       s.cfg.AppID,
+				APIHash:     s.cfg.AppHash,
+			})
+			if err != nil {
+				s.logger.Error("Failed to send verification code",
+					"phone_number", phoneNumber,
+					"error", err)
+				resultCh <- result{err: fmt.Errorf("failed to send verification code: %w", err)}
+				return err
+			}
+
+			switch code := sentCode.(type) {
+			case *tg.AuthSentCode:
+				s.logger.Info("Verification code sent successfully",
+					"phone_number", phoneNumber,
+					"phone_code_hash", code.PhoneCodeHash,
+					"timeout", code.Timeout)
+				resultCh <- result{
+					phoneCodeHash: code.PhoneCodeHash,
+					timeout:       code.Timeout,
+				}
+			default:
+				resultCh <- result{err: fmt.Errorf("unexpected response type: %T", sentCode)}
+			}
+
+			return nil
+		})
+		// If Run() exits with error before callback, send it
+		if err != nil {
+			s.logger.Error("client.Run() exited with error", "error", err)
+			select {
+			case resultCh <- result{err: fmt.Errorf("client error: %w", err)}:
+			default:
+			}
+		} else {
+			s.logger.Info("client.Run() exited normally")
+		}
+	}()
+
+	// Wait for result with timeout
+	select {
+	case res := <-resultCh:
+		if res.err != nil {
+			return nil, res.err
+		}
+		return &types.SendCodeResult{
+			PhoneCodeHash: res.phoneCodeHash,
+			Timeout:       res.timeout,
+		}, nil
+	case <-time.After(30 * time.Second):
+		return nil, fmt.Errorf("timeout waiting for Telegram response")
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 // SignIn authenticates with the verification code.

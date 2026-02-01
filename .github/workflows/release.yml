@@ -31,14 +31,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload raw binaries for npm
+  npm-publish:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update package version from tag
         run: |
-          # Extract binaries from archives and upload as separate assets
-          cd dist
-          for archive in *.tar.gz; do
-            tar -xzf "$archive"
-          done
-          for archive in *.zip; do
-            unzip -o "$archive" 2>/dev/null || true
-          done
-        continue-on-error: true
+          VERSION=${GITHUB_REF_NAME#v}
+          npm version $VERSION --no-git-tag-version --allow-same-version
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

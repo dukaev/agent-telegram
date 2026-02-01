@@ -8,13 +8,12 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 
+	"agent-telegram/internal/config"
 	"agent-telegram/internal/ipc"
 	"agent-telegram/internal/paths"
 	telegramipc "agent-telegram/internal/telegram/ipc"
@@ -52,10 +51,13 @@ func init() {
 
 //nolint:funlen // Server startup logic requires sequential steps
 func runServe(_ *cobra.Command, _ []string) {
-	_ = godotenv.Load()
-
-	// Validate credentials BEFORE daemonize so user sees errors
-	appID, appHash, phone := loadTelegramCredentials()
+	// Load credentials from config.json (saved by login command)
+	storedCfg, err := config.LoadStoredConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	appID, appHash := storedCfg.AppID, storedCfg.AppHash
 
 	if !serveForeground {
 		if err := daemonize(); err != nil {
@@ -103,7 +105,7 @@ func runServe(_ *cobra.Command, _ []string) {
 	socketPath := getSocketPath()
 	sessionPath := getSessionPath()
 
-	tgClient := createTelegramClient(appID, appHash, phone, sessionPath)
+	tgClient := createTelegramClient(appID, appHash, sessionPath)
 	startTelegramClient(ctx, tgClient)
 
 	// Wait for Telegram client to be ready before registering handlers
@@ -180,33 +182,10 @@ func getSessionPath() string {
 	return sessionPath
 }
 
-// loadTelegramCredentials loads and validates Telegram credentials.
-func loadTelegramCredentials() (appID int, appHash, phone string) {
-	appIDStr := getEnv("TELEGRAM_APP_ID", "AGENT_TELEGRAM_APP_ID")
-	appHash = getEnv("TELEGRAM_APP_HASH", "AGENT_TELEGRAM_APP_HASH")
-	phone = os.Getenv("TELEGRAM_PHONE")
-
-	if appIDStr == "" || appHash == "" {
-		fmt.Fprintf(os.Stderr,
-			"Missing Telegram credentials. Set TELEGRAM_APP_ID and "+
-				"TELEGRAM_APP_HASH (or AGENT_TELEGRAM_APP_ID and AGENT_TELEGRAM_APP_HASH) "+
-				"in .env or environment.\n")
-		os.Exit(1)
-	}
-
-	var err error
-	appID, err = strconv.Atoi(appIDStr)
-	if err != nil {
-		slog.Error("Invalid APP_ID", "error", err)
-		os.Exit(1)
-	}
-
-	return appID, appHash, phone
-}
 
 // createTelegramClient creates and configures the Telegram client.
-func createTelegramClient(appID int, appHash, phone, sessionPath string) *telegram.Client {
-	tgClient := telegram.NewClient(appID, appHash, phone)
+func createTelegramClient(appID int, appHash, sessionPath string) *telegram.Client {
+	tgClient := telegram.NewClient(appID, appHash)
 	if sessionPath != "" {
 		tgClient = tgClient.WithSessionPath(sessionPath)
 	}
@@ -214,30 +193,67 @@ func createTelegramClient(appID int, appHash, phone, sessionPath string) *telegr
 }
 
 // startTelegramClient starts the Telegram client in background with retry logic.
+// It also handles session reload requests.
 func startTelegramClient(ctx context.Context, tgClient *telegram.Client) {
 	const maxRetries = 5
 
 	go func() {
-		for retry := 1; retry <= maxRetries; retry++ {
-			err := tgClient.Start(ctx)
-			if err == nil || ctx.Err() != nil {
+		for {
+			// Create a cancellable context for this client session
+			clientCtx, clientCancel := context.WithCancel(ctx)
+			tgClient.SetCancelFn(clientCancel)
+
+			// Start client with retry logic
+			startWithRetry(clientCtx, tgClient, maxRetries)
+
+			// Client exited - check why
+			// First check if main context is done (shutdown)
+			select {
+			case <-ctx.Done():
+				clientCancel()
 				return
+			default:
 			}
 
-			wait := time.Duration(retry) * 5 * time.Second
-			slog.Error("telegram client error", "error", err,
-				"attempt", retry, "max_retries", maxRetries,
-				"retry_after", wait.String())
-
+			// Check if reload was requested (non-blocking)
 			select {
-			case <-time.After(wait):
-				// Continue retry
-			case <-ctx.Done():
+			case <-tgClient.ReloadCh():
+				slog.Info("Reloading session...")
+				clientCancel()
+				// Small delay to ensure clean disconnect
+				time.Sleep(500 * time.Millisecond)
+				// Loop continues, will start new client
+				continue
+			default:
+				// No reload requested, client crashed - exit
+				clientCancel()
 				return
 			}
 		}
-		slog.Error("telegram client failed after retries", "retries", maxRetries)
 	}()
+}
+
+// startWithRetry attempts to start the Telegram client with retries.
+func startWithRetry(ctx context.Context, tgClient *telegram.Client, maxRetries int) {
+	for retry := 1; retry <= maxRetries; retry++ {
+		err := tgClient.Start(ctx)
+		if err == nil || ctx.Err() != nil {
+			return
+		}
+
+		wait := time.Duration(retry) * 5 * time.Second
+		slog.Error("telegram client error", "error", err,
+			"attempt", retry, "max_retries", maxRetries,
+			"retry_after", wait.String())
+
+		select {
+		case <-time.After(wait):
+			// Continue retry
+		case <-ctx.Done():
+			return
+		}
+	}
+	slog.Error("telegram client failed after retries", "retries", maxRetries)
 }
 
 // waitForTelegramReady waits for the Telegram client to be fully initialized.
@@ -264,15 +280,17 @@ func createIPCServer(socketPath string, tgClient *telegram.Client, cancel contex
 		defer statusCancel()
 
 		tgStatus := tgClient.GetStatus(ctx)
+		sessionPath, _ := tgClient.GetSessionPath()
 
 		return map[string]any{
-			"status":      "running",
-			"pid":         os.Getpid(),
-			"initialized": tgStatus.Initialized,
-			"authorized":  tgStatus.Authorized,
-			"username":    tgStatus.Username,
-			"first_name":  tgStatus.FirstName,
-			"user_id":     tgStatus.UserID,
+			"status":       "running",
+			"pid":          os.Getpid(),
+			"session_path": sessionPath,
+			"initialized":  tgStatus.Initialized,
+			"authorized":   tgStatus.Authorized,
+			"username":     tgStatus.Username,
+			"first_name":   tgStatus.FirstName,
+			"user_id":      tgStatus.UserID,
 		}, nil
 	})
 
@@ -288,17 +306,16 @@ func createIPCServer(socketPath string, tgClient *telegram.Client, cancel contex
 		}, nil
 	})
 
-	return srv
-}
+	srv.Register("reload_session", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
+		slog.Info("Reload session requested via IPC")
+		tgClient.Reload()
+		return map[string]any{
+			"success": true,
+			"message": "Session reload initiated",
+		}, nil
+	})
 
-// getEnv returns the first non-empty environment variable from the given keys.
-func getEnv(keys ...string) string {
-	for _, key := range keys {
-		if val := os.Getenv(key); val != "" {
-			return val
-		}
-	}
-	return ""
+	return srv
 }
 
 // isDaemonChild checks if this process is a daemon child.

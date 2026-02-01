@@ -41,7 +41,10 @@ func SaveEnvFile(projectDir, phone string) error {
 // RunLoginUIWithAuth runs the interactive login UI with Telegram authentication.
 // Returns session path on success, error on failure.
 func RunLoginUIWithAuth(ctx context.Context, authService *auth.Service) (sessionPath string, err error) {
-	p := tea.NewProgram(NewLoginModel(ctx, authService))
+	p := tea.NewProgram(
+		NewLoginModel(ctx, authService),
+		tea.WithAltScreen(), // Use alternate screen for cleaner rendering
+	)
 	m, err := p.Run()
 	if err != nil {
 		return "", fmt.Errorf("could not start program: %w", err)
@@ -49,6 +52,8 @@ func RunLoginUIWithAuth(ctx context.Context, authService *auth.Service) (session
 
 	if m, ok := m.(LoginModel); ok {
 		if m.GetError() != "" {
+			// Print error to stderr so it's visible after TUI exits
+			fmt.Fprintf(os.Stderr, "\n✗ Error: %s\n", m.GetError())
 			return "", fmt.Errorf("authentication failed: %s", m.GetError())
 		}
 		if m.IsSuccess() {

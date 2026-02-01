@@ -4,7 +4,7 @@ package steps
 import (
 	"time"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"agent-telegram/cli/components"
 	"agent-telegram/internal/auth"
 )
@@ -14,6 +14,8 @@ type PhoneStep struct {
 	phoneInput  components.Input
 	loader      components.Loader
 	authService *auth.Service
+	errorMsg    string
+	waiting     bool // true while waiting for API response
 }
 
 // NewPhoneStep creates a new phone input step.
@@ -40,24 +42,32 @@ func (m PhoneStep) Update(msg tea.Msg) (PhoneStep, tea.Cmd) {
 		return m, cmd
 	}
 
-	if msg, ok := msg.(tea.KeyMsg); ok && !m.loader.IsActive() {
+	// Handle Enter key - start loading and submit immediately
+	if msg, ok := msg.(tea.KeyMsg); ok && !m.waiting {
 		if msg.String() == components.KeyEnter {
-			var cmd tea.Cmd
-			m.loader, cmd = m.loader.Start("Sending code...", 2*time.Second)
-			return m, cmd
+			m.waiting = true
+			m.errorMsg = ""
+			var loaderCmd tea.Cmd
+			// Start loader (will be stopped when response comes)
+			m.loader, loaderCmd = m.loader.Start("Connecting to Telegram...", 10*time.Second)
+			// Submit immediately and batch with loader animation
+			return m, tea.Batch(loaderCmd, m.Submit())
 		}
 	}
 
+	// Keep loader animating while waiting
 	if _, ok := msg.(components.TickMsg); ok {
-		if m.loader.IsActive() {
+		if m.waiting && m.loader.IsActive() {
 			var cmd tea.Cmd
 			m.loader, cmd = m.loader.Update()
-			if !m.loader.IsActive() {
-				return m, m.Submit()
-			}
 			return m, cmd
 		}
 		return m, nil
+	}
+
+	// Clear error when user types (only if not waiting)
+	if _, ok := msg.(tea.KeyMsg); ok && !m.waiting {
+		m.errorMsg = ""
 	}
 
 	var cmd tea.Cmd
@@ -89,16 +99,30 @@ func (m PhoneStep) HandleAuthResult(result auth.Result) tea.Msg {
 
 // View renders the phone input step.
 func (m PhoneStep) View() string {
-	if m.loader.IsActive() {
+	// Show loader while waiting for API response
+	if m.waiting && m.loader.IsActive() {
 		return components.RenderLoaderView(
 			m.phoneInput.GetLabel(),
 			m.phoneInput.ViewWithSpinner(m.loader.Frame()),
-			m.loader.Frame(),
 		)
 	}
 
+	// Show input with optional error
 	inputLine := components.RenderLabeledInput(m.phoneInput.GetLabel(), m.phoneInput.View())
-	return components.RenderInputView(inputLine, true)
+	return components.RenderInputViewWithError(inputLine, m.errorMsg, true)
+}
+
+// SetError sets an error message to display and stops waiting.
+func (m PhoneStep) SetError(err string) PhoneStep {
+	m.errorMsg = err
+	m.waiting = false
+	m.loader = components.NewLoader() // Reset loader
+	return m
+}
+
+// GetError returns the current error message.
+func (m PhoneStep) GetError() string {
+	return m.errorMsg
 }
 
 // GetPhone returns the entered phone number.

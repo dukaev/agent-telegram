@@ -21,7 +21,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/user/agent-telegram.git"
+    "url": "git+https://github.com/dukaev/agent-telegram.git"
   },
   "license": "MIT",
   "engines": {

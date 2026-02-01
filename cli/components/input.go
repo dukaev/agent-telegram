@@ -86,11 +86,11 @@ func (m Input) ViewWithSpinner(spinnerFrame string) string {
 func (m Input) GetIcon() string {
 	switch m.inputType {
 	case PhoneType:
-		return ""
+		return "📱"
 	case CodeType:
-		return ""
+		return "🔑"
 	case PasswordType:
-		return "󰦯"
+		return "🔒"
 	default:
 		return ">"
 	}

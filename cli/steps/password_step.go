@@ -12,6 +12,7 @@ type PasswordStep struct {
 	passwordInput components.Input
 	authService   *auth.Service
 	twoFAHint     string
+	errorMsg      string
 }
 
 // NewPasswordStep creates a new password input step.
@@ -41,6 +42,11 @@ func (m PasswordStep) Update(msg tea.Msg) (PasswordStep, tea.Cmd) {
 		if msg.String() == components.KeyEnter {
 			return m, m.Submit()
 		}
+	}
+
+	// Clear error when user types
+	if _, ok := msg.(tea.KeyMsg); ok {
+		m.errorMsg = ""
 	}
 
 	var cmd tea.Cmd
@@ -73,7 +79,18 @@ func (m PasswordStep) HandleAuthResult(result auth.Result) tea.Msg {
 // View renders the password input step.
 func (m PasswordStep) View() string {
 	inputLine := components.RenderLabeledInput(m.passwordInput.GetLabel(), m.passwordInput.View())
-	return components.RenderInputView(inputLine, true)
+	return components.RenderInputViewWithError(inputLine, m.errorMsg, true)
+}
+
+// SetError sets an error message to display.
+func (m PasswordStep) SetError(err string) PasswordStep {
+	m.errorMsg = err
+	return m
+}
+
+// GetError returns the current error message.
+func (m PasswordStep) GetError() string {
+	return m.errorMsg
 }
 
 // GetPassword returns the entered password.

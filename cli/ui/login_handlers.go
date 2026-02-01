@@ -4,6 +4,7 @@ package ui
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"agent-telegram/cli/steps"
 	"agent-telegram/internal/auth"
@@ -12,9 +13,17 @@ import (
 // Message handler functions
 func (m LoginModel) handleAuthResultMsg(result auth.Result) (tea.Model, tea.Cmd) {
 	if result.Error != "" {
-		m.errorMsg = result.Error
-		m.quitting = true
-		return m, tea.Quit
+		// Set error on current step instead of quitting
+		switch step := m.currentStep.(type) {
+		case steps.PhoneStep:
+			m.currentStep = step.SetError(result.Error)
+		case steps.CodeStep:
+			m.currentStep = step.SetError(result.Error)
+		case steps.PasswordStep:
+			m.currentStep = step.SetError(result.Error)
+		}
+		// Return blink command to force view refresh
+		return m, textinput.Blink
 	}
 
 	switch m.currentStep.(type) {
@@ -58,9 +67,17 @@ func (m LoginModel) handlePasswordSubmittedMsg() (tea.Model, tea.Cmd) {
 }
 
 func (m LoginModel) handleAuthErrorMsg(err steps.AuthError) (tea.Model, tea.Cmd) {
-	m.errorMsg = err.Error
-	m.quitting = true
-	return m, tea.Quit
+	// Set error on current step instead of quitting
+	switch step := m.currentStep.(type) {
+	case steps.PhoneStep:
+		m.currentStep = step.SetError(err.Error)
+	case steps.CodeStep:
+		m.currentStep = step.SetError(err.Error)
+	case steps.PasswordStep:
+		m.currentStep = step.SetError(err.Error)
+	}
+	// Return blink command to force view refresh
+	return m, textinput.Blink
 }
 
 // transitionFromPhone handles transition from phone step.

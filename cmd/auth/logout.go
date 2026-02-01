@@ -44,10 +44,6 @@ func runLogout(_ *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	// Also try to remove the user directory if it's empty
-	userDir := filepath.Dir(sessionPath)
-	_ = os.Remove(userDir) // Directory might not be empty, that's okay
-
 	fmt.Println("Logged out successfully!")
 	fmt.Printf("Session removed from: %s\n", sessionPath)
 }
@@ -58,5 +54,5 @@ func getSessionPath() string {
 	if homeDir == "" {
 		homeDir = "."
 	}
-	return filepath.Join(homeDir, ".agent-telegram", "user_1", "session.json")
+	return filepath.Join(homeDir, ".agent-telegram", "session.json")
 }
