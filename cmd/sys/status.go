@@ -32,7 +32,14 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 	StatusCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(StatusCmd, true)
 
-		result := runner.Call("status", nil)
+		// Use CallDirect to avoid auto-starting the server
+		client := runner.Client()
+		result, err := client.Call("status", nil)
+		if err != nil {
+			fmt.Println("Server: not running")
+			return
+		}
+
 		m, ok := cliutil.ToMap(result)
 		if !ok {
 			fmt.Println("Server: unknown state")
