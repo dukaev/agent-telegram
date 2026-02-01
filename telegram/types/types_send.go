@@ -177,3 +177,119 @@ type SendVideoResult struct {
 	Peer    string `json:"peer"`
 	Caption string `json:"caption,omitempty"`
 }
+
+// SendVoiceParams holds parameters for SendVoice.
+type SendVoiceParams struct {
+	Peer     string `json:"peer" validate:"required"`
+	File     string `json:"file" validate:"required"` // Path to voice file (OGG/OPUS)
+	Duration int    `json:"duration,omitempty"`       // Duration in seconds
+	Caption  string `json:"caption,omitempty"`
+}
+
+// Validate validates SendVoiceParams.
+func (p SendVoiceParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// SendVoiceResult is the result of SendVoice.
+type SendVoiceResult struct {
+	ID       int64  `json:"id"`
+	Date     int64  `json:"date"`
+	Peer     string `json:"peer"`
+	Duration int    `json:"duration,omitempty"`
+}
+
+// SendVideoNoteParams holds parameters for SendVideoNote.
+type SendVideoNoteParams struct {
+	Peer     string `json:"peer" validate:"required"`
+	File     string `json:"file" validate:"required"` // Path to video file
+	Duration int    `json:"duration,omitempty"`       // Duration in seconds
+	Length   int    `json:"length,omitempty"`         // Video width/height (square)
+}
+
+// Validate validates SendVideoNoteParams.
+func (p SendVideoNoteParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// SendVideoNoteResult is the result of SendVideoNote.
+type SendVideoNoteResult struct {
+	ID       int64  `json:"id"`
+	Date     int64  `json:"date"`
+	Peer     string `json:"peer"`
+	Duration int    `json:"duration,omitempty"`
+}
+
+// SendGIFParams holds parameters for SendGIF.
+type SendGIFParams struct {
+	Peer    string `json:"peer" validate:"required"`
+	File    string `json:"file" validate:"required"` // Path to GIF file
+	Caption string `json:"caption,omitempty"`
+}
+
+// Validate validates SendGIFParams.
+func (p SendGIFParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// SendGIFResult is the result of SendGIF.
+type SendGIFResult struct {
+	ID      int64  `json:"id"`
+	Date    int64  `json:"date"`
+	Peer    string `json:"peer"`
+	Caption string `json:"caption,omitempty"`
+}
+
+// ErrRequiresStickerOrFile is returned when neither stickerId nor file is provided.
+var ErrRequiresStickerOrFile = fmt.Errorf("stickerId or file is required")
+
+// SendStickerParams holds parameters for SendSticker.
+type SendStickerParams struct {
+	Peer      string `json:"peer" validate:"required"`
+	StickerID string `json:"stickerId,omitempty"` // Sticker file_id or short_name
+	File      string `json:"file,omitempty"`      // Path to sticker file (WEBP)
+}
+
+// Validate validates SendStickerParams.
+func (p SendStickerParams) Validate() error {
+	if err := ValidateStruct(p); err != nil {
+		return err
+	}
+	if p.StickerID == "" && p.File == "" {
+		return ErrRequiresStickerOrFile
+	}
+	return nil
+}
+
+// SendStickerResult is the result of SendSticker.
+type SendStickerResult struct {
+	ID   int64  `json:"id"`
+	Date int64  `json:"date"`
+	Peer string `json:"peer"`
+}
+
+// GetStickerPacksParams holds parameters for GetStickerPacks.
+type GetStickerPacksParams struct {
+	// No required params - returns all sticker packs
+}
+
+// Validate validates GetStickerPacksParams.
+func (p GetStickerPacksParams) Validate() error {
+	return nil
+}
+
+// StickerPack represents a sticker pack.
+type StickerPack struct {
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	ShortName string `json:"shortName"`
+	Count     int    `json:"count"`
+	Animated  bool   `json:"animated,omitempty"`
+	Video     bool   `json:"video,omitempty"`
+}
+
+// GetStickerPacksResult is the result of GetStickerPacks.
+type GetStickerPacksResult struct {
+	Packs []StickerPack `json:"packs"`
+	Count int           `json:"count"`
+}

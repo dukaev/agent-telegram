@@ -142,3 +142,60 @@ type PressInlineButtonResult struct {
 	Success   bool  `json:"success"`
 	MessageID int64 `json:"messageId"`
 }
+
+// ReadMessagesParams holds parameters for ReadMessages.
+type ReadMessagesParams struct {
+	Peer  string `json:"peer" validate:"required"`
+	MaxID int64  `json:"maxId,omitempty"` // Mark all messages up to this ID as read
+}
+
+// Validate validates ReadMessagesParams.
+func (p ReadMessagesParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// ReadMessagesResult is the result of ReadMessages.
+type ReadMessagesResult struct {
+	Success bool  `json:"success"`
+	MaxID   int64 `json:"maxId"`
+}
+
+// SetTypingParams holds parameters for SetTyping.
+type SetTypingParams struct {
+	Peer   string `json:"peer" validate:"required"`
+	Action string `json:"action,omitempty"` // typing, upload_photo, record_video, record_audio, etc.
+}
+
+// Validate validates SetTypingParams.
+func (p SetTypingParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// SetTypingResult is the result of SetTyping.
+type SetTypingResult struct {
+	Success bool `json:"success"`
+}
+
+// GetScheduledMessagesParams holds parameters for GetScheduledMessages.
+type GetScheduledMessagesParams struct {
+	Peer string `json:"peer" validate:"required"`
+}
+
+// Validate validates GetScheduledMessagesParams.
+func (p GetScheduledMessagesParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// ScheduledMessage represents a scheduled message.
+type ScheduledMessage struct {
+	ID      int64  `json:"id"`
+	Date    int64  `json:"date"` // Scheduled send time
+	Message string `json:"message,omitempty"`
+	Peer    string `json:"peer"`
+}
+
+// GetScheduledMessagesResult is the result of GetScheduledMessages.
+type GetScheduledMessagesResult struct {
+	Messages []ScheduledMessage `json:"messages"`
+	Count    int                `json:"count"`
+}
