@@ -20,8 +20,8 @@ import (
 
 // Default Telegram API credentials.
 const (
-	defaultAppID   = "23027031"
-	defaultAppHash = "1c6f5d81f2a754e0d2f0e3f06b1cbe17"
+	defaultAppID   = "35699202"
+	defaultAppHash = "7e97f16795114cf3046d1aebf9de886d"
 )
 
 var (
