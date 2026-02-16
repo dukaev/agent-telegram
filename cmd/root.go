@@ -66,6 +66,10 @@ func init() {
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
 	RootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress status messages (data still goes to stdout)")
-	RootCmd.PersistentFlags().BoolP("json", "j", false, "Output result as JSON to stdout")
+	RootCmd.PersistentFlags().BoolP("text", "T", false, "Output human-readable text instead of JSON")
+	RootCmd.PersistentFlags().String("output", "", "Output format: text, json, ids")
+	RootCmd.PersistentFlags().StringSlice("fields", nil, "Select output fields (comma-separated)")
+	RootCmd.PersistentFlags().StringSlice("filter", nil, "Filter results (e.g., 'stars>1000', 'type=channel')")
+	RootCmd.PersistentFlags().Bool("dry-run", false, "Preview action without executing")
 }
 

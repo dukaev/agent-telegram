@@ -33,6 +33,7 @@ func AddListCommand(parentCmd *cobra.Command) {
 
 	ListCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(ListCmd, false)
+		runner.SetIDKey("id")
 
 		if len(args) > 0 {
 			var to cliutil.Recipient

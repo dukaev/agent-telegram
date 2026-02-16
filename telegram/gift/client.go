@@ -197,6 +197,8 @@ func (c *Client) SendStarGift(ctx context.Context, params types.SendStarGiftPara
 }
 
 // GetSavedGifts returns saved star gifts for a peer (defaults to self).
+//
+//nolint:funlen,lll // Maps many Telegram gift fields to result struct
 func (c *Client) GetSavedGifts(ctx context.Context, params types.GetSavedGiftsParams) (*types.GetSavedGiftsResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -273,6 +275,8 @@ func (c *Client) GetSavedGifts(ctx context.Context, params types.GetSavedGiftsPa
 }
 
 // TransferStarGift transfers a star gift to another peer using the star payment flow.
+//
+//nolint:lll // Long function signature due to Go generics pattern
 func (c *Client) TransferStarGift(ctx context.Context, params types.TransferStarGiftParams) (*types.TransferStarGiftResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -318,6 +322,8 @@ func (c *Client) TransferStarGift(ctx context.Context, params types.TransferStar
 }
 
 // BuyResaleGift buys a gift from the marketplace using the star payment flow.
+//
+//nolint:lll // Long function signature due to Go generics pattern
 func (c *Client) BuyResaleGift(ctx context.Context, params types.BuyResaleGiftParams) (*types.BuyResaleGiftResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -368,6 +374,8 @@ func (c *Client) BuyResaleGift(ctx context.Context, params types.BuyResaleGiftPa
 }
 
 // ConvertStarGift converts a star gift to stars.
+//
+//nolint:lll // Long function signature due to Go generics pattern
 func (c *Client) ConvertStarGift(ctx context.Context, params types.ConvertStarGiftParams) (*types.ConvertStarGiftResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -384,6 +392,8 @@ func (c *Client) ConvertStarGift(ctx context.Context, params types.ConvertStarGi
 }
 
 // UpdateGiftPrice sets or updates the resale price on a star gift.
+//
+//nolint:lll // Long function signature due to Go generics pattern
 func (c *Client) UpdateGiftPrice(ctx context.Context, params types.UpdateGiftPriceParams) (*types.UpdateGiftPriceResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -403,7 +413,7 @@ func (c *Client) UpdateGiftPrice(ctx context.Context, params types.UpdateGiftPri
 }
 
 // GetBalance returns the current stars and TON balance.
-func (c *Client) GetBalance(ctx context.Context, params types.GetBalanceParams) (*types.GetBalanceResult, error) {
+func (c *Client) GetBalance(ctx context.Context, _ types.GetBalanceParams) (*types.GetBalanceResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
 	}
@@ -461,7 +471,98 @@ func (c *Client) OfferGift(ctx context.Context, params types.OfferGiftParams) (*
 	return &types.OfferGiftResult{Success: true}, nil
 }
 
+// AcceptGiftOffer accepts an incoming gift offer.
+//
+//nolint:lll // Long function signature due to Go generics pattern
+func (c *Client) AcceptGiftOffer(ctx context.Context, params types.AcceptGiftOfferParams) (*types.AcceptGiftOfferResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	_, err := c.API.PaymentsResolveStarGiftOffer(ctx, &tg.PaymentsResolveStarGiftOfferRequest{
+		OfferMsgID: params.OfferMsgID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to accept gift offer: %w", err)
+	}
+
+	return &types.AcceptGiftOfferResult{Success: true}, nil
+}
+
+// DeclineGiftOffer declines an incoming gift offer.
+//
+//nolint:lll // Long function signature due to Go generics pattern
+func (c *Client) DeclineGiftOffer(ctx context.Context, params types.DeclineGiftOfferParams) (*types.DeclineGiftOfferResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	_, err := c.API.PaymentsResolveStarGiftOffer(ctx, &tg.PaymentsResolveStarGiftOfferRequest{
+		Decline:    true,
+		OfferMsgID: params.OfferMsgID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to decline gift offer: %w", err)
+	}
+
+	return &types.DeclineGiftOfferResult{Success: true}, nil
+}
+
+// GetGiftAttrs returns all available attributes (models, patterns, backdrops) for a gift type.
+func (c *Client) GetGiftAttrs(ctx context.Context, params types.GetGiftAttrsParams) (*types.GetGiftAttrsResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	giftID := params.GiftID
+	if giftID == 0 && params.Name != "" {
+		var err error
+		giftID, err = c.resolveGiftByName(ctx, params.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	attrResult, err := c.API.PaymentsGetResaleStarGifts(ctx, &tg.PaymentsGetResaleStarGiftsRequest{
+		GiftID: giftID,
+		Limit:  1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gift attributes: %w", err)
+	}
+
+	result := &types.GetGiftAttrsResult{
+		GiftID:    giftID,
+		Models:    []types.GiftAttribute{},
+		Patterns:  []types.GiftAttribute{},
+		Backdrops: []types.GiftAttribute{},
+	}
+
+	attrs, _ := attrResult.GetAttributes()
+	for _, attr := range attrs {
+		switch a := attr.(type) {
+		case *tg.StarGiftAttributeModel:
+			result.Models = append(result.Models, types.GiftAttribute{
+				Type: "model", Name: a.Name, RarityPermille: a.RarityPermille,
+			})
+		case *tg.StarGiftAttributePattern:
+			result.Patterns = append(result.Patterns, types.GiftAttribute{
+				Type: "pattern", Name: a.Name, RarityPermille: a.RarityPermille,
+			})
+		case *tg.StarGiftAttributeBackdrop:
+			result.Backdrops = append(result.Backdrops, types.GiftAttribute{
+				Type: "backdrop", Name: a.Name, RarityPermille: a.RarityPermille,
+			})
+		}
+	}
+
+	result.Count = len(result.Models) + len(result.Patterns) + len(result.Backdrops)
+	return result, nil
+}
+
 // resolveAttributeFilters resolves attribute name filters to IDs by fetching available attributes.
+//
+//nolint:lll // Long function signature due to multiple filter parameters
 func (c *Client) resolveAttributeFilters(ctx context.Context, giftID int64, model, pattern, backdrop string) ([]tg.StarGiftAttributeIDClass, error) {
 	attrResult, err := c.API.PaymentsGetResaleStarGifts(ctx, &tg.PaymentsGetResaleStarGiftsRequest{
 		GiftID: giftID,
@@ -496,6 +597,7 @@ func (c *Client) resolveAttributeFilters(ctx context.Context, giftID int64, mode
 	return filters, nil
 }
 
+//nolint:funlen,lll // Maps many Telegram resale gift fields to result struct
 // GetResaleGifts returns gifts listed for resale for a given gift type.
 func (c *Client) GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error) {
 	if err := c.CheckInitialized(); err != nil {
@@ -640,6 +742,7 @@ func (c *Client) GetGiftValue(ctx context.Context, params types.GetGiftValuePara
 	return info, nil
 }
 
+//nolint:funlen,nestif // Maps many Telegram gift info fields to result struct
 // GetGiftInfo returns detailed info about a unique star gift by slug.
 func (c *Client) GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams) (*types.GetGiftInfoResult, error) {
 	if err := c.CheckInitialized(); err != nil {

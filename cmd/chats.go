@@ -27,7 +27,9 @@ var ChatsCmd = &cobra.Command{
   agent-telegram chats --type channel`,
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, _ []string) {
-		cliutil.GetChats(cmd, chatsLimit, chatsOffset, chatsSearch, chatsType)
+		runner := cliutil.NewRunnerFromCmd(cmd, true)
+		runner.SetIDKey("peer")
+		cliutil.GetChatsWithRunner(runner, chatsLimit, chatsOffset, chatsSearch, chatsType)
 	},
 }
 

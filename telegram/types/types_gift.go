@@ -295,6 +295,59 @@ type GiftAttribute struct {
 	RarityPermille int    `json:"rarityPermille,omitempty"`
 }
 
+// GetGiftAttrsParams holds parameters for GetGiftAttrs.
+type GetGiftAttrsParams struct {
+	GiftID int64  `json:"giftId,omitempty"`
+	Name   string `json:"name,omitempty"`
+}
+
+// Validate validates GetGiftAttrsParams.
+func (p GetGiftAttrsParams) Validate() error {
+	if p.GiftID == 0 && p.Name == "" {
+		return fmt.Errorf("either giftId or name is required")
+	}
+	return nil
+}
+
+// GetGiftAttrsResult is the result of GetGiftAttrs.
+type GetGiftAttrsResult struct {
+	GiftID    int64           `json:"giftId"`
+	Models    []GiftAttribute `json:"models"`
+	Patterns  []GiftAttribute `json:"patterns"`
+	Backdrops []GiftAttribute `json:"backdrops"`
+	Count     int             `json:"count"`
+}
+
+// AcceptGiftOfferParams holds parameters for AcceptGiftOffer.
+type AcceptGiftOfferParams struct {
+	OfferMsgID int `json:"offerMsgId" validate:"required"`
+}
+
+// Validate validates AcceptGiftOfferParams.
+func (p AcceptGiftOfferParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// AcceptGiftOfferResult is the result of AcceptGiftOffer.
+type AcceptGiftOfferResult struct {
+	Success bool `json:"success"`
+}
+
+// DeclineGiftOfferParams holds parameters for DeclineGiftOffer.
+type DeclineGiftOfferParams struct {
+	OfferMsgID int `json:"offerMsgId" validate:"required"`
+}
+
+// Validate validates DeclineGiftOfferParams.
+func (p DeclineGiftOfferParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// DeclineGiftOfferResult is the result of DeclineGiftOffer.
+type DeclineGiftOfferResult struct {
+	Success bool `json:"success"`
+}
+
 // GetGiftInfoResult is the result of GetGiftInfo.
 type GetGiftInfoResult struct {
 	ID                 int64           `json:"id"`

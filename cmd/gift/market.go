@@ -49,6 +49,7 @@ func AddMarketCommand(parentCmd *cobra.Command) {
 
 	MarketCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(MarketCmd, false)
+		runner.SetIDKey("slug")
 		params := map[string]any{
 			"limit": marketLimit,
 		}

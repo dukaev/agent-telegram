@@ -42,6 +42,7 @@ type ChatClient interface {
 	Unmute(ctx context.Context, params types.UnmuteParams) (*types.UnmuteResult, error)
 }
 
+//nolint:dupl // Domain interfaces intentionally share similar signatures
 // MessageClient defines the interface for message operations.
 type MessageClient interface {
 	GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error)
@@ -63,6 +64,7 @@ type MessageClient interface {
 	) (*types.GetScheduledMessagesResult, error)
 }
 
+//nolint:dupl // Domain interfaces intentionally share similar signatures
 // MediaClient defines the interface for media operations.
 type MediaClient interface {
 	SendPhoto(ctx context.Context, params types.SendPhotoParams) (*types.SendPhotoResult, error)
@@ -77,6 +79,7 @@ type MediaClient interface {
 	SendSticker(ctx context.Context, params types.SendStickerParams) (*types.SendStickerResult, error)
 	GetStickerPacks(ctx context.Context, params types.GetStickerPacksParams) (*types.GetStickerPacksResult, error)
 	SendGIF(ctx context.Context, params types.SendGIFParams) (*types.SendGIFResult, error)
+	SendDice(ctx context.Context, params types.SendDiceParams) (*types.SendDiceResult, error)
 }
 
 // UserClient defines the interface for user operations.
@@ -127,4 +130,7 @@ type GiftClient interface {
 	GetGiftValue(ctx context.Context, params types.GetGiftValueParams) (*types.GetGiftValueResult, error)
 	GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error)
 	BuyResaleGift(ctx context.Context, params types.BuyResaleGiftParams) (*types.BuyResaleGiftResult, error)
+	GetGiftAttrs(ctx context.Context, params types.GetGiftAttrsParams) (*types.GetGiftAttrsResult, error)
+	AcceptGiftOffer(ctx context.Context, params types.AcceptGiftOfferParams) (*types.AcceptGiftOfferResult, error)
+	DeclineGiftOffer(ctx context.Context, params types.DeclineGiftOfferParams) (*types.DeclineGiftOfferResult, error)
 }

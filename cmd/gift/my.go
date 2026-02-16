@@ -38,6 +38,7 @@ func AddMyCommand(parentCmd *cobra.Command) {
 
 	MyCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(MyCmd, false)
+		runner.SetIDKey("slug")
 		params := map[string]any{
 			"limit": myLimit,
 		}

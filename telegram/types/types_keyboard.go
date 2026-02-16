@@ -1,4 +1,4 @@
-// Package types provides common types for Telegram client.
+// Package types provides shared parameter and result types for Telegram operations.
 package types
 
 // ReplyKeyboardResult is the result of InspectReplyKeyboard.

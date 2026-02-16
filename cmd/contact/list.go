@@ -45,6 +45,7 @@ func AddListContactsCommand(rootCmd *cobra.Command) {
 
 	ListContactsCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(ListContactsCmd, false)
+		runner.SetIDKey("peer")
 		params := buildListParams()
 		result := runner.CallWithParams("get_contacts", params)
 		runner.PrintResult(result, printContacts)

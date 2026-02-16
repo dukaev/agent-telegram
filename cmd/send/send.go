@@ -40,6 +40,9 @@ var (
 	sendContact   string
 	sendFirstName string
 	sendLastName  string
+	// Dice
+	sendDice bool
+	diceEmoticon string
 )
 
 // SendCmd represents the unified send command.
@@ -95,30 +98,46 @@ func AddSendCommand(rootCmd *cobra.Command) {
 	SendCmd.Flags().StringVar(&sendFirstName, "first-name", "", "Contact first name")
 	SendCmd.Flags().StringVar(&sendLastName, "last-name", "", "Contact last name")
 
+	// Dice flag
+	SendCmd.Flags().BoolVar(&sendDice, "dice", false, "Send dice (random value)")
+	SendCmd.Flags().StringVar(&diceEmoticon, "emoticon", "", "Dice emoticon (default: 🎲, also: 🎯, 🏀, ⚽, 🎳, 🎰)")
+
 	SendCmd.Run = func(_ *cobra.Command, args []string) {
 		// Resolve peer: positional arg or --to flag
 		// 2 args: args[0]=peer, args[1]=message
 		// 1 arg + --to set: args[0]=message
 		// 1 arg + --to NOT set: args[0]=peer (no message)
 		// 0 args: --to must be set
-		var messageArgs []string
+		var messageText string
+		stdinText := cliutil.ReadStdinIfPiped()
+
 		switch len(args) {
 		case 2:
 			_ = sendFlags.To.Set(args[0])
-			messageArgs = args[1:]
+			messageText = args[1] // positional arg wins over stdin
 		case 1:
 			if sendFlags.To.Peer() != "" {
-				messageArgs = args
+				messageText = args[0] // positional arg wins over stdin
 			} else {
 				_ = sendFlags.To.Set(args[0])
+				messageText = stdinText // no positional message, use stdin
 			}
+		default:
+			messageText = stdinText // no positional args, use stdin
 		}
+
 		if sendFlags.To.Peer() == "" {
 			fmt.Fprintln(os.Stderr, "Error: peer is required (positional or --to)")
 			os.Exit(1)
 		}
 
 		runner := sendFlags.NewRunner()
+
+		// Build messageArgs for buildSendParams
+		var messageArgs []string
+		if messageText != "" {
+			messageArgs = []string{messageText}
+		}
 
 		// Determine what type of content to send
 		method, params := buildSendParams(messageArgs)
@@ -156,9 +175,15 @@ func buildSendParams(args []string) (string, map[string]any) {
 		params["caption"] = sendFlags.Caption
 	}
 
-	// Priority: contact > poll > location > sticker > voice > video-note > gif >
+	// Priority: dice > contact > poll > location > sticker > voice > video-note > gif >
 	// photo > video > audio > document > file > message
 	switch {
+	case sendDice:
+		if diceEmoticon != "" {
+			params["emoticon"] = diceEmoticon
+		}
+		return "send_dice", params
+
 	case sendContact != "":
 		params["phone"] = sendContact
 		if sendFirstName != "" {

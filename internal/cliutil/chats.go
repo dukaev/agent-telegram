@@ -2,6 +2,7 @@ package cliutil
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,37 @@ func GetChats(cmd *cobra.Command, limit, offset int, search, filterType string) 
 	filteredResult := filterChatsResult(result, search, filterType)
 	//nolint:errchkjson // Output to stdout, error handling not required
 	_ = json.NewEncoder(os.Stdout).Encode(filteredResult)
+}
+
+// GetChatsWithRunner fetches and filters chats using the provided runner.
+func GetChatsWithRunner(runner *Runner, limit, offset int, search, filterType string) {
+	pag := NewPagination(limit, offset, PaginationConfig{
+		MaxLimit: MaxLimitStandard,
+	})
+
+	params := map[string]any{}
+	pag.ToParams(params, true)
+	result := runner.CallWithParams("get_chats", params)
+
+	filteredResult := filterChatsResult(result, search, filterType)
+	runner.PrintResult(filteredResult, func(r any) {
+		rMap, ok := r.(map[string]any)
+		if !ok {
+			return
+		}
+		chats, _ := rMap["chats"].([]any)
+		fmt.Fprintf(os.Stderr, "Chats (%d):\n", len(chats))
+		for _, c := range chats {
+			chat, ok := c.(map[string]any)
+			if !ok {
+				continue
+			}
+			title := ExtractString(chat, "title")
+			peer := ExtractString(chat, "peer")
+			chatType := ExtractString(chat, "type")
+			fmt.Fprintf(os.Stderr, "  - %s [%s] (%s)\n", title, peer, chatType)
+		}
+	})
 }
 
 // filterChatsResult filters and transforms the chats result.

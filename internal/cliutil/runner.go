@@ -49,10 +49,15 @@ func getCLILogger() *slog.Logger {
 
 // Runner handles common command execution logic.
 type Runner struct {
-	socketFlag   string
-	jsonOutput   bool
-	quiet        bool
-	lastDuration time.Duration
+	socketFlag    string
+	jsonOutput    bool
+	quiet         bool
+	lastDuration  time.Duration
+	outputFormat  OutputFormat
+	idKey         string
+	fieldSelector *FieldSelector
+	filterExprs   FilterExpressions
+	dryRun        bool
 }
 
 // NewRunner creates a new command runner with the given socket flag and JSON output setting.
@@ -64,16 +69,43 @@ func NewRunner(socketFlag string, jsonOutput bool) *Runner {
 }
 
 // NewRunnerFromCmd creates a runner from a cobra command.
-// It extracts the socket, quiet, and json flags from the command's persistent flags.
-func NewRunnerFromCmd(cmd *cobra.Command, jsonOutput bool) *Runner {
+// It extracts the socket, quiet, text, output, fields, filter, and dry-run flags.
+// The jsonOutput parameter is deprecated (JSON is now the default) and ignored.
+func NewRunnerFromCmd(cmd *cobra.Command, _ bool) *Runner {
 	socketPath, _ := cmd.Flags().GetString("socket")
 	quiet, _ := cmd.Flags().GetBool("quiet")
-	globalJSON, _ := cmd.Flags().GetBool("json")
-	return &Runner{
-		socketFlag: socketPath,
-		jsonOutput: jsonOutput || globalJSON,
-		quiet:      quiet,
+	globalText, _ := cmd.Flags().GetBool("text")
+	outputFlag, _ := cmd.Flags().GetString("output")
+	fieldsFlag, _ := cmd.Flags().GetStringSlice("fields")
+	filterFlag, _ := cmd.Flags().GetStringSlice("filter")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
+
+	format := ParseOutputFormat(outputFlag, globalText)
+
+	var filterExprs FilterExpressions
+	if len(filterFlag) > 0 {
+		var err error
+		filterExprs, err = ParseFilterExpressions(filterFlag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 	}
+
+	return &Runner{
+		socketFlag:    socketPath,
+		jsonOutput:    format == OutputJSON,
+		quiet:         quiet,
+		outputFormat:  format,
+		fieldSelector: NewFieldSelector(fieldsFlag),
+		filterExprs:   filterExprs,
+		dryRun:        dryRun,
+	}
+}
+
+// SetIDKey sets the ID key used for --output ids mode.
+func (r *Runner) SetIDKey(key string) {
+	r.idKey = key
 }
 
 // NewRunnerFromRoot creates a runner from a root command with socket flag.
@@ -250,6 +282,12 @@ func (r *Runner) Call(method string, params any) any {
 		"duration_ms", duration.Milliseconds(),
 		"status", "ok",
 	)
+
+	// Apply --filter expressions (early: modifies data for all formatters)
+	if len(r.filterExprs) > 0 {
+		result = r.filterExprs.Apply(result)
+	}
+
 	return result
 }
 
@@ -272,20 +310,61 @@ func (r *Runner) handleError(err *ipc.ErrorObject) {
 }
 
 // CallWithParams executes an RPC call with parameters.
+// If --dry-run is set, prints a preview and exits without making the call.
 func (r *Runner) CallWithParams(method string, params map[string]any) any {
+	if r.dryRun {
+		r.printDryRun(method, params)
+		os.Exit(0)
+	}
 	return r.Call(method, params)
 }
 
-// PrintResult prints the result in JSON or human-readable format.
-// JSON output goes to stdout. Human-readable output uses the formatter.
-// If quiet mode is enabled, the formatter is not called.
+// printDryRun prints a dry-run summary of the action that would be performed.
+func (r *Runner) printDryRun(method string, params map[string]any) {
+	if r.outputFormat == OutputJSON {
+		summary := map[string]any{
+			"dry_run": true,
+			"method":  method,
+			"params":  params,
+		}
+		r.PrintJSON(summary)
+		return
+	}
+
+	fmt.Fprintln(os.Stderr, "DRY RUN — would execute:")
+	fmt.Fprintf(os.Stderr, "  Method: %s\n", method)
+	if len(params) > 0 {
+		fmt.Fprintln(os.Stderr, "  Params:")
+		for k, v := range params {
+			fmt.Fprintf(os.Stderr, "    %s: %v\n", k, v)
+		}
+	}
+	fmt.Fprintln(os.Stderr, "\nNo changes made.")
+}
+
+// PrintResult prints the result in the configured output format.
+// JSON and IDs output goes to stdout. Human-readable output uses the formatter.
+// --fields is applied before JSON/IDs formatting (not text).
 func (r *Runner) PrintResult(result any, formatter func(any)) {
-	switch {
-	case r.jsonOutput || formatter == nil:
+	switch r.outputFormat {
+	case OutputJSON:
+		if r.fieldSelector != nil {
+			result = r.fieldSelector.Apply(result)
+		}
 		r.PrintJSON(result)
-	case r.quiet:
-		// Skip human-readable output in quiet mode
-	default:
+	case OutputIDs:
+		if r.fieldSelector != nil {
+			result = r.fieldSelector.Apply(result)
+		}
+		printIDs(result, r.idKey)
+	case OutputText:
+		if formatter == nil {
+			r.PrintJSON(result)
+			return
+		}
+		if r.quiet {
+			return
+		}
 		formatter(result)
 	}
 }
@@ -338,6 +417,12 @@ func FormatSuccess(result any, action string) {
 	if peer, ok := r["peer"].(string); ok {
 		fmt.Fprintf(os.Stderr, "  Peer: %s\n", peer)
 	}
+}
+
+// Fatal prints an error message to stderr and exits with code 1.
+func (r *Runner) Fatal(msg string) {
+	fmt.Fprintf(os.Stderr, "Error: %s\n", msg)
+	os.Exit(1)
 }
 
 // LastDuration returns the duration of the last Call().

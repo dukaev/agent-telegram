@@ -66,6 +66,9 @@ func AddGiftCommand(rootCmd *cobra.Command) {
 	AddValueCommand(GiftCmd)
 	AddMarketCommand(GiftCmd)
 	AddBuyCommand(GiftCmd)
+	AddAttrsCommand(GiftCmd)
+	AddAcceptCommand(GiftCmd)
+	AddDeclineCommand(GiftCmd)
 
 	rootCmd.AddCommand(GiftCmd)
 }

@@ -246,6 +246,8 @@ func (c *Client) SetCancelFn(cancel context.CancelFunc) {
 }
 
 // cancelClient cancels the current client connection.
+//
+//nolint:unused // Reserved for future graceful shutdown support
 func (c *Client) cancelClient() {
 	c.mu.Lock()
 	defer c.mu.Unlock()

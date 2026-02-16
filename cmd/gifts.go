@@ -27,6 +27,7 @@ var GiftsCmd = &cobra.Command{
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(cmd, false)
+		runner.SetIDKey("slug")
 		params := map[string]any{
 			"limit": giftsLimit,
 		}

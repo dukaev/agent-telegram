@@ -146,6 +146,7 @@ func getStickerPacksHandler(c Client) HandlerFunc {
 func sendGIFHandler(c Client) HandlerFunc {
 	return FileHandler(func(p types.SendGIFParams) string { return p.File }, c.Media().SendGIF, "send gif")
 }
+func sendDiceHandler(c Client) HandlerFunc { return Handler(c.Media().SendDice, "send dice") }
 func setSlowModeHandler(c Client) HandlerFunc {
 	return Handler(c.Chat().SetSlowMode, "set slow mode")
 }
@@ -204,4 +205,13 @@ func getResaleGiftsHandler(c Client) HandlerFunc {
 }
 func buyResaleGiftHandler(c Client) HandlerFunc {
 	return Handler(c.Gift().BuyResaleGift, "buy resale gift")
+}
+func getGiftAttrsHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().GetGiftAttrs, "get gift attrs")
+}
+func acceptGiftOfferHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().AcceptGiftOffer, "accept gift offer")
+}
+func declineGiftOfferHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().DeclineGiftOffer, "decline gift offer")
 }
