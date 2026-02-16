@@ -272,6 +272,7 @@ type SendStickerResult struct {
 type SendDiceParams struct {
 	PeerInfo
 	Emoticon string `json:"emoticon,omitempty"`
+	ReplyTo  int64  `json:"replyTo,omitempty"`
 }
 
 // Validate validates SendDiceParams.
