@@ -2,9 +2,7 @@
 package chat
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -45,8 +43,7 @@ func AddInfoCommand(parentCmd *cobra.Command) {
 
 		// Filter the result to find the matching chat
 		filteredResult := filterChatInfo(result, chatInfoTo.Peer())
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(filteredResult)
+		runner.PrintResult(filteredResult, nil)
 	}
 }
 

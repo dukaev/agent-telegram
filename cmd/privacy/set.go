@@ -2,9 +2,6 @@
 package privacy
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
@@ -51,10 +48,8 @@ func AddSetCommand(parentCmd *cobra.Command) {
 		}
 
 		result := runner.CallWithParams("set_privacy", params)
-		//nolint:errchkjson // Output to stdout
-		_ = json.NewEncoder(os.Stdout).Encode(result)
-		if !runner.IsQuiet() {
+		runner.PrintResult(result, func(any) {
 			cliutil.PrintSuccessSummary(result, "Privacy setting updated")
-		}
+		})
 	}
 }

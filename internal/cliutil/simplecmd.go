@@ -1,7 +1,6 @@
 package cliutil
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -67,12 +66,12 @@ func NewSimpleCommand(def SimpleCommandDef) *cobra.Command {
 			params := buildParams(def.Flags, vals)
 
 			result := runner.CallWithParams(def.Method, params)
-			//nolint:errchkjson // Output to stdout, error handling not required
-			_ = json.NewEncoder(os.Stdout).Encode(result)
-
-			if def.Success != "" && !runner.IsQuiet() {
-				printSuccess(result, def.Success)
-			}
+			successMsg := def.Success
+			runner.PrintResult(result, func(any) {
+				if successMsg != "" {
+					printSuccess(result, successMsg)
+				}
+			})
 		},
 	}
 

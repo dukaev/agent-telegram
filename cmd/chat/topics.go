@@ -2,9 +2,6 @@
 package chat
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
@@ -50,10 +47,8 @@ func AddTopicsCommand(rootCmd *cobra.Command) {
 		pag.ToParams(params, true)
 
 		result := runner.CallWithParams("get_topics", params)
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
-
-		// Print human-readable summary
-		cliutil.PrintTopics(result, naValue)
+		runner.PrintResult(result, func(r any) {
+			cliutil.PrintTopics(r, naValue)
+		})
 	}
 }

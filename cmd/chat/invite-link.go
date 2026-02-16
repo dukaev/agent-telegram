@@ -2,9 +2,6 @@
 package chat
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
@@ -46,10 +43,8 @@ func AddInviteLinkCommand(rootCmd *cobra.Command) {
 		inviteLinkTo.AddToParams(params)
 
 		result := runner.CallWithParams("get_invite_link", params)
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
-
-		// Print human-readable summary
-		cliutil.PrintInviteLinkSummary(result)
+		runner.PrintResult(result, func(any) {
+			cliutil.PrintInviteLinkSummary(result)
+		})
 	}
 }

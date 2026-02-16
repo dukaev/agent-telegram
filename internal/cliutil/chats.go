@@ -1,7 +1,6 @@
 package cliutil
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -20,8 +19,7 @@ func GetChats(cmd *cobra.Command, limit, offset int, search, filterType string) 
 	result := runner.CallWithParams("get_chats", params)
 
 	filteredResult := filterChatsResult(result, search, filterType)
-	//nolint:errchkjson // Output to stdout, error handling not required
-	_ = json.NewEncoder(os.Stdout).Encode(filteredResult)
+	runner.PrintResult(filteredResult, nil)
 }
 
 // GetChatsWithRunner fetches and filters chats using the provided runner.

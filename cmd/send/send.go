@@ -2,7 +2,6 @@
 package send
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -13,6 +12,7 @@ import (
 
 const (
 	methodSendMessage = "send_message"
+	methodSendReply   = "send_reply"
 )
 
 var (
@@ -67,6 +67,17 @@ Use @username, username, or <chat_id> to specify the recipient.`,
 //nolint:funlen // Function registers many flags and handles peer resolution
 func AddSendCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(SendCmd)
+
+	// Register subcommands
+	addTextCommand(SendCmd)
+	addPhotoCommand(SendCmd)
+	addVideoCommand(SendCmd)
+	addVoiceCommand(SendCmd)
+	addDiceCommand(SendCmd)
+	addPollCommand(SendCmd)
+	addLocationCommand(SendCmd)
+	addContactCommand(SendCmd)
+	addStickerCommand(SendCmd)
 
 	// Register common flags with optional --to (positional peer supported)
 	sendFlags.RegisterOptionalTo(SendCmd)
@@ -145,11 +156,12 @@ func AddSendCommand(rootCmd *cobra.Command) {
 		result := runner.CallWithParams(method, params)
 
 		// For send_message, extract and output just the message ID
-		if method == methodSendMessage || method == "send_reply" {
+		if method == methodSendMessage || method == methodSendReply {
 			if r, ok := result.(map[string]any); ok {
 				if id, ok := r["id"].(float64); ok {
-					//nolint:errchkjson // Output to stdout, error handling not required
-					_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"id": int64(id)})
+					runner.PrintResult(map[string]any{"id": int64(id)}, func(r any) {
+						cliutil.FormatSuccess(r, method)
+					})
 					return
 				}
 			}
@@ -254,7 +266,7 @@ func buildSendParams(args []string) (string, map[string]any) {
 			params["text"] = args[0]
 		}
 		params["messageId"] = replyToMessageID
-		return "send_reply", params
+		return methodSendReply, params
 
 	case len(args) > 0:
 		params["message"] = args[0]

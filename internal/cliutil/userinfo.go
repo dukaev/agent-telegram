@@ -1,8 +1,6 @@
 package cliutil
 
 import (
-	"encoding/json"
-	"os"
 	"strconv"
 )
 
@@ -23,6 +21,5 @@ func GetUserInfo(runner *Runner, identifier string) {
 			"username": identifier,
 		})
 	}
-	//nolint:errchkjson // Output to stdout, error handling not required
-	_ = json.NewEncoder(os.Stdout).Encode(result)
+	runner.PrintResult(result, nil)
 }

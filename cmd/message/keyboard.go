@@ -2,9 +2,6 @@
 package message
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
@@ -43,9 +40,6 @@ func AddInspectKeyboardCommand(rootCmd *cobra.Command) {
 		inspectKeyboardTo.AddToParams(params)
 
 		result := runner.CallWithParams("inspect_reply_keyboard", params)
-
-		// Output as JSON
-		//nolint:errchkjson // Output to stdout, error handling not required
-		_ = json.NewEncoder(os.Stdout).Encode(result)
+		runner.PrintResult(result, nil)
 	}
 }

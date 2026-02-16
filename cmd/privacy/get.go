@@ -2,7 +2,6 @@
 package privacy
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -42,20 +41,18 @@ func AddGetCommand(parentCmd *cobra.Command) {
 		}
 
 		result := runner.CallWithParams("get_privacy", params)
-		//nolint:errchkjson // Output to stdout
-		_ = json.NewEncoder(os.Stdout).Encode(result)
-
-		// Print human-readable summary
-		if r, ok := result.(map[string]any); ok {
-			if rules, ok := r["rules"].([]any); ok {
-				fmt.Fprintf(os.Stderr, "Privacy rules for '%s':\n", getKey)
-				for _, rule := range rules {
-					if ruleMap, ok := rule.(map[string]any); ok {
-						ruleType := cliutil.ExtractString(ruleMap, "type")
-						fmt.Fprintf(os.Stderr, "  - %s\n", ruleType)
+		runner.PrintResult(result, func(r any) {
+			if m, ok := r.(map[string]any); ok {
+				if rules, ok := m["rules"].([]any); ok {
+					fmt.Fprintf(os.Stderr, "Privacy rules for '%s':\n", getKey)
+					for _, rule := range rules {
+						if ruleMap, ok := rule.(map[string]any); ok {
+							ruleType := cliutil.ExtractString(ruleMap, "type")
+							fmt.Fprintf(os.Stderr, "  - %s\n", ruleType)
+						}
 					}
 				}
 			}
-		}
+		})
 	}
 }

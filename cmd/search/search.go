@@ -2,9 +2,6 @@
 package search
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
@@ -108,6 +105,7 @@ func runSearchGlobal(_ *cobra.Command, args []string) {
 	})
 
 	runner := cliutil.NewRunnerFromCmd(SearchGlobalCmd, true)
+	runner.SetIDKey("id")
 	params := map[string]any{
 		"query": globalQuery,
 	}
@@ -117,8 +115,7 @@ func runSearchGlobal(_ *cobra.Command, args []string) {
 	}
 
 	result := runner.CallWithParams("search_global", params)
-	//nolint:errchkjson // Output to stdout, error handling not required
-	_ = json.NewEncoder(os.Stdout).Encode(result)
+	runner.PrintResult(result, nil)
 }
 
 // runSearchInChat executes the in-chat search command.
@@ -130,6 +127,7 @@ func runSearchInChat(_ *cobra.Command, args []string) {
 	})
 
 	runner := cliutil.NewRunnerFromCmd(SearchInChatCmd, true)
+	runner.SetIDKey("id")
 	params := map[string]any{
 		"peer":  inChatPeer.String(),
 		"query": inChatQuery,
@@ -140,6 +138,5 @@ func runSearchInChat(_ *cobra.Command, args []string) {
 	}
 
 	result := runner.CallWithParams("search_in_chat", params)
-	//nolint:errchkjson // Output to stdout, error handling not required
-	_ = json.NewEncoder(os.Stdout).Encode(result)
+	runner.PrintResult(result, nil)
 }

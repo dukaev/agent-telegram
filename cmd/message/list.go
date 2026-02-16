@@ -2,7 +2,6 @@
 package message
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -50,6 +49,7 @@ func AddListCommand(parentCmd *cobra.Command) {
 		}
 
 		runner := cliutil.NewRunnerFromCmd(ListCmd, true)
+		runner.SetIDKey("id")
 		params := map[string]any{
 			"username": listTo.Peer(),
 			"limit":    listLimit,
@@ -59,7 +59,6 @@ func AddListCommand(parentCmd *cobra.Command) {
 		}
 
 		result := runner.CallWithParams("get_messages", params)
-		//nolint:errchkjson // Output to stdout
-		_ = json.NewEncoder(os.Stdout).Encode(result)
+		runner.PrintResult(result, nil)
 	}
 }

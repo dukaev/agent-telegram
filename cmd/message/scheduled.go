@@ -2,7 +2,6 @@
 package message
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -33,18 +32,17 @@ func AddScheduledCommand(parentCmd *cobra.Command) {
 
 	ScheduledCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(ScheduledCmd, true)
+		runner.SetIDKey("id")
 		params := map[string]any{}
 		scheduledTo.AddToParams(params)
 
 		result := runner.CallWithParams("get_scheduled_messages", params)
-		//nolint:errchkjson // Output to stdout
-		_ = json.NewEncoder(os.Stdout).Encode(result)
-
-		// Print human-readable summary
-		if r, ok := result.(map[string]any); ok {
-			if count, ok := r["count"].(float64); ok {
-				fmt.Fprintf(os.Stderr, "Found %d scheduled message(s)\n", int(count))
+		runner.PrintResult(result, func(r any) {
+			if m, ok := r.(map[string]any); ok {
+				if count, ok := m["count"].(float64); ok {
+					fmt.Fprintf(os.Stderr, "Found %d scheduled message(s)\n", int(count))
+				}
 			}
-		}
+		})
 	}
 }

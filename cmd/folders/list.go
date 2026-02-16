@@ -2,7 +2,6 @@
 package folders
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -28,23 +27,22 @@ func AddListCommand(parentCmd *cobra.Command) {
 
 	ListCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(ListCmd, true)
+		runner.SetIDKey("id")
 
 		result := runner.Call("get_folders", nil)
-		//nolint:errchkjson // Output to stdout
-		_ = json.NewEncoder(os.Stdout).Encode(result)
-
-		// Print human-readable summary
-		if r, ok := result.(map[string]any); ok {
-			if folders, ok := r["folders"].([]any); ok {
-				fmt.Fprintf(os.Stderr, "Found %d folder(s)\n", len(folders))
-				for _, f := range folders {
-					if folder, ok := f.(map[string]any); ok {
-						id := cliutil.ExtractFloat64(folder, "id")
-						title := cliutil.ExtractString(folder, "title")
-						fmt.Fprintf(os.Stderr, "  [%d] %s\n", int(id), title)
+		runner.PrintResult(result, func(r any) {
+			if m, ok := r.(map[string]any); ok {
+				if folders, ok := m["folders"].([]any); ok {
+					fmt.Fprintf(os.Stderr, "Found %d folder(s)\n", len(folders))
+					for _, f := range folders {
+						if folder, ok := f.(map[string]any); ok {
+							id := cliutil.ExtractFloat64(folder, "id")
+							title := cliutil.ExtractString(folder, "title")
+							fmt.Fprintf(os.Stderr, "  [%d] %s\n", int(id), title)
+						}
 					}
 				}
 			}
-		}
+		})
 	}
 }

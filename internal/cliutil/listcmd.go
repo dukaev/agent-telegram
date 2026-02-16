@@ -1,9 +1,7 @@
 package cliutil
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -49,13 +47,12 @@ func NewListCommand(cfg ListCommandConfig) *cobra.Command {
 			pag.ToParams(params, cfg.HasOffset)
 
 			result := runner.CallWithParams(cfg.Method, params)
-			//nolint:errchkjson // Output to stdout, error handling not required
-			_ = json.NewEncoder(os.Stdout).Encode(result)
-
-			// Print human-readable summary to stderr
-			if cfg.PrintFunc != nil && !runner.IsQuiet() {
-				cfg.PrintFunc(result, "Unknown", "N/A")
-			}
+			printFunc := cfg.PrintFunc
+			runner.PrintResult(result, func(r any) {
+				if printFunc != nil {
+					printFunc(r, "Unknown", "N/A")
+				}
+			})
 		},
 	}
 

@@ -2,9 +2,6 @@
 package message
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
@@ -50,10 +47,8 @@ func AddTypingCommand(parentCmd *cobra.Command) {
 		typingTo.AddToParams(params)
 
 		result := runner.CallWithParams("set_typing", params)
-		//nolint:errchkjson // Output to stdout
-		_ = json.NewEncoder(os.Stdout).Encode(result)
-		if !runner.IsQuiet() {
+		runner.PrintResult(result, func(any) {
 			cliutil.PrintSuccessSummary(result, "Typing indicator sent")
-		}
+		})
 	}
 }

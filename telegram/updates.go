@@ -122,12 +122,66 @@ func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface
 			data["peer"] = helpers.FormatPeer(m.PeerID, helpers.PeerFormatTyped)
 		}
 
+		// Add media data if present
+		if m.Media != nil {
+			data["media"] = convertMediaForUpdate(m.Media)
+		}
+
 		// Add inline buttons if present
 		if m.ReplyMarkup != nil {
 			data["buttons"] = extractButtonsData(m.ReplyMarkup)
 		}
 	}
 	return data
+}
+
+// convertMediaForUpdate converts message media to a map for updates.
+func convertMediaForUpdate(media tg.MessageMediaClass) map[string]any {
+	result := make(map[string]any)
+	switch m := media.(type) {
+	case *tg.MessageMediaPhoto:
+		result["type"] = "photo"
+		if m.Photo != nil {
+			if photo, ok := m.Photo.(*tg.Photo); ok {
+				result["photo_id"] = photo.ID
+			}
+		}
+	case *tg.MessageMediaDocument:
+		result["type"] = "document"
+		if m.Document != nil {
+			if doc, ok := m.Document.(*tg.Document); ok {
+				result["document_id"] = doc.ID
+			}
+		}
+	case *tg.MessageMediaWebPage:
+		result["type"] = "webpage"
+		if m.Webpage != nil {
+			if wp, ok := m.Webpage.(*tg.WebPage); ok {
+				result["url"] = wp.URL
+				result["display_url"] = wp.DisplayURL
+			}
+		}
+	case *tg.MessageMediaGeo:
+		result["type"] = "geo"
+		if gp, ok := m.Geo.(*tg.GeoPoint); ok {
+			result["lat"] = gp.Lat
+			result["long"] = gp.Long
+		}
+	case *tg.MessageMediaContact:
+		result["type"] = "contact"
+		result["phone"] = m.PhoneNumber
+		result["first_name"] = m.FirstName
+		result["last_name"] = m.LastName
+	case *tg.MessageMediaPoll:
+		result["type"] = "poll"
+	case *tg.MessageMediaDice:
+		result["type"] = "dice"
+		result["value"] = m.Value
+		result["emoticon"] = m.Emoticon
+	default:
+		result["type"] = "unknown"
+	}
+	return result
 }
 
 // extractButtonsData extracts button data from ReplyMarkup.
