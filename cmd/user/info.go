@@ -9,16 +9,17 @@ import (
 
 // InfoCmd represents the user info command.
 var InfoCmd = &cobra.Command{
-	Use:   "info [@username]",
+	Use:   "info [@username or user_id]",
 	Short: "Get information about a Telegram user",
-	Long: `Get detailed information about a Telegram user by username.
-If no username is provided, returns info about the current user (me).
+	Long: `Get detailed information about a Telegram user by username or numeric ID.
+If no argument is provided, returns info about the current user (me).
 
 This returns user ID, username, name, bio, verification status, etc.
 
 Examples:
-  agent-telegram user info          # Get current user info
-  agent-telegram user info @username  # Get info about a specific user`,
+  agent-telegram user info              # Get current user info
+  agent-telegram user info @username    # Get info by username
+  agent-telegram user info 272650856    # Get info by numeric ID`,
 	Args: cobra.MaximumNArgs(1),
 }
 

@@ -1,6 +1,8 @@
 // Package types provides common types for Telegram client user operations.
 package types // revive:disable:var-naming
 
+import "fmt"
+
 // GetMeResult represents the result of GetMe.
 type GetMeResult struct {
 	ID        int64  `json:"id"`
@@ -14,13 +16,20 @@ type GetMeResult struct {
 
 // GetUserInfoParams holds parameters for GetUserInfo.
 type GetUserInfoParams struct {
-	Username string `json:"username" validate:"required"`
+	Username string `json:"username,omitempty"`
+	UserID   int64  `json:"userId,omitempty"`
 }
 
 // Validate validates GetUserInfoParams.
 func (p GetUserInfoParams) Validate() error {
-	return ValidateStruct(p)
+	if p.Username == "" && p.UserID == 0 {
+		return ErrUsernameOrIDRequired
+	}
+	return nil
 }
+
+// ErrUsernameOrIDRequired is returned when neither username nor userId is provided.
+var ErrUsernameOrIDRequired = fmt.Errorf("username or userId is required")
 
 // GetUserInfoResult is the result of GetUserInfo.
 type GetUserInfoResult struct {

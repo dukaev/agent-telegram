@@ -19,6 +19,7 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(MsgCmd)
 
 	// Call AddXxxCommand functions with MsgCmd to setup flags and Run
+	AddListCommand(MsgCmd)
 	AddDeleteCommand(MsgCmd)
 	AddForwardCommand(MsgCmd)
 	AddPinMessageCommand(MsgCmd)

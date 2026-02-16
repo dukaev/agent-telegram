@@ -99,6 +99,7 @@ type MessageResult struct {
 	Views          int             `json:"views,omitempty"`         // View count for channel posts
 	Forwards       int             `json:"forwards,omitempty"`      // Forward counter
 	ReplyTo        map[string]any  `json:"replyTo,omitempty"`       // Reply information
+	Forwarded      bool            `json:"forwarded,omitempty"`     // Whether message was forwarded
 	FwdFrom        map[string]any  `json:"fwdFrom,omitempty"`       // Forwarded from
 	Reactions      []map[string]any `json:"reactions,omitempty"`    // Reactions to message
 	Entities       []map[string]any `json:"entities,omitempty"`     // Message entities (formatting)

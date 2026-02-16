@@ -137,6 +137,7 @@ func extractMessageContent(msg *tg.Message, r *types.MessageResult) {
 		r.ReplyTo = convertReplyHeader(msg.ReplyTo)
 	}
 	if !msg.FwdFrom.Zero() {
+		r.Forwarded = true
 		r.FwdFrom = convertFwdHeader(msg.FwdFrom)
 	}
 	if !msg.Reactions.Zero() {
@@ -182,6 +183,10 @@ func convertMedia(media tg.MessageMediaClass) map[string]any {
 		result["type"] = "contact"
 	case *tg.MessageMediaPoll:
 		result["type"] = "poll"
+	case *tg.MessageMediaDice:
+		result["type"] = "dice"
+		result["value"] = m.Value
+		result["emoticon"] = m.Emoticon
 	default:
 		result["type"] = "unknown"
 	}

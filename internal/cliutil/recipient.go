@@ -44,6 +44,10 @@ func (r *Recipient) Peer() string {
 	if strings.HasPrefix(r.value, "@") {
 		return r.value
 	}
+	// "me", "self", "current_user" are special peers for Saved Messages
+	if r.value == "me" || r.value == "self" || r.value == "current_user" {
+		return r.value
+	}
 	// Check if it's a numeric ID (positive or negative)
 	if r.value[0] >= '0' && r.value[0] <= '9' {
 		return r.value

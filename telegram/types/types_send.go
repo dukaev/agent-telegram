@@ -268,6 +268,26 @@ type SendStickerResult struct {
 	Peer string `json:"peer"`
 }
 
+// SendDiceParams holds parameters for SendDice.
+type SendDiceParams struct {
+	PeerInfo
+	Emoticon string `json:"emoticon,omitempty"`
+}
+
+// Validate validates SendDiceParams.
+func (p SendDiceParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// SendDiceResult is the result of SendDice.
+type SendDiceResult struct {
+	ID       int64  `json:"id"`
+	Date     int64  `json:"date"`
+	Peer     string `json:"peer"`
+	Value    int    `json:"value"`
+	Emoticon string `json:"emoticon"`
+}
+
 // GetStickerPacksParams holds parameters for GetStickerPacks.
 type GetStickerPacksParams struct {
 	// No required params - returns all sticker packs

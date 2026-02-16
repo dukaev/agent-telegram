@@ -28,6 +28,13 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 	var inputPeer tg.InputPeerClass
 	var err error
 
+	// "me", "self", "current_user" resolves to InputPeerSelf (Saved Messages)
+	if peer == "me" || peer == "self" || peer == "current_user" {
+		inputPeer = &tg.InputPeerSelf{}
+		c.peerCache.Store(peer, inputPeer)
+		return inputPeer, nil
+	}
+
 	// If peer starts with @, it's a username - resolve it with cache
 	if len(peer) > 0 && peer[0] == '@' {
 		inputPeer, err = c.resolveUsername(ctx, peer[1:])
