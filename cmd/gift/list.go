@@ -14,14 +14,16 @@ var listLimit int
 
 // ListCmd represents the gift list command.
 var ListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List available star gifts catalog",
-	Long: `List available star gifts from the Telegram catalog.
+	Use:   "list [peer]",
+	Short: "List star gifts catalog or a user's saved gifts",
+	Long: `List available star gifts from the Telegram catalog,
+or list a specific user's saved gifts when a peer is provided.
 
 Example:
   agent-telegram gift list
+  agent-telegram gift list @username
   agent-telegram gift list --limit 20`,
-	Args: cobra.NoArgs,
+	Args: cobra.MaximumNArgs(1),
 }
 
 // AddListCommand adds the list command to the parent command.
@@ -30,13 +32,25 @@ func AddListCommand(parentCmd *cobra.Command) {
 
 	ListCmd.Flags().IntVarP(&listLimit, "limit", "l", cliutil.DefaultLimitLarge, "Max gifts to show")
 
-	ListCmd.Run = func(_ *cobra.Command, _ []string) {
+	ListCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(ListCmd, false)
-		params := map[string]any{
-			"limit": listLimit,
+
+		if len(args) > 0 {
+			var to cliutil.Recipient
+			_ = to.Set(args[0])
+			params := map[string]any{
+				"limit": listLimit,
+				"peer":  to.Peer(),
+			}
+			result := runner.CallWithParams("get_saved_gifts", params)
+			runner.PrintResult(result, printSavedGifts)
+		} else {
+			params := map[string]any{
+				"limit": listLimit,
+			}
+			result := runner.CallWithParams("get_star_gifts", params)
+			runner.PrintResult(result, printGiftList)
 		}
-		result := runner.CallWithParams("get_star_gifts", params)
-		runner.PrintResult(result, printGiftList)
 	}
 }
 
