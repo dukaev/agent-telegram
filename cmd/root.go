@@ -11,6 +11,7 @@ import (
 	_ "agent-telegram/cmd/chat"
 	_ "agent-telegram/cmd/contact"
 	_ "agent-telegram/cmd/get"
+	_ "agent-telegram/cmd/gift"
 	_ "agent-telegram/cmd/message"
 	_ "agent-telegram/cmd/open"
 	_ "agent-telegram/cmd/search"

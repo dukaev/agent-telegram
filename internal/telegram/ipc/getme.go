@@ -43,4 +43,5 @@ type Client interface {
 	Pin() telegram.PinClient
 	Reaction() telegram.ReactionClient
 	Search() telegram.SearchClient
+	Gift() telegram.GiftClient
 }

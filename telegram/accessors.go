@@ -49,6 +49,11 @@ func (c *Client) Search() SearchClient {
 	return c.search
 }
 
+// Gift returns the gift client.
+func (c *Client) Gift() GiftClient {
+	return c.gift
+}
+
 // GetMe returns the current user information.
 func (c *Client) GetMe(ctx context.Context) (*tg.User, error) {
 	if c.client == nil {

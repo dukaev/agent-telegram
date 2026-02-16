@@ -7,6 +7,7 @@ import (
 	"agent-telegram/cmd/contact"
 	"agent-telegram/cmd/folders"
 	"agent-telegram/cmd/get"
+	"agent-telegram/cmd/gift"
 	"agent-telegram/cmd/message"
 	"agent-telegram/cmd/open"
 	"agent-telegram/cmd/privacy"
@@ -44,6 +45,9 @@ func init() {
 
 	// Folders commands
 	folders.AddFoldersCommand(RootCmd)
+
+	// Gift commands
+	gift.AddGiftCommand(RootCmd)
 
 	// Privacy commands
 	privacy.AddPrivacyCommand(RootCmd)

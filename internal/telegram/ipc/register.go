@@ -98,6 +98,13 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"delete_folder":          deleteFolderHandler,
 	"get_privacy":            getPrivacyHandler,
 	"set_privacy":            setPrivacyHandler,
+
+	// Gift operations
+	"get_star_gifts":      getStarGiftsHandler,
+	"send_star_gift":      sendStarGiftHandler,
+	"get_saved_gifts":     getSavedGiftsHandler,
+	"transfer_star_gift":  transferStarGiftHandler,
+	"convert_star_gift":   convertStarGiftHandler,
 }
 
 // RegisterHandlers registers all Telegram IPC handlers.

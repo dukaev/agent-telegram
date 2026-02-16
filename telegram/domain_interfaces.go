@@ -112,3 +112,12 @@ type SearchClient interface {
 	SearchGlobal(ctx context.Context, params types.SearchGlobalParams) (*types.SearchGlobalResult, error)
 	SearchInChat(ctx context.Context, params types.SearchInChatParams) (*types.SearchInChatResult, error)
 }
+
+// GiftClient defines the interface for gift operations.
+type GiftClient interface {
+	GetStarGifts(ctx context.Context, params types.GetStarGiftsParams) (*types.GetStarGiftsResult, error)
+	SendStarGift(ctx context.Context, params types.SendStarGiftParams) (*types.SendStarGiftResult, error)
+	GetSavedGifts(ctx context.Context, params types.GetSavedGiftsParams) (*types.GetSavedGiftsResult, error)
+	TransferStarGift(ctx context.Context, params types.TransferStarGiftParams) (*types.TransferStarGiftResult, error)
+	ConvertStarGift(ctx context.Context, params types.ConvertStarGiftParams) (*types.ConvertStarGiftResult, error)
+}

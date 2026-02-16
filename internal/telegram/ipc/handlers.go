@@ -167,3 +167,20 @@ func getPrivacyHandler(c Client) HandlerFunc {
 func setPrivacyHandler(c Client) HandlerFunc {
 	return Handler(c.User().SetPrivacy, "set privacy")
 }
+
+// Gift handlers.
+func getStarGiftsHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().GetStarGifts, "get star gifts")
+}
+func sendStarGiftHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().SendStarGift, "send star gift")
+}
+func getSavedGiftsHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().GetSavedGifts, "get saved gifts")
+}
+func transferStarGiftHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().TransferStarGift, "transfer star gift")
+}
+func convertStarGiftHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().ConvertStarGift, "convert star gift")
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/gotd/td/tg"
 
 	"agent-telegram/telegram/chat"
+	"agent-telegram/telegram/gift"
 	"agent-telegram/telegram/media"
 	"agent-telegram/telegram/message"
 	"agent-telegram/telegram/pin"
@@ -42,6 +43,7 @@ type Client struct {
 	pin      *pin.Client
 	reaction *reaction.Client
 	search   *search.Client
+	gift     *gift.Client
 }
 
 // NewClient creates a new Telegram client.
@@ -112,6 +114,7 @@ func (c *Client) initDomainClients() {
 	c.pin = pin.NewClient(c)
 	c.reaction = reaction.NewClient(c)
 	c.search = search.NewClient(c)
+	c.gift = gift.NewClient(c)
 }
 
 // runClient is the main client run loop.
@@ -157,6 +160,7 @@ func (c *Client) setDomainAPIs() {
 	c.pin.SetAPI(api)
 	c.reaction.SetAPI(api)
 	c.search.SetAPI(api)
+	c.gift.SetAPI(api)
 }
 
 // ClientStatus represents the current status of the Telegram client.
