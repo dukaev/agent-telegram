@@ -34,11 +34,16 @@ func (c *Client) SendDice(ctx context.Context, params types.SendDiceParams) (*ty
 		Emoticon: emoticon,
 	}
 
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	req := &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    dice,
 		RandomID: time.Now().UnixNano(),
-	})
+	}
+	if params.ReplyTo != 0 {
+		req.ReplyTo = &tg.InputReplyToMessage{ReplyToMsgID: int(params.ReplyTo)}
+	}
+
+	result, err := c.API.MessagesSendMedia(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send dice: %w", err)
 	}

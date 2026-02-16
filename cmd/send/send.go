@@ -194,6 +194,9 @@ func buildSendParams(args []string) (string, map[string]any) {
 		if diceEmoticon != "" {
 			params["emoticon"] = diceEmoticon
 		}
+		if replyToMessageID != 0 {
+			params["replyTo"] = replyToMessageID
+		}
 		return "send_dice", params
 
 	case sendContact != "":

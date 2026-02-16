@@ -6,6 +6,7 @@ import (
 	"agent-telegram/cmd/chat"
 	"agent-telegram/cmd/contact"
 	"agent-telegram/cmd/folders"
+	"agent-telegram/cmd/game"
 	"agent-telegram/cmd/get"
 	"agent-telegram/cmd/gift"
 	"agent-telegram/cmd/message"
@@ -45,6 +46,9 @@ func init() {
 
 	// Folders commands
 	folders.AddFoldersCommand(RootCmd)
+
+	// Game commands
+	game.AddGameCommand(RootCmd)
 
 	// Gift commands
 	gift.AddGiftCommand(RootCmd)
