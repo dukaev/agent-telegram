@@ -9,21 +9,19 @@ import (
 
 var (
 	offerTo       cliutil.Recipient
-	offerSlug     string
 	offerPrice    int64
 	offerDuration int
 )
 
 // OfferCmd represents the gift offer command.
 var OfferCmd = &cobra.Command{
-	Use:   "offer",
+	Use:   "offer <slug>",
 	Short: "Make an offer to buy someone's gift",
 	Long: `Make an offer to buy a star gift owned by another user.
-
-Example:
-  agent-telegram gift offer --to @username --slug SwissWatch-718 --stars 5000
-  agent-telegram gift offer --to @username --slug RestlessJar-55271 --stars 10000 --duration 86400`,
-	Args: cobra.NoArgs,
+Specify the gift by its unique slug.`,
+	Example: `  agent-telegram gift offer SwissWatch-718 --to @username --stars 5000
+  agent-telegram gift offer RestlessJar-55271 --to @username --stars 10000 --duration 86400`,
+	Args: cobra.ExactArgs(1),
 }
 
 // AddOfferCommand adds the offer command to the parent command.
@@ -31,17 +29,15 @@ func AddOfferCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(OfferCmd)
 
 	OfferCmd.Flags().VarP(&offerTo, "to", "t", "Gift owner (@username or ID)")
-	OfferCmd.Flags().StringVar(&offerSlug, "slug", "", "Gift slug")
 	OfferCmd.Flags().Int64Var(&offerPrice, "stars", 0, "Offer price in stars")
 	OfferCmd.Flags().IntVar(&offerDuration, "duration", 0, "Offer duration in seconds (optional)")
 	_ = OfferCmd.MarkFlagRequired("to")
-	_ = OfferCmd.MarkFlagRequired("slug")
 	_ = OfferCmd.MarkFlagRequired("stars")
 
-	OfferCmd.Run = func(_ *cobra.Command, _ []string) {
+	OfferCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(OfferCmd, false)
 		params := map[string]any{
-			"slug":  offerSlug,
+			"slug":  args[0],
 			"price": offerPrice,
 		}
 		offerTo.AddToParams(params)
@@ -50,7 +46,7 @@ func AddOfferCommand(parentCmd *cobra.Command) {
 		}
 		result := runner.CallWithParams("offer_gift", params)
 		runner.PrintResult(result, func(result any) {
-			cliutil.PrintSuccessSummary(result, "Offer sent successfully!")
+			cliutil.PrintSuccessWithDuration(result, "Offer sent successfully!", runner.LastDuration())
 		})
 	}
 }

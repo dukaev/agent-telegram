@@ -49,9 +49,10 @@ func getCLILogger() *slog.Logger {
 
 // Runner handles common command execution logic.
 type Runner struct {
-	socketFlag string
-	jsonOutput bool
-	quiet      bool
+	socketFlag   string
+	jsonOutput   bool
+	quiet        bool
+	lastDuration time.Duration
 }
 
 // NewRunner creates a new command runner with the given socket flag and JSON output setting.
@@ -231,6 +232,7 @@ func (r *Runner) Call(method string, params any) any {
 	result, err := client.Call(method, params)
 
 	duration := time.Since(start)
+	r.lastDuration = duration
 	if err != nil {
 		log.Info("cli: call",
 			"method", method,
@@ -336,6 +338,11 @@ func FormatSuccess(result any, action string) {
 	if peer, ok := r["peer"].(string); ok {
 		fmt.Fprintf(os.Stderr, "  Peer: %s\n", peer)
 	}
+}
+
+// LastDuration returns the duration of the last Call().
+func (r *Runner) LastDuration() time.Duration {
+	return r.lastDuration
 }
 
 // IsQuiet returns true if quiet mode is enabled.

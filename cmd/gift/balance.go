@@ -14,10 +14,8 @@ import (
 var BalanceCmd = &cobra.Command{
 	Use:   "balance",
 	Short: "Show stars and TON balance",
-	Long: `Show your current Telegram Stars and TON balance.
-
-Example:
-  agent-telegram gift balance`,
+	Long:    `Show your current Telegram Stars and TON balance.`,
+	Example: `  agent-telegram gift balance`,
 	Args: cobra.NoArgs,
 }
 
@@ -28,11 +26,12 @@ func AddBalanceCommand(parentCmd *cobra.Command) {
 	BalanceCmd.Run = func(_ *cobra.Command, _ []string) {
 		runner := cliutil.NewRunnerFromCmd(BalanceCmd, false)
 		result := runner.CallWithParams("get_balance", map[string]any{})
-		runner.PrintResult(result, printBalance)
+		runner.PrintResult(result, PrintBalance)
 	}
 }
 
-func printBalance(result any) {
+// PrintBalance prints the stars and TON balance from a result map.
+func PrintBalance(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {
 		fmt.Fprintln(os.Stderr, "Failed to get balance")

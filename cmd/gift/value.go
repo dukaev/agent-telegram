@@ -16,10 +16,8 @@ var ValueCmd = &cobra.Command{
 	Use:   "value <slug>",
 	Short: "Show value analytics for a unique gift",
 	Long: `Show pricing and value information for a unique star gift,
-including floor price, average price, last sale, and Fragment listings.
-
-Example:
-  agent-telegram gift value SwissWatch-718
+including floor price, average price, last sale, and Fragment listings.`,
+	Example: `  agent-telegram gift value SwissWatch-718
   agent-telegram gift value RestlessJar-55271`,
 	Args: cobra.ExactArgs(1),
 }
@@ -38,6 +36,7 @@ func AddValueCommand(parentCmd *cobra.Command) {
 	}
 }
 
+//nolint:funlen // Printing many fields requires many statements
 func printGiftValue(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {

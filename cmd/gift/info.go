@@ -15,10 +15,8 @@ var InfoCmd = &cobra.Command{
 	Use:   "info <slug>",
 	Short: "Show detailed info about a unique gift",
 	Long: `Show detailed information about a unique star gift by its slug,
-including owner, model, pattern, backdrop, and rarity.
-
-Example:
-  agent-telegram gift info SwissWatch-718
+including owner, model, pattern, backdrop, and rarity.`,
+	Example: `  agent-telegram gift info SwissWatch-718
   agent-telegram gift info RestlessJar-55271`,
 	Args: cobra.ExactArgs(1),
 }
@@ -37,6 +35,7 @@ func AddInfoCommand(parentCmd *cobra.Command) {
 	}
 }
 
+//nolint:funlen // Printing many fields requires many statements
 func printGiftInfo(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {

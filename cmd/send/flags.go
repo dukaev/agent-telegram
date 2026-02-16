@@ -25,6 +25,14 @@ func (f *SendFlags) Register(command *cobra.Command) {
 	_ = command.MarkFlagRequired("to")
 }
 
+// RegisterOptionalTo registers common flags with --to as optional (not required).
+func (f *SendFlags) RegisterOptionalTo(command *cobra.Command) {
+	f.cmd = command
+	command.Flags().BoolVarP(&f.JSON, "json", "j", false, "Output as JSON")
+	command.Flags().VarP(&f.To, "to", "t", "Recipient (@username, username, or chat ID)")
+	command.Flags().StringVar(&f.Caption, "caption", "", "Caption")
+}
+
 // RegisterWithoutCaption registers flags without caption option.
 func (f *SendFlags) RegisterWithoutCaption(command *cobra.Command) {
 	f.cmd = command

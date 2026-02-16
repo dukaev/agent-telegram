@@ -14,13 +14,12 @@ var listLimit int
 
 // ListCmd represents the gift list command.
 var ListCmd = &cobra.Command{
-	Use:   "list [peer]",
-	Short: "List star gifts catalog or a user's saved gifts",
+	Use:     "list [peer]",
+	Aliases: []string{"catalog"},
+	Short:   "List star gifts catalog or a user's saved gifts",
 	Long: `List available star gifts from the Telegram catalog,
-or list a specific user's saved gifts when a peer is provided.
-
-Example:
-  agent-telegram gift list
+or list a specific user's saved gifts when a peer is provided.`,
+	Example: `  agent-telegram gift list
   agent-telegram gift list @username
   agent-telegram gift list --limit 20`,
 	Args: cobra.MaximumNArgs(1),
@@ -43,7 +42,7 @@ func AddListCommand(parentCmd *cobra.Command) {
 				"peer":  to.Peer(),
 			}
 			result := runner.CallWithParams("get_saved_gifts", params)
-			runner.PrintResult(result, printSavedGifts)
+			runner.PrintResult(result, PrintSavedGifts)
 		} else {
 			params := map[string]any{
 				"limit": listLimit,

@@ -20,10 +20,8 @@ var SendCmd = &cobra.Command{
 	Use:   "send <gift_name_or_id>",
 	Short: "Send a star gift to a user",
 	Long: `Buy a star gift from the catalog and send it to a Telegram user.
-Payment is made in Telegram Stars. Specify the gift by name or numeric ID.
-
-Example:
-  agent-telegram gift send Heart --to @username
+Payment is made in Telegram Stars. Specify the gift by name or numeric ID.`,
+	Example: `  agent-telegram gift send Heart --to @username
   agent-telegram gift send Heart --to @username -m "Happy birthday!"
   agent-telegram gift send 5170145012310081615 --to @username
   agent-telegram gift send Heart --to @username --hide-name`,
@@ -59,7 +57,7 @@ func AddSendCommand(parentCmd *cobra.Command) {
 
 		result := runner.CallWithParams("send_star_gift", params)
 		runner.PrintResult(result, func(result any) {
-			cliutil.PrintSuccessSummary(result, "Star gift sent successfully!")
+			cliutil.PrintSuccessWithDuration(result, "Star gift sent successfully!", runner.LastDuration())
 		})
 	}
 }

@@ -3,6 +3,7 @@ package send
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,36 +45,28 @@ var (
 // SendCmd represents the unified send command.
 var SendCmd = &cobra.Command{
 	GroupID: "message",
-	Use:     "send [message]",
-	Short: "Send a message or media to a Telegram peer",
+	Use:     "send [peer] [message]",
+	Short:   "Send a message or media to a Telegram peer",
 	Long: `Send a message or media to a Telegram user or chat.
+Peer can be positional or via --to flag.
 
-By default, sends a text message. Use flags to send other types:
-
-  send --to @user "Hello world"
-  send --to @user --photo image.png
-  send --to @user --video video.mp4
-  send --to @user --voice voice.ogg
-  send --to @user --video-note circle.mp4
-  send --to @user --sticker sticker.webp
-  send --to @user --gif animation.mp4
-  send --to @user --document file.pdf
-  send --to @user --audio music.mp3
-  send --to @user --contact "+1234567890" --first-name "John"
-  send --to @user --reply-to 123 "Reply text"
-  send --to @user --poll "Question?" --option "Yes" --option "No"
-  send --to @user --latitude 55.7558 --longitude 37.6173
-
-Use --to @username, --to username, or --to <chat_id> to specify the recipient.`,
-	Args: cobra.MaximumNArgs(1),
+By default, sends a text message. Use flags to send other types.
+Use @username, username, or <chat_id> to specify the recipient.`,
+	Example: `  agent-telegram send @user "Hello world"
+  agent-telegram send --to @user "Hello world"
+  agent-telegram send @user --photo image.png
+  agent-telegram send @user --poll "Question?" --option "Yes" --option "No"`,
+	Args: cobra.MaximumNArgs(2),
 }
 
 // AddSendCommand adds the unified send command to the root command.
+//
+//nolint:funlen // Function registers many flags and handles peer resolution
 func AddSendCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(SendCmd)
 
-	// Register common flags (sets sendFlags.cmd)
-	sendFlags.Register(SendCmd)
+	// Register common flags with optional --to (positional peer supported)
+	sendFlags.RegisterOptionalTo(SendCmd)
 
 	// Content type flags (mutually exclusive)
 	SendCmd.Flags().StringVar(&sendFile, "file", "", "Send file (auto-detect type)")
@@ -103,10 +96,32 @@ func AddSendCommand(rootCmd *cobra.Command) {
 	SendCmd.Flags().StringVar(&sendLastName, "last-name", "", "Contact last name")
 
 	SendCmd.Run = func(_ *cobra.Command, args []string) {
+		// Resolve peer: positional arg or --to flag
+		// 2 args: args[0]=peer, args[1]=message
+		// 1 arg + --to set: args[0]=message
+		// 1 arg + --to NOT set: args[0]=peer (no message)
+		// 0 args: --to must be set
+		var messageArgs []string
+		switch len(args) {
+		case 2:
+			_ = sendFlags.To.Set(args[0])
+			messageArgs = args[1:]
+		case 1:
+			if sendFlags.To.Peer() != "" {
+				messageArgs = args
+			} else {
+				_ = sendFlags.To.Set(args[0])
+			}
+		}
+		if sendFlags.To.Peer() == "" {
+			fmt.Fprintln(os.Stderr, "Error: peer is required (positional or --to)")
+			os.Exit(1)
+		}
+
 		runner := sendFlags.NewRunner()
 
 		// Determine what type of content to send
-		method, params := buildSendParams(args)
+		method, params := buildSendParams(messageArgs)
 
 		result := runner.CallWithParams(method, params)
 

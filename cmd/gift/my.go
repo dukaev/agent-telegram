@@ -18,12 +18,11 @@ var (
 
 // MyCmd represents the gift my command.
 var MyCmd = &cobra.Command{
-	Use:   "my",
-	Short: "List saved star gifts",
-	Long: `List saved/received star gifts for yourself or another user.
-
-Example:
-  agent-telegram gift my
+	Use:     "my",
+	Aliases: []string{"inventory"},
+	Short:   "List saved star gifts",
+	Long:  `List saved/received star gifts for yourself or another user.`,
+	Example: `  agent-telegram gift my
   agent-telegram gift my --limit 20
   agent-telegram gift my --to @username`,
 	Args: cobra.NoArgs,
@@ -49,11 +48,12 @@ func AddMyCommand(parentCmd *cobra.Command) {
 			params["peer"] = myTo.Peer()
 		}
 		result := runner.CallWithParams("get_saved_gifts", params)
-		runner.PrintResult(result, printSavedGifts)
+		runner.PrintResult(result, PrintSavedGifts)
 	}
 }
 
-func printSavedGifts(result any) {
+// PrintSavedGifts prints a list of saved gifts with summary stats.
+func PrintSavedGifts(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {
 		fmt.Fprintln(os.Stderr, "Failed to get saved gifts")
@@ -70,7 +70,7 @@ func printSavedGifts(result any) {
 		if !ok {
 			continue
 		}
-		printSavedGiftItem(gift)
+		PrintSavedGiftItem(gift)
 
 		totalStars += cliutil.ExtractInt64(gift, "stars")
 		if cliutil.ExtractStringValue(gift, "slug") != "" {
@@ -89,7 +89,8 @@ func printSavedGifts(result any) {
 		count, totalStars, uniqueCount, listedCount)
 }
 
-func printSavedGiftItem(gift map[string]any) {
+// PrintSavedGiftItem prints a single saved gift item line.
+func PrintSavedGiftItem(gift map[string]any) {
 	giftID := cliutil.ExtractInt64(gift, "giftId")
 	msgID := cliutil.ExtractInt64(gift, "msgId")
 	stars := cliutil.ExtractInt64(gift, "stars")

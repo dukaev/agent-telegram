@@ -4,6 +4,7 @@ package cliutil
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // PrintSuccessSummary prints a success summary from a result map.
@@ -15,6 +16,25 @@ func PrintSuccessSummary(result any, message string) {
 	if success, ok := r["success"].(bool); ok && success {
 		fmt.Fprintf(os.Stderr, "%s\n", message)
 	}
+}
+
+// PrintSuccessWithDuration prints a success summary with operation duration.
+func PrintSuccessWithDuration(result any, message string, d time.Duration) {
+	r, ok := result.(map[string]any)
+	if !ok {
+		return
+	}
+	if success, ok := r["success"].(bool); ok && success {
+		fmt.Fprintf(os.Stderr, "%s (%s)\n", message, formatDuration(d))
+	}
+}
+
+// formatDuration formats a duration for display (e.g. "342ms", "1.2s").
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }
 
 // PrintResultField prints a field from result map if it exists.

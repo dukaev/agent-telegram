@@ -27,10 +27,8 @@ var MarketCmd = &cobra.Command{
 	Use:   "market <gift_name_or_id>",
 	Short: "List gifts for resale (marketplace)",
 	Long: `Browse star gifts listed for resale by gift name or type ID.
-Use "gift list" to find gift names from the catalog.
-
-Example:
-  agent-telegram gift market Heart
+Use "gift list" to find gift names from the catalog.`,
+	Example: `  agent-telegram gift market Heart
   agent-telegram gift market 5170145012310081536
   agent-telegram gift market Heart --sort-price --limit 10
   agent-telegram gift market Heart --model "Homunculus" --backdrop "Turquoise"`,

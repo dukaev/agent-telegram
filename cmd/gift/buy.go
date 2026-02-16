@@ -16,10 +16,8 @@ var BuyCmd = &cobra.Command{
 	Use:   "buy <slug>",
 	Short: "Buy a gift from the marketplace",
 	Long: `Buy a unique star gift listed for resale on the marketplace.
-Payment is made in Telegram Stars.
-
-Example:
-  agent-telegram gift buy SantaHat-55373
+Payment is made in Telegram Stars.`,
+	Example: `  agent-telegram gift buy SantaHat-55373
   agent-telegram gift buy SwissWatch-718 --to @username`,
 	Args: cobra.ExactArgs(1),
 }
@@ -40,7 +38,7 @@ func AddBuyCommand(parentCmd *cobra.Command) {
 		}
 		result := runner.CallWithParams("buy_resale_gift", params)
 		runner.PrintResult(result, func(result any) {
-			cliutil.PrintSuccessSummary(result, "Gift purchased successfully!")
+			cliutil.PrintSuccessWithDuration(result, "Gift purchased successfully!", runner.LastDuration())
 		})
 	}
 }

@@ -11,13 +11,12 @@ var convertMsgID int
 
 // ConvertCmd represents the gift convert command.
 var ConvertCmd = &cobra.Command{
-	Use:   "convert [slug]",
-	Short: "Convert a star gift to stars",
+	Use:     "convert [slug]",
+	Aliases: []string{"cashout"},
+	Short:   "Convert a star gift to stars",
 	Long: `Convert a saved star gift into Telegram stars.
-Specify the gift by slug (positional) or --msg-id.
-
-Example:
-  agent-telegram gift convert SantaHat-55373
+Specify the gift by slug (positional) or --msg-id.`,
+	Example: `  agent-telegram gift convert SantaHat-55373
   agent-telegram gift convert --msg-id 123`,
 	Args: cobra.MaximumNArgs(1),
 }
@@ -39,7 +38,7 @@ func AddConvertCommand(parentCmd *cobra.Command) {
 		}
 		result := runner.CallWithParams("convert_star_gift", params)
 		runner.PrintResult(result, func(result any) {
-			cliutil.PrintSuccessSummary(result, "Star gift converted to stars successfully!")
+			cliutil.PrintSuccessWithDuration(result, "Star gift converted to stars successfully!", runner.LastDuration())
 		})
 	}
 }

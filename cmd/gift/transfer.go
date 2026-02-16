@@ -17,10 +17,8 @@ var TransferCmd = &cobra.Command{
 	Use:   "transfer [slug]",
 	Short: "Transfer a star gift to another user",
 	Long: `Transfer a saved star gift to another Telegram user.
-Specify the gift by slug (positional) or --msg-id.
-
-Example:
-  agent-telegram gift transfer SantaHat-55373 --to @username
+Specify the gift by slug (positional) or --msg-id.`,
+	Example: `  agent-telegram gift transfer SantaHat-55373 --to @username
   agent-telegram gift transfer --to @username --msg-id 123`,
 	Args: cobra.MaximumNArgs(1),
 }
@@ -45,7 +43,7 @@ func AddTransferCommand(parentCmd *cobra.Command) {
 		}
 		result := runner.CallWithParams("transfer_star_gift", params)
 		runner.PrintResult(result, func(result any) {
-			cliutil.PrintSuccessSummary(result, "Star gift transferred successfully!")
+			cliutil.PrintSuccessWithDuration(result, "Star gift transferred successfully!", runner.LastDuration())
 		})
 	}
 }
