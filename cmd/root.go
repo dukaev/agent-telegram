@@ -66,5 +66,6 @@ func init() {
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
 	RootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress status messages (data still goes to stdout)")
+	RootCmd.PersistentFlags().BoolP("json", "j", false, "Output result as JSON to stdout")
 }
 

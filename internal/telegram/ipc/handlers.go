@@ -202,3 +202,6 @@ func getGiftValueHandler(c Client) HandlerFunc {
 func getResaleGiftsHandler(c Client) HandlerFunc {
 	return Handler(c.Gift().GetResaleGifts, "get resale gifts")
 }
+func buyResaleGiftHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().BuyResaleGift, "buy resale gift")
+}

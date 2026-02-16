@@ -126,4 +126,5 @@ type GiftClient interface {
 	GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams) (*types.GetGiftInfoResult, error)
 	GetGiftValue(ctx context.Context, params types.GetGiftValueParams) (*types.GetGiftValueResult, error)
 	GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error)
+	BuyResaleGift(ctx context.Context, params types.BuyResaleGiftParams) (*types.BuyResaleGiftResult, error)
 }

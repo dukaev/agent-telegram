@@ -95,7 +95,7 @@ func printContact(c any) {
 	}
 	name := buildContactName(contact)
 	line := formatContactLine(name, contact)
-	fmt.Println(line) // Contact data goes to stdout
+	fmt.Fprintln(os.Stderr, line)
 }
 
 func buildContactName(contact map[string]any) string {

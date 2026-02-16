@@ -60,40 +60,61 @@ func printSavedGifts(result any) {
 		return
 	}
 
-	count, _ := r["count"].(float64)
-	fmt.Fprintf(os.Stderr, "Saved Gifts (%d):\n", int(count))
+	count := cliutil.ExtractInt64(r, "count")
+	fmt.Fprintf(os.Stderr, "Saved Gifts (%d):\n", count)
 
 	gifts, _ := r["gifts"].([]any)
+	var totalStars, uniqueCount, listedCount int64
 	for _, g := range gifts {
 		gift, ok := g.(map[string]any)
 		if !ok {
 			continue
 		}
 		printSavedGiftItem(gift)
+
+		totalStars += cliutil.ExtractInt64(gift, "stars")
+		if cliutil.ExtractStringValue(gift, "slug") != "" {
+			uniqueCount++
+		}
+		if cliutil.ExtractInt64(gift, "resellStars") > 0 {
+			listedCount++
+		}
 	}
 
 	if nextOffset := cliutil.ExtractStringValue(r, "nextOffset"); nextOffset != "" {
 		fmt.Fprintf(os.Stderr, "\nNext offset: %s\n", nextOffset)
 	}
+
+	fmt.Fprintf(os.Stderr, "\nSummary: %d gifts, %d stars value, %d unique, %d listed for resale\n",
+		count, totalStars, uniqueCount, listedCount)
 }
 
 func printSavedGiftItem(gift map[string]any) {
-	giftID, _ := gift["giftId"].(float64)
-	stars, _ := gift["stars"].(float64)
-	resellStars, _ := gift["resellStars"].(float64)
+	giftID := cliutil.ExtractInt64(gift, "giftId")
+	msgID := cliutil.ExtractInt64(gift, "msgId")
+	stars := cliutil.ExtractInt64(gift, "stars")
+	convertStars := cliutil.ExtractInt64(gift, "convertStars")
+	resellStars := cliutil.ExtractInt64(gift, "resellStars")
 	title := cliutil.ExtractStringValue(gift, "title")
 	fromID := cliutil.ExtractStringValue(gift, "fromId")
 	slug := cliutil.ExtractStringValue(gift, "slug")
 
-	line := fmt.Sprintf("  - #%d", int64(giftID))
+	line := fmt.Sprintf("  - #%d", giftID)
 	if title != "" {
 		line += fmt.Sprintf(" %s", title)
 	}
 	if stars > 0 {
-		line += fmt.Sprintf(" (%d stars)", int64(stars))
+		line += fmt.Sprintf(" (%d stars)", stars)
+	}
+	if convertStars > 0 {
+		line += fmt.Sprintf(" convert: %d", convertStars)
+	}
+	transferStars := cliutil.ExtractInt64(gift, "transferStars")
+	if transferStars > 0 {
+		line += fmt.Sprintf(" transfer: %d", transferStars)
 	}
 	if resellStars > 0 {
-		line += fmt.Sprintf(" price: %d stars", int64(resellStars))
+		line += fmt.Sprintf(" price: %d stars", resellStars)
 	}
 	if fromID != "" {
 		line += fmt.Sprintf(" from %s", fromID)
@@ -101,5 +122,8 @@ func printSavedGiftItem(gift map[string]any) {
 	if slug != "" {
 		line += fmt.Sprintf(" [slug:%s]", slug)
 	}
-	fmt.Println(line)
+	if msgID > 0 {
+		line += fmt.Sprintf(" [msg:%d]", msgID)
+	}
+	fmt.Fprintln(os.Stderr, line)
 }

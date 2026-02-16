@@ -61,8 +61,8 @@ func printGiftList(result any) {
 		return
 	}
 
-	count, _ := r["count"].(float64)
-	fmt.Fprintf(os.Stderr, "Star Gifts (%d):\n", int(count))
+	count := cliutil.ExtractInt64(r, "count")
+	fmt.Fprintf(os.Stderr, "Star Gifts (%d):\n", count)
 
 	gifts, _ := r["gifts"].([]any)
 	for _, g := range gifts {
@@ -75,25 +75,25 @@ func printGiftList(result any) {
 }
 
 func printGiftItem(gift map[string]any) {
-	id, _ := gift["id"].(float64)
-	stars, _ := gift["stars"].(float64)
+	id := cliutil.ExtractInt64(gift, "id")
+	stars := cliutil.ExtractInt64(gift, "stars")
 	title := cliutil.ExtractStringValue(gift, "title")
 	slug := cliutil.ExtractStringValue(gift, "slug")
 	limited, _ := gift["limited"].(bool)
 	soldOut, _ := gift["soldOut"].(bool)
 	birthday, _ := gift["birthday"].(bool)
-	remains, _ := gift["availabilityRemains"].(float64)
-	total, _ := gift["availabilityTotal"].(float64)
+	remains := cliutil.ExtractInt64(gift, "availabilityRemains")
+	total := cliutil.ExtractInt64(gift, "availabilityTotal")
 
-	line := fmt.Sprintf("  - #%d", int64(id))
+	line := fmt.Sprintf("  - #%d", id)
 	if title != "" {
 		line += fmt.Sprintf(" %s", title)
 	}
 	if stars > 0 {
-		line += fmt.Sprintf(" (%d stars)", int64(stars))
+		line += fmt.Sprintf(" (%d stars)", stars)
 	}
 	if limited && total > 0 {
-		line += fmt.Sprintf(" [%d/%d left]", int(remains), int(total))
+		line += fmt.Sprintf(" [%d/%d left]", remains, total)
 	}
 	if soldOut {
 		line += " [sold out]"
@@ -104,5 +104,5 @@ func printGiftItem(gift map[string]any) {
 	if slug != "" {
 		line += fmt.Sprintf(" [slug:%s]", slug)
 	}
-	fmt.Println(line)
+	fmt.Fprintln(os.Stderr, line)
 }

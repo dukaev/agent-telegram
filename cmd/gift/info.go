@@ -46,22 +46,28 @@ func printGiftInfo(result any) {
 
 	title := cliutil.ExtractStringValue(r, "title")
 	slug := cliutil.ExtractStringValue(r, "slug")
-	num, _ := r["num"].(float64)
-	issued, _ := r["availabilityIssued"].(float64)
-	total, _ := r["availabilityTotal"].(float64)
+	num := cliutil.ExtractInt64(r, "num")
+	issued := cliutil.ExtractInt64(r, "availabilityIssued")
+	total := cliutil.ExtractInt64(r, "availabilityTotal")
 	ownerName := cliutil.ExtractStringValue(r, "ownerName")
 	ownerAddr := cliutil.ExtractStringValue(r, "ownerAddress")
 	giftAddr := cliutil.ExtractStringValue(r, "giftAddress")
-	resell, _ := r["resellStars"].(float64)
+	resell := cliutil.ExtractInt64(r, "resellStars")
+	giftID := cliutil.ExtractInt64(r, "giftId")
 
-	giftID, _ := r["giftId"].(float64)
+	fmt.Fprintf(os.Stderr, "%s [%s] #%d of %d\n", title, slug, num, total)
+	fmt.Fprintf(os.Stderr, "Gift ID: %d\n", giftID)
+	fmt.Fprintf(os.Stderr, "Issued: %d / %d\n", issued, total)
 
-	fmt.Fprintf(os.Stderr, "%s [%s] #%d of %d\n", title, slug, int(num), int(total))
-	fmt.Fprintf(os.Stderr, "Gift ID: %d\n", int64(giftID))
-	fmt.Fprintf(os.Stderr, "Issued: %d / %d\n", int(issued), int(total))
-
+	ownerID := cliutil.ExtractStringValue(r, "ownerId")
 	if ownerName != "" {
-		fmt.Fprintf(os.Stderr, "Owner: %s\n", ownerName)
+		line := fmt.Sprintf("Owner: %s", ownerName)
+		if ownerID != "" {
+			line += fmt.Sprintf(" (ID: %s)", ownerID)
+		}
+		fmt.Fprintln(os.Stderr, line)
+	} else if ownerID != "" {
+		fmt.Fprintf(os.Stderr, "Owner ID: %s\n", ownerID)
 	}
 	if ownerAddr != "" {
 		fmt.Fprintf(os.Stderr, "Owner address: %s\n", ownerAddr)
@@ -70,7 +76,7 @@ func printGiftInfo(result any) {
 		fmt.Fprintf(os.Stderr, "Gift address: %s\n", giftAddr)
 	}
 	if resell > 0 {
-		fmt.Fprintf(os.Stderr, "Resale price: %d stars\n", int64(resell))
+		fmt.Fprintf(os.Stderr, "Resale price: %d stars\n", resell)
 	}
 
 	attrs, _ := r["attributes"].([]any)
@@ -83,7 +89,7 @@ func printGiftInfo(result any) {
 			}
 			attrType := cliutil.ExtractStringValue(attr, "type")
 			name := cliutil.ExtractStringValue(attr, "name")
-			rarity, _ := attr["rarityPermille"].(float64)
+			rarity := cliutil.ExtractFloat64(attr, "rarityPermille")
 
 			line := fmt.Sprintf("  - %s: %s", attrType, name)
 			if rarity > 0 {

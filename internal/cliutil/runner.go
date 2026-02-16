@@ -4,8 +4,10 @@ package cliutil
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,6 +19,32 @@ import (
 // RPCClient defines the interface for RPC calls.
 type RPCClient interface {
 	Call(method string, params any) (any, *ipc.ErrorObject)
+}
+
+var (
+	cliLogger     *slog.Logger
+	cliLoggerOnce sync.Once
+)
+
+// getCLILogger returns a logger that writes to ~/.agent-telegram/cli.log.
+func getCLILogger() *slog.Logger {
+	cliLoggerOnce.Do(func() {
+		logPath, err := paths.CLILogFilePath()
+		if err != nil {
+			cliLogger = slog.New(slog.NewTextHandler(os.Stderr, nil))
+			return
+		}
+		//nolint:gosec // logPath is from trusted CLILogFilePath()
+		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		if err != nil {
+			cliLogger = slog.New(slog.NewTextHandler(os.Stderr, nil))
+			return
+		}
+		cliLogger = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+	})
+	return cliLogger
 }
 
 // Runner handles common command execution logic.
@@ -35,13 +63,14 @@ func NewRunner(socketFlag string, jsonOutput bool) *Runner {
 }
 
 // NewRunnerFromCmd creates a runner from a cobra command.
-// It extracts the socket flag and quiet flag from the command's persistent flags.
+// It extracts the socket, quiet, and json flags from the command's persistent flags.
 func NewRunnerFromCmd(cmd *cobra.Command, jsonOutput bool) *Runner {
 	socketPath, _ := cmd.Flags().GetString("socket")
 	quiet, _ := cmd.Flags().GetBool("quiet")
+	globalJSON, _ := cmd.Flags().GetBool("json")
 	return &Runner{
 		socketFlag: socketPath,
-		jsonOutput: jsonOutput,
+		jsonOutput: jsonOutput || globalJSON,
 		quiet:      quiet,
 	}
 }
@@ -195,11 +224,30 @@ func (r *Runner) Call(method string, params any) any {
 		os.Exit(1)
 	}
 
+	log := getCLILogger()
+	start := time.Now()
+
 	client := r.Client()
 	result, err := client.Call(method, params)
+
+	duration := time.Since(start)
 	if err != nil {
+		log.Info("cli: call",
+			"method", method,
+			"params", truncateAny(params),
+			"duration_ms", duration.Milliseconds(),
+			"error_code", err.Code,
+			"error", err.Message,
+		)
 		r.handleError(err)
 	}
+
+	log.Info("cli: call",
+		"method", method,
+		"params", truncateAny(params),
+		"duration_ms", duration.Milliseconds(),
+		"status", "ok",
+	)
 	return result
 }
 
@@ -309,6 +357,21 @@ func (r *Runner) Log(msg string) {
 	}
 }
 
+const maxLogSize = 1024
+
+// truncateAny returns a truncated JSON string representation of a value.
+func truncateAny(v any) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	s := string(data)
+	if len(s) > maxLogSize {
+		return s[:maxLogSize] + "..."
+	}
+	return s
+}
+
 // ExtractString safely extracts a string from a map.
 func ExtractString(m map[string]any, key string) string {
 	if val, ok := m[key].(string); ok {
@@ -317,20 +380,30 @@ func ExtractString(m map[string]any, key string) string {
 	return ""
 }
 
-// ExtractFloat64 safely extracts a float64 from a map.
+// ExtractFloat64 safely extracts a float64 from a map (handles float64 and json.Number).
 func ExtractFloat64(m map[string]any, key string) float64 {
-	if val, ok := m[key].(float64); ok {
-		return val
+	switch v := m[key].(type) {
+	case float64:
+		return v
+	case json.Number:
+		f, _ := v.Float64()
+		return f
 	}
 	return 0
 }
 
-// ExtractInt64 safely extracts an int64 from a map (handles both int64 and float64).
+// ExtractInt64 safely extracts an int64 from a map (handles int64, float64, and json.Number).
 func ExtractInt64(m map[string]any, key string) int64 {
-	if v, ok := m[key].(int64); ok {
+	switch v := m[key].(type) {
+	case int64:
 		return v
+	case json.Number:
+		n, _ := v.Int64()
+		return n
+	case float64:
+		return int64(v)
 	}
-	return int64(ExtractFloat64(m, key))
+	return 0
 }
 
 // ToMap converts any value to a map[string]any safely.

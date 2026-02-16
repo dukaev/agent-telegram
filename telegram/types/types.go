@@ -68,6 +68,8 @@ const (
 	UpdateTypeNewChat UpdateType = "new_chat"
 	// UpdateTypeDelete is a delete update.
 	UpdateTypeDelete UpdateType = "delete"
+	// UpdateTypeStarGift is a star gift received/sent update.
+	UpdateTypeStarGift UpdateType = "star_gift"
 	// UpdateTypeOther is an other type update.
 	UpdateTypeOther UpdateType = "other"
 )

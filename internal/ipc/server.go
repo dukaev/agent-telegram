@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"time"
 )
 
 // Error codes for JSON-RPC errors.
@@ -80,21 +81,12 @@ func (s *Server) Serve(rwc io.ReadWriteCloser) error {
 			if err == io.EOF {
 				return nil
 			}
+			slog.Warn("ipc: failed to decode request", "error", err)
 			s.sendError(encoder, nil, ErrParseError)
 			continue
 		}
 
-		// Log incoming request
-		slog.Debug("received request", "method", req.Method, "id", req.ID)
-
 		resp := s.handleRequest(&req)
-
-		// Log outgoing response
-		if resp.Error != nil {
-			slog.Debug("sending error response", "error", resp.Error.Message, "code", resp.Error.Code, "id", resp.ID)
-		} else {
-			slog.Debug("sending success response", "id", resp.ID)
-		}
 
 		if err := encoder.Encode(resp); err != nil {
 			return fmt.Errorf("encode response: %w", err)
@@ -112,9 +104,11 @@ func (s *Server) ServeStdinStdout() error {
 }
 
 func (s *Server) handleRequest(req *Request) (resp *Response) {
+	start := time.Now()
+
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("handler panic", "panic", r, "method", req.Method)
+			slog.Error("ipc: handler panic", "method", req.Method, "panic", r)
 			resp = &Response{
 				JSONRPC: "2.0",
 				Error: &ErrorObject{
@@ -124,6 +118,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 				ID: req.ID,
 			}
 		}
+		s.logRequest(req, resp, time.Since(start))
 	}()
 
 	s.mu.RLock()
@@ -152,6 +147,42 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 		Result:  result,
 		ID:      req.ID,
 	}
+}
+
+// logRequest logs an IPC request and its response.
+func (s *Server) logRequest(req *Request, resp *Response, duration time.Duration) {
+	params := truncateJSON(req.Params, maxLogSize)
+	if resp.Error != nil {
+		slog.Info("ipc: request",
+			"method", req.Method,
+			"params", params,
+			"duration_ms", duration.Milliseconds(),
+			"error_code", resp.Error.Code,
+			"error", resp.Error.Message,
+		)
+	} else {
+		resultJSON, _ := json.Marshal(resp.Result)
+		slog.Info("ipc: request",
+			"method", req.Method,
+			"params", params,
+			"duration_ms", duration.Milliseconds(),
+			"result_size", len(resultJSON),
+		)
+	}
+}
+
+const maxLogSize = 1024
+
+// truncateJSON returns a truncated string representation of JSON data.
+func truncateJSON(data json.RawMessage, maxLen int) string {
+	if len(data) == 0 {
+		return "{}"
+	}
+	s := string(data)
+	if len(s) > maxLen {
+		return s[:maxLen] + "..."
+	}
+	return s
 }
 
 func (s *Server) sendError(encoder *json.Encoder, id any, err *ErrorObject) {

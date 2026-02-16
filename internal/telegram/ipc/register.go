@@ -111,6 +111,7 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"get_gift_info":       getGiftInfoHandler,
 	"get_gift_value":      getGiftValueHandler,
 	"get_resale_gifts":    getResaleGiftsHandler,
+	"buy_resale_gift":     buyResaleGiftHandler,
 }
 
 // RegisterHandlers registers all Telegram IPC handlers.

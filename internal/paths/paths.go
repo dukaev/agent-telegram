@@ -45,6 +45,15 @@ func LogFilePath() (string, error) {
 	return filepath.Join(dir, "server.log"), nil
 }
 
+// CLILogFilePath returns the path to the CLI log file.
+func CLILogFilePath() (string, error) {
+	dir, err := EnsureConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "cli.log"), nil
+}
+
 // PIDFilePath returns the path to the PID file.
 func PIDFilePath() (string, error) {
 	dir, err := EnsureConfigDir()

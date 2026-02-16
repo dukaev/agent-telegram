@@ -4,6 +4,7 @@ package gift
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -23,15 +24,16 @@ var (
 
 // MarketCmd represents the gift market command.
 var MarketCmd = &cobra.Command{
-	Use:   "market <gift_id>",
+	Use:   "market <gift_name_or_id>",
 	Short: "List gifts for resale (marketplace)",
-	Long: `Browse star gifts listed for resale by gift type ID.
-Use "gift list" to find gift IDs from the catalog.
+	Long: `Browse star gifts listed for resale by gift name or type ID.
+Use "gift list" to find gift names from the catalog.
 
 Example:
+  agent-telegram gift market Heart
   agent-telegram gift market 5170145012310081536
-  agent-telegram gift market 5170145012310081536 --sort-price --limit 10
-  agent-telegram gift market 5170145012310081536 --model "Homunculus" --backdrop "Turquoise"`,
+  agent-telegram gift market Heart --sort-price --limit 10
+  agent-telegram gift market Heart --model "Homunculus" --backdrop "Turquoise"`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -50,8 +52,13 @@ func AddMarketCommand(parentCmd *cobra.Command) {
 	MarketCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(MarketCmd, false)
 		params := map[string]any{
-			"giftId": parseGiftID(args[0]),
-			"limit":  marketLimit,
+			"limit": marketLimit,
+		}
+		// Try parsing as numeric ID, otherwise treat as name
+		if id, err := strconv.ParseInt(args[0], 10, 64); err == nil {
+			params["giftId"] = id
+		} else {
+			params["name"] = args[0]
 		}
 		if marketOffset != "" {
 			params["offset"] = marketOffset
@@ -76,12 +83,6 @@ func AddMarketCommand(parentCmd *cobra.Command) {
 	}
 }
 
-func parseGiftID(s string) int64 {
-	var id int64
-	fmt.Sscanf(s, "%d", &id)
-	return id
-}
-
 func printResaleGifts(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {
@@ -89,8 +90,8 @@ func printResaleGifts(result any) {
 		return
 	}
 
-	count, _ := r["count"].(float64)
-	fmt.Fprintf(os.Stderr, "Resale Listings (%d):\n", int(count))
+	count := cliutil.ExtractInt64(r, "count")
+	fmt.Fprintf(os.Stderr, "Resale Listings (%d):\n", count)
 
 	gifts, _ := r["gifts"].([]any)
 	for _, g := range gifts {
@@ -109,13 +110,13 @@ func printResaleGifts(result any) {
 func printResaleItem(gift map[string]any) {
 	title := cliutil.ExtractStringValue(gift, "title")
 	slug := cliutil.ExtractStringValue(gift, "slug")
-	num, _ := gift["num"].(float64)
-	resell, _ := gift["resellStars"].(float64)
+	num := cliutil.ExtractInt64(gift, "num")
+	resell := cliutil.ExtractInt64(gift, "resellStars")
 	owner := cliutil.ExtractStringValue(gift, "ownerName")
 
-	line := fmt.Sprintf("  - %s #%d", title, int(num))
+	line := fmt.Sprintf("  - %s #%d", title, num)
 	if resell > 0 {
-		line += fmt.Sprintf(" — %d stars", int64(resell))
+		line += fmt.Sprintf(" — %d stars", resell)
 	}
 	if owner != "" {
 		line += fmt.Sprintf(" (owner: %s)", owner)
@@ -141,5 +142,5 @@ func printResaleItem(gift map[string]any) {
 	}
 
 	line += fmt.Sprintf(" [slug:%s]", slug)
-	fmt.Println(line)
+	fmt.Fprintln(os.Stderr, line)
 }

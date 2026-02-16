@@ -46,18 +46,18 @@ func printGiftValue(result any) {
 	}
 
 	currency := cliutil.ExtractStringValue(r, "currency")
-	value, _ := r["value"].(float64)
-	initialStars, _ := r["initialSaleStars"].(float64)
-	initialPrice, _ := r["initialSalePrice"].(float64)
-	initialDate, _ := r["initialSaleDate"].(float64)
-	floorPrice, _ := r["floorPrice"].(float64)
-	avgPrice, _ := r["averagePrice"].(float64)
-	lastPrice, _ := r["lastSalePrice"].(float64)
-	lastDate, _ := r["lastSaleDate"].(float64)
+	value := cliutil.ExtractInt64(r, "value")
+	initialStars := cliutil.ExtractInt64(r, "initialSaleStars")
+	initialPrice := cliutil.ExtractInt64(r, "initialSalePrice")
+	initialDate := cliutil.ExtractInt64(r, "initialSaleDate")
+	floorPrice := cliutil.ExtractInt64(r, "floorPrice")
+	avgPrice := cliutil.ExtractInt64(r, "averagePrice")
+	lastPrice := cliutil.ExtractInt64(r, "lastSalePrice")
+	lastDate := cliutil.ExtractInt64(r, "lastSaleDate")
 	lastOnFragment, _ := r["lastSaleOnFragment"].(bool)
 	valueIsAvg, _ := r["valueIsAverage"].(bool)
-	listedCount, _ := r["listedCount"].(float64)
-	fragmentCount, _ := r["fragmentListedCount"].(float64)
+	listedCount := cliutil.ExtractInt64(r, "listedCount")
+	fragmentCount := cliutil.ExtractInt64(r, "fragmentListedCount")
 	fragmentURL := cliutil.ExtractStringValue(r, "fragmentListedUrl")
 
 	// Estimated value
@@ -66,17 +66,17 @@ func printGiftValue(result any) {
 		valueLabel = "Estimated value (avg)"
 	}
 	if value > 0 {
-		fmt.Fprintf(os.Stderr, "%s: %d %s\n", valueLabel, int64(value), currency)
+		fmt.Fprintf(os.Stderr, "%s: %d %s\n", valueLabel, value, currency)
 	}
 
 	// Initial sale
 	if initialStars > 0 {
-		line := fmt.Sprintf("Initial sale: %d stars", int64(initialStars))
+		line := fmt.Sprintf("Initial sale: %d stars", initialStars)
 		if initialPrice > 0 {
-			line += fmt.Sprintf(" (%d %s)", int64(initialPrice), currency)
+			line += fmt.Sprintf(" (%d %s)", initialPrice, currency)
 		}
 		if initialDate > 0 {
-			t := time.Unix(int64(initialDate), 0)
+			t := time.Unix(initialDate, 0)
 			line += fmt.Sprintf(" on %s", t.Format("2006-01-02"))
 		}
 		fmt.Fprintln(os.Stderr, line)
@@ -84,17 +84,17 @@ func printGiftValue(result any) {
 
 	// Floor / Average
 	if floorPrice > 0 {
-		fmt.Fprintf(os.Stderr, "Floor price: %d stars\n", int64(floorPrice))
+		fmt.Fprintf(os.Stderr, "Floor price: %d stars\n", floorPrice)
 	}
 	if avgPrice > 0 {
-		fmt.Fprintf(os.Stderr, "Average price: %d stars\n", int64(avgPrice))
+		fmt.Fprintf(os.Stderr, "Average price: %d stars\n", avgPrice)
 	}
 
 	// Last sale
 	if lastPrice > 0 {
-		line := fmt.Sprintf("Last sale: %d stars", int64(lastPrice))
+		line := fmt.Sprintf("Last sale: %d stars", lastPrice)
 		if lastDate > 0 {
-			t := time.Unix(int64(lastDate), 0)
+			t := time.Unix(lastDate, 0)
 			line += fmt.Sprintf(" on %s", t.Format("2006-01-02"))
 		}
 		if lastOnFragment {
@@ -105,10 +105,10 @@ func printGiftValue(result any) {
 
 	// Listings
 	if listedCount > 0 {
-		fmt.Fprintf(os.Stderr, "Listed for sale: %d\n", int(listedCount))
+		fmt.Fprintf(os.Stderr, "Listed for sale: %d\n", listedCount)
 	}
 	if fragmentCount > 0 {
-		fmt.Fprintf(os.Stderr, "Listed on Fragment: %d\n", int(fragmentCount))
+		fmt.Fprintf(os.Stderr, "Listed on Fragment: %d\n", fragmentCount)
 	}
 	if fragmentURL != "" {
 		fmt.Fprintf(os.Stderr, "Fragment URL: %s\n", fragmentURL)

@@ -37,14 +37,21 @@ type GetStarGiftsResult struct {
 // SendStarGiftParams holds parameters for SendStarGift.
 type SendStarGiftParams struct {
 	Peer     string `json:"peer" validate:"required"`
-	Slug     string `json:"slug" validate:"required"`
-	Price    int64  `json:"price" validate:"required"`
-	Duration int    `json:"duration,omitempty"`
+	GiftID   int64  `json:"giftId,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Message  string `json:"message,omitempty"`
+	HideName bool   `json:"hideName,omitempty"`
 }
 
 // Validate validates SendStarGiftParams.
 func (p SendStarGiftParams) Validate() error {
-	return ValidateStruct(p)
+	if p.Peer == "" {
+		return fmt.Errorf("peer is required")
+	}
+	if p.GiftID == 0 && p.Name == "" {
+		return fmt.Errorf("either giftId or name is required")
+	}
+	return nil
 }
 
 // SendStarGiftResult is the result of SendStarGift.
@@ -187,7 +194,8 @@ type OfferGiftResult struct {
 
 // GetResaleGiftsParams holds parameters for GetResaleGifts.
 type GetResaleGiftsParams struct {
-	GiftID      int64  `json:"giftId" validate:"required"`
+	GiftID      int64  `json:"giftId,omitempty"`
+	Name        string `json:"name,omitempty"`
 	Offset      string `json:"offset,omitempty"`
 	Limit       int    `json:"limit,omitempty"`
 	SortByPrice bool   `json:"sortByPrice,omitempty"`
@@ -199,7 +207,10 @@ type GetResaleGiftsParams struct {
 
 // Validate validates GetResaleGiftsParams.
 func (p GetResaleGiftsParams) Validate() error {
-	return ValidateStruct(p)
+	if p.GiftID == 0 && p.Name == "" {
+		return fmt.Errorf("either giftId or name is required")
+	}
+	return nil
 }
 
 // ResaleGiftItem represents a gift listed for resale.
@@ -221,6 +232,22 @@ type GetResaleGiftsResult struct {
 	Gifts      []ResaleGiftItem `json:"gifts"`
 	Count      int              `json:"count"`
 	NextOffset string           `json:"nextOffset,omitempty"`
+}
+
+// BuyResaleGiftParams holds parameters for BuyResaleGift.
+type BuyResaleGiftParams struct {
+	Slug string `json:"slug" validate:"required"`
+	Peer string `json:"peer,omitempty"`
+}
+
+// Validate validates BuyResaleGiftParams.
+func (p BuyResaleGiftParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// BuyResaleGiftResult is the result of BuyResaleGift.
+type BuyResaleGiftResult struct {
+	Success bool `json:"success"`
 }
 
 // GetGiftValueParams holds parameters for GetGiftValue.
@@ -275,6 +302,7 @@ type GetGiftInfoResult struct {
 	Title              string          `json:"title"`
 	Slug               string          `json:"slug"`
 	Num                int             `json:"num"`
+	OwnerID            string          `json:"ownerId,omitempty"`
 	OwnerName          string          `json:"ownerName,omitempty"`
 	OwnerAddress       string          `json:"ownerAddress,omitempty"`
 	AvailabilityIssued int             `json:"availabilityIssued"`

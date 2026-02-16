@@ -25,6 +25,52 @@ func NewClient(tc client.ParentClient) *Client {
 	}
 }
 
+// giftNames provides fallback names for gifts without titles.
+var giftNames = map[int64]string{
+	5170145012310081615: "Heart",
+	5170233102089322756: "Bear",
+}
+
+// resolveGiftByName resolves a gift name to its ID.
+func (c *Client) resolveGiftByName(ctx context.Context, name string) (int64, error) {
+	// Reverse lookup in giftNames map
+	for id, n := range giftNames {
+		if strings.EqualFold(n, name) {
+			return id, nil
+		}
+	}
+
+	// Fallback: fetch catalog and match by title
+	result, err := c.API.PaymentsGetStarGifts(ctx, 0)
+	if err != nil {
+		return 0, fmt.Errorf("failed to resolve gift name: %w", err)
+	}
+
+	gifts, ok := result.AsModified()
+	if !ok {
+		return 0, fmt.Errorf("gift not found: %s", name)
+	}
+
+	for _, g := range gifts.Gifts {
+		switch gift := g.(type) {
+		case *tg.StarGift:
+			title := gift.Title
+			if title == "" {
+				title = giftNames[gift.ID]
+			}
+			if strings.EqualFold(title, name) {
+				return gift.ID, nil
+			}
+		case *tg.StarGiftUnique:
+			if strings.EqualFold(gift.Title, name) {
+				return gift.ID, nil
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("gift not found: %s", name)
+}
+
 // resolveGiftInput creates an InputSavedStarGiftClass from msgID or slug.
 func resolveGiftInput(msgID int, slug string) tg.InputSavedStarGiftClass {
 	if slug != "" {
@@ -61,6 +107,10 @@ func (c *Client) GetStarGifts(ctx context.Context, params types.GetStarGiftsPara
 		}
 		switch gift := g.(type) {
 		case *tg.StarGift:
+			title := gift.Title
+			if title == "" {
+				title = giftNames[gift.ID]
+			}
 			items = append(items, types.GiftItem{
 				ID:                  gift.ID,
 				Stars:               gift.Stars,
@@ -70,7 +120,7 @@ func (c *Client) GetStarGifts(ctx context.Context, params types.GetStarGiftsPara
 				Birthday:            gift.Birthday,
 				AvailabilityRemains: gift.AvailabilityRemains,
 				AvailabilityTotal:   gift.AvailabilityTotal,
-				Title:               gift.Title,
+				Title:               title,
 				UpgradeStars:        gift.UpgradeStars,
 				Slug:                gift.AuctionSlug,
 			})
@@ -89,7 +139,7 @@ func (c *Client) GetStarGifts(ctx context.Context, params types.GetStarGiftsPara
 	}, nil
 }
 
-// SendStarGift sends a star gift to a peer.
+// SendStarGift buys a star gift from the catalog and sends it to a peer.
 func (c *Client) SendStarGift(ctx context.Context, params types.SendStarGiftParams) (*types.SendStarGiftResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -100,15 +150,47 @@ func (c *Client) SendStarGift(ctx context.Context, params types.SendStarGiftPara
 		return nil, err
 	}
 
-	_, err = c.API.PaymentsSendStarGiftOffer(ctx, &tg.PaymentsSendStarGiftOfferRequest{
-		Peer:     inputPeer,
-		Slug:     params.Slug,
-		Price:    &tg.StarsAmount{Amount: params.Price},
-		Duration: params.Duration,
-		RandomID: rand.Int63(), //nolint:gosec // non-crypto random is fine for RandomID
+	// Resolve gift name to ID if needed
+	if params.GiftID == 0 && params.Name != "" {
+		params.GiftID, err = c.resolveGiftByName(ctx, params.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Create invoice for the catalog gift purchase
+	invoice := &tg.InputInvoiceStarGift{
+		Peer:   inputPeer,
+		GiftID: params.GiftID,
+	}
+	if params.HideName {
+		invoice.SetHideName(true)
+	}
+	if params.Message != "" {
+		invoice.SetMessage(tg.TextWithEntities{Text: params.Message})
+	}
+
+	// Get payment form
+	paymentForm, err := c.API.PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
+		Invoice: invoice,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to send star gift: %w", err)
+		return nil, fmt.Errorf("failed to get payment form for gift: %w", err)
+	}
+
+	// Extract form ID
+	starGiftForm, ok := paymentForm.(*tg.PaymentsPaymentFormStarGift)
+	if !ok {
+		return nil, fmt.Errorf("unexpected payment form type: %T", paymentForm)
+	}
+
+	// Send stars payment
+	_, err = c.API.PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
+		FormID:  starGiftForm.FormID,
+		Invoice: invoice,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to pay for gift: %w", err)
 	}
 
 	return &types.SendStarGiftResult{Success: true}, nil
@@ -190,7 +272,7 @@ func (c *Client) GetSavedGifts(ctx context.Context, params types.GetSavedGiftsPa
 	}, nil
 }
 
-// TransferStarGift transfers a star gift to another peer.
+// TransferStarGift transfers a star gift to another peer using the star payment flow.
 func (c *Client) TransferStarGift(ctx context.Context, params types.TransferStarGiftParams) (*types.TransferStarGiftResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -203,15 +285,86 @@ func (c *Client) TransferStarGift(ctx context.Context, params types.TransferStar
 
 	giftInput := resolveGiftInput(params.MsgID, params.Slug)
 
-	_, err = c.API.PaymentsTransferStarGift(ctx, &tg.PaymentsTransferStarGiftRequest{
+	// Create invoice for the star gift transfer
+	invoice := &tg.InputInvoiceStarGiftTransfer{
 		Stargift: giftInput,
 		ToID:     inputPeer,
+	}
+
+	// Get payment form
+	paymentForm, err := c.API.PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
+		Invoice: invoice,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to transfer star gift: %w", err)
+		return nil, fmt.Errorf("failed to get payment form for transfer: %w", err)
+	}
+
+	// Extract form ID from the star gift payment form
+	starGiftForm, ok := paymentForm.(*tg.PaymentsPaymentFormStarGift)
+	if !ok {
+		return nil, fmt.Errorf("unexpected payment form type: %T", paymentForm)
+	}
+
+	// Send stars payment to complete the transfer
+	_, err = c.API.PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
+		FormID:  starGiftForm.FormID,
+		Invoice: invoice,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to pay for gift transfer: %w", err)
 	}
 
 	return &types.TransferStarGiftResult{Success: true}, nil
+}
+
+// BuyResaleGift buys a gift from the marketplace using the star payment flow.
+func (c *Client) BuyResaleGift(ctx context.Context, params types.BuyResaleGiftParams) (*types.BuyResaleGiftResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	// Default to self if no peer specified
+	var inputPeer tg.InputPeerClass
+	if params.Peer == "" {
+		inputPeer = &tg.InputPeerSelf{}
+	} else {
+		var err error
+		inputPeer, err = c.ResolvePeer(ctx, params.Peer)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Create invoice for the resale gift purchase
+	invoice := &tg.InputInvoiceStarGiftResale{
+		Slug: params.Slug,
+		ToID: inputPeer,
+	}
+
+	// Get payment form
+	paymentForm, err := c.API.PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
+		Invoice: invoice,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get payment form for purchase: %w", err)
+	}
+
+	// Extract form ID from the star gift payment form
+	starGiftForm, ok := paymentForm.(*tg.PaymentsPaymentFormStarGift)
+	if !ok {
+		return nil, fmt.Errorf("unexpected payment form type: %T", paymentForm)
+	}
+
+	// Send stars payment to complete the purchase
+	_, err = c.API.PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
+		FormID:  starGiftForm.FormID,
+		Invoice: invoice,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to pay for gift purchase: %w", err)
+	}
+
+	return &types.BuyResaleGiftResult{Success: true}, nil
 }
 
 // ConvertStarGift converts a star gift to stars.
@@ -347,6 +500,15 @@ func (c *Client) resolveAttributeFilters(ctx context.Context, giftID int64, mode
 func (c *Client) GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
+	}
+
+	// Resolve gift name to ID if needed
+	if params.GiftID == 0 && params.Name != "" {
+		var err error
+		params.GiftID, err = c.resolveGiftByName(ctx, params.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	limit := params.Limit
@@ -505,6 +667,26 @@ func (c *Client) GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams
 		AvailabilityIssued: gift.AvailabilityIssued,
 		AvailabilityTotal:  gift.AvailabilityTotal,
 		GiftAddress:        gift.GiftAddress,
+	}
+	if ownerID, ok := gift.GetOwnerID(); ok {
+		if p, ok := ownerID.(*tg.PeerUser); ok {
+			info.OwnerID = fmt.Sprintf("%d", p.UserID)
+		}
+	}
+	// Fallback: find owner from Users list by matching name
+	if info.OwnerID == "" && gift.OwnerName != "" {
+		for _, u := range result.Users {
+			if user, ok := u.(*tg.User); ok {
+				name := user.FirstName
+				if user.LastName != "" {
+					name += " " + user.LastName
+				}
+				if name == gift.OwnerName {
+					info.OwnerID = fmt.Sprintf("%d", user.ID)
+					break
+				}
+			}
+		}
 	}
 
 	if len(gift.ResellAmount) > 0 {

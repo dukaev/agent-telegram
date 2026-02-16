@@ -69,8 +69,9 @@ func (c *Client) Call(method string, params interface{}) (interface{}, *ErrorObj
 		return nil, ErrInternalError
 	}
 
-	// Receive response
+	// Receive response (UseNumber preserves int64 precision for large IDs)
 	decoder := json.NewDecoder(conn)
+	decoder.UseNumber()
 	var resp Response
 	if err := decoder.Decode(&resp); err != nil {
 		return nil, ErrInternalError
