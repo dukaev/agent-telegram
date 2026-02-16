@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"github.com/gotd/td/tg"
 
@@ -174,6 +175,9 @@ func (c *Client) GetSavedGifts(ctx context.Context, params types.GetSavedGiftsPa
 			item.GiftID = gift.ID
 			item.Title = gift.Title
 			item.Slug = gift.Slug
+			if len(gift.ResellAmount) > 0 {
+				item.ResellStars = gift.ResellAmount[0].GetAmount()
+			}
 		}
 
 		items = append(items, item)
@@ -224,4 +228,311 @@ func (c *Client) ConvertStarGift(ctx context.Context, params types.ConvertStarGi
 	}
 
 	return &types.ConvertStarGiftResult{Success: true}, nil
+}
+
+// UpdateGiftPrice sets or updates the resale price on a star gift.
+func (c *Client) UpdateGiftPrice(ctx context.Context, params types.UpdateGiftPriceParams) (*types.UpdateGiftPriceResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	giftInput := resolveGiftInput(params.MsgID, params.Slug)
+
+	_, err := c.API.PaymentsUpdateStarGiftPrice(ctx, &tg.PaymentsUpdateStarGiftPriceRequest{
+		Stargift:     giftInput,
+		ResellAmount: &tg.StarsAmount{Amount: params.Price},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update gift price: %w", err)
+	}
+
+	return &types.UpdateGiftPriceResult{Success: true}, nil
+}
+
+// GetBalance returns the current stars and TON balance.
+func (c *Client) GetBalance(ctx context.Context, params types.GetBalanceParams) (*types.GetBalanceResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	result := &types.GetBalanceResult{}
+
+	// Get stars balance
+	starsStatus, err := c.API.PaymentsGetStarsStatus(ctx, &tg.PaymentsGetStarsStatusRequest{
+		Peer: &tg.InputPeerSelf{},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stars balance: %w", err)
+	}
+	if starsStatus.Balance != nil {
+		result.Stars = starsStatus.Balance.GetAmount()
+		if sa, ok := starsStatus.Balance.(*tg.StarsAmount); ok {
+			result.Nanos = sa.Nanos
+		}
+	}
+
+	// Get TON balance
+	tonStatus, err := c.API.PaymentsGetStarsStatus(ctx, &tg.PaymentsGetStarsStatusRequest{
+		Peer: &tg.InputPeerSelf{},
+		Ton:  true,
+	})
+	if err == nil && tonStatus.Balance != nil {
+		result.Ton = tonStatus.Balance.GetAmount()
+	}
+
+	return result, nil
+}
+
+// OfferGift makes an offer to buy someone's gift.
+func (c *Client) OfferGift(ctx context.Context, params types.OfferGiftParams) (*types.OfferGiftResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = c.API.PaymentsSendStarGiftOffer(ctx, &tg.PaymentsSendStarGiftOfferRequest{
+		Peer:     inputPeer,
+		Slug:     params.Slug,
+		Price:    &tg.StarsAmount{Amount: params.Price},
+		Duration: params.Duration,
+		RandomID: rand.Int63(), //nolint:gosec // non-crypto random is fine for RandomID
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to send gift offer: %w", err)
+	}
+
+	return &types.OfferGiftResult{Success: true}, nil
+}
+
+// resolveAttributeFilters resolves attribute name filters to IDs by fetching available attributes.
+func (c *Client) resolveAttributeFilters(ctx context.Context, giftID int64, model, pattern, backdrop string) ([]tg.StarGiftAttributeIDClass, error) {
+	attrResult, err := c.API.PaymentsGetResaleStarGifts(ctx, &tg.PaymentsGetResaleStarGiftsRequest{
+		GiftID: giftID,
+		Limit:  1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get available attributes: %w", err)
+	}
+
+	var filters []tg.StarGiftAttributeIDClass
+	attrs, _ := attrResult.GetAttributes()
+	for _, attr := range attrs {
+		switch a := attr.(type) {
+		case *tg.StarGiftAttributeModel:
+			if model != "" && strings.EqualFold(a.Name, model) {
+				if doc, ok := a.Document.(*tg.Document); ok {
+					filters = append(filters, &tg.StarGiftAttributeIDModel{DocumentID: doc.ID})
+				}
+			}
+		case *tg.StarGiftAttributePattern:
+			if pattern != "" && strings.EqualFold(a.Name, pattern) {
+				if doc, ok := a.Document.(*tg.Document); ok {
+					filters = append(filters, &tg.StarGiftAttributeIDPattern{DocumentID: doc.ID})
+				}
+			}
+		case *tg.StarGiftAttributeBackdrop:
+			if backdrop != "" && strings.EqualFold(a.Name, backdrop) {
+				filters = append(filters, &tg.StarGiftAttributeIDBackdrop{BackdropID: a.BackdropID})
+			}
+		}
+	}
+	return filters, nil
+}
+
+// GetResaleGifts returns gifts listed for resale for a given gift type.
+func (c *Client) GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	limit := params.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+
+	req := &tg.PaymentsGetResaleStarGiftsRequest{
+		GiftID: params.GiftID,
+		Offset: params.Offset,
+		Limit:  limit,
+	}
+	if params.SortByPrice {
+		req.SetSortByPrice(true)
+	}
+	if params.SortByNum {
+		req.SetSortByNum(true)
+	}
+
+	// Resolve attribute name filters to IDs
+	hasFilters := params.Model != "" || params.Pattern != "" || params.Backdrop != ""
+	if hasFilters {
+		filters, err := c.resolveAttributeFilters(ctx, params.GiftID, params.Model, params.Pattern, params.Backdrop)
+		if err != nil {
+			return nil, err
+		}
+		if len(filters) > 0 {
+			req.SetAttributes(filters)
+		}
+	}
+
+	result, err := c.API.PaymentsGetResaleStarGifts(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resale gifts: %w", err)
+	}
+
+	var items []types.ResaleGiftItem
+	for _, g := range result.Gifts {
+		gift, ok := g.(*tg.StarGiftUnique)
+		if !ok {
+			continue
+		}
+		item := types.ResaleGiftItem{
+			ID:                 gift.ID,
+			GiftID:             gift.GiftID,
+			Title:              gift.Title,
+			Slug:               gift.Slug,
+			Num:                gift.Num,
+			OwnerName:          gift.OwnerName,
+			AvailabilityIssued: gift.AvailabilityIssued,
+			AvailabilityTotal:  gift.AvailabilityTotal,
+		}
+		if len(gift.ResellAmount) > 0 {
+			item.ResellStars = gift.ResellAmount[0].GetAmount()
+		}
+		for _, attr := range gift.Attributes {
+			switch a := attr.(type) {
+			case *tg.StarGiftAttributeModel:
+				item.Attributes = append(item.Attributes, types.GiftAttribute{
+					Type: "model", Name: a.Name, RarityPermille: a.RarityPermille,
+				})
+			case *tg.StarGiftAttributePattern:
+				item.Attributes = append(item.Attributes, types.GiftAttribute{
+					Type: "pattern", Name: a.Name, RarityPermille: a.RarityPermille,
+				})
+			case *tg.StarGiftAttributeBackdrop:
+				item.Attributes = append(item.Attributes, types.GiftAttribute{
+					Type: "backdrop", Name: a.Name, RarityPermille: a.RarityPermille,
+				})
+			}
+		}
+		items = append(items, item)
+	}
+
+	res := &types.GetResaleGiftsResult{
+		Gifts: items,
+		Count: result.Count,
+	}
+	if offset, ok := result.GetNextOffset(); ok {
+		res.NextOffset = offset
+	}
+
+	return res, nil
+}
+
+// GetGiftValue returns value/pricing analytics for a unique star gift.
+func (c *Client) GetGiftValue(ctx context.Context, params types.GetGiftValueParams) (*types.GetGiftValueResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	result, err := c.API.PaymentsGetUniqueStarGiftValueInfo(ctx, params.Slug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gift value info: %w", err)
+	}
+
+	info := &types.GetGiftValueResult{
+		Currency:           result.Currency,
+		Value:              result.Value,
+		InitialSaleDate:    result.InitialSaleDate,
+		InitialSaleStars:   result.InitialSaleStars,
+		InitialSalePrice:   result.InitialSalePrice,
+		LastSaleOnFragment: result.LastSaleOnFragment,
+		ValueIsAverage:     result.ValueIsAverage,
+	}
+
+	if v, ok := result.GetLastSaleDate(); ok {
+		info.LastSaleDate = v
+	}
+	if v, ok := result.GetLastSalePrice(); ok {
+		info.LastSalePrice = v
+	}
+	if v, ok := result.GetFloorPrice(); ok {
+		info.FloorPrice = v
+	}
+	if v, ok := result.GetAveragePrice(); ok {
+		info.AveragePrice = v
+	}
+	if v, ok := result.GetListedCount(); ok {
+		info.ListedCount = v
+	}
+	if v, ok := result.GetFragmentListedCount(); ok {
+		info.FragmentListedCount = v
+	}
+	if v, ok := result.GetFragmentListedURL(); ok {
+		info.FragmentListedURL = v
+	}
+
+	return info, nil
+}
+
+// GetGiftInfo returns detailed info about a unique star gift by slug.
+func (c *Client) GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams) (*types.GetGiftInfoResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	result, err := c.API.PaymentsGetUniqueStarGift(ctx, params.Slug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gift info: %w", err)
+	}
+
+	gift, ok := result.Gift.(*tg.StarGiftUnique)
+	if !ok {
+		return nil, fmt.Errorf("unexpected gift type for slug %s", params.Slug)
+	}
+
+	info := &types.GetGiftInfoResult{
+		ID:                 gift.ID,
+		GiftID:             gift.GiftID,
+		Title:              gift.Title,
+		Slug:               gift.Slug,
+		Num:                gift.Num,
+		OwnerName:          gift.OwnerName,
+		OwnerAddress:       gift.OwnerAddress,
+		AvailabilityIssued: gift.AvailabilityIssued,
+		AvailabilityTotal:  gift.AvailabilityTotal,
+		GiftAddress:        gift.GiftAddress,
+	}
+
+	if len(gift.ResellAmount) > 0 {
+		info.ResellStars = gift.ResellAmount[0].GetAmount()
+	}
+
+	for _, attr := range gift.Attributes {
+		switch a := attr.(type) {
+		case *tg.StarGiftAttributeModel:
+			info.Attributes = append(info.Attributes, types.GiftAttribute{
+				Type:           "model",
+				Name:           a.Name,
+				RarityPermille: a.RarityPermille,
+			})
+		case *tg.StarGiftAttributePattern:
+			info.Attributes = append(info.Attributes, types.GiftAttribute{
+				Type:           "pattern",
+				Name:           a.Name,
+				RarityPermille: a.RarityPermille,
+			})
+		case *tg.StarGiftAttributeBackdrop:
+			info.Attributes = append(info.Attributes, types.GiftAttribute{
+				Type:           "backdrop",
+				Name:           a.Name,
+				RarityPermille: a.RarityPermille,
+			})
+		}
+	}
+
+	return info, nil
 }

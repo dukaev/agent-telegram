@@ -78,8 +78,12 @@ func printGiftItem(gift map[string]any) {
 	id, _ := gift["id"].(float64)
 	stars, _ := gift["stars"].(float64)
 	title := cliutil.ExtractStringValue(gift, "title")
+	slug := cliutil.ExtractStringValue(gift, "slug")
 	limited, _ := gift["limited"].(bool)
 	soldOut, _ := gift["soldOut"].(bool)
+	birthday, _ := gift["birthday"].(bool)
+	remains, _ := gift["availabilityRemains"].(float64)
+	total, _ := gift["availabilityTotal"].(float64)
 
 	line := fmt.Sprintf("  - #%d", int64(id))
 	if title != "" {
@@ -88,11 +92,17 @@ func printGiftItem(gift map[string]any) {
 	if stars > 0 {
 		line += fmt.Sprintf(" (%d stars)", int64(stars))
 	}
-	if limited {
-		line += " [limited]"
+	if limited && total > 0 {
+		line += fmt.Sprintf(" [%d/%d left]", int(remains), int(total))
 	}
 	if soldOut {
 		line += " [sold out]"
+	}
+	if birthday {
+		line += " [birthday]"
+	}
+	if slug != "" {
+		line += fmt.Sprintf(" [slug:%s]", slug)
 	}
 	fmt.Println(line)
 }

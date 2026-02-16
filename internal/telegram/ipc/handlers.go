@@ -184,3 +184,21 @@ func transferStarGiftHandler(c Client) HandlerFunc {
 func convertStarGiftHandler(c Client) HandlerFunc {
 	return Handler(c.Gift().ConvertStarGift, "convert star gift")
 }
+func updateGiftPriceHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().UpdateGiftPrice, "update gift price")
+}
+func getBalanceHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().GetBalance, "get balance")
+}
+func offerGiftHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().OfferGift, "offer gift")
+}
+func getGiftInfoHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().GetGiftInfo, "get gift info")
+}
+func getGiftValueHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().GetGiftValue, "get gift value")
+}
+func getResaleGiftsHandler(c Client) HandlerFunc {
+	return Handler(c.Gift().GetResaleGifts, "get resale gifts")
+}

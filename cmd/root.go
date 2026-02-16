@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	version = "v0.4.1"
+	version = "dev"
 
 	// GroupIDAuth is the command group ID for authentication commands.
 	GroupIDAuth = "auth"

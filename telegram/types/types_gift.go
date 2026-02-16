@@ -74,6 +74,7 @@ type SavedGiftItem struct {
 	Stars         int64  `json:"stars"`
 	ConvertStars  int64  `json:"convertStars,omitempty"`
 	TransferStars int64  `json:"transferStars,omitempty"`
+	ResellStars   int64  `json:"resellStars,omitempty"`
 	Message       string `json:"message,omitempty"`
 	NameHidden    bool   `json:"nameHidden,omitempty"`
 	Unsaved       bool   `json:"unsaved,omitempty"`
@@ -129,4 +130,156 @@ func (p ConvertStarGiftParams) Validate() error {
 // ConvertStarGiftResult is the result of ConvertStarGift.
 type ConvertStarGiftResult struct {
 	Success bool `json:"success"`
+}
+
+// UpdateGiftPriceParams holds parameters for UpdateGiftPrice.
+type UpdateGiftPriceParams struct {
+	MsgID int    `json:"msgId,omitempty"`
+	Slug  string `json:"slug,omitempty"`
+	Price int64  `json:"price" validate:"required"`
+}
+
+// Validate validates UpdateGiftPriceParams.
+func (p UpdateGiftPriceParams) Validate() error {
+	if p.MsgID == 0 && p.Slug == "" {
+		return fmt.Errorf("either msgId or slug is required")
+	}
+	return ValidateStruct(p)
+}
+
+// UpdateGiftPriceResult is the result of UpdateGiftPrice.
+type UpdateGiftPriceResult struct {
+	Success bool `json:"success"`
+}
+
+// GetBalanceParams holds parameters for GetBalance.
+type GetBalanceParams struct{}
+
+// Validate validates GetBalanceParams.
+func (p GetBalanceParams) Validate() error {
+	return nil
+}
+
+// GetBalanceResult is the result of GetBalance.
+type GetBalanceResult struct {
+	Stars int64 `json:"stars"`
+	Nanos int   `json:"nanos,omitempty"`
+	Ton   int64 `json:"ton"`
+}
+
+// OfferGiftParams holds parameters for OfferGift.
+type OfferGiftParams struct {
+	Peer     string `json:"peer" validate:"required"`
+	Slug     string `json:"slug" validate:"required"`
+	Price    int64  `json:"price" validate:"required"`
+	Duration int    `json:"duration,omitempty"`
+}
+
+// Validate validates OfferGiftParams.
+func (p OfferGiftParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// OfferGiftResult is the result of OfferGift.
+type OfferGiftResult struct {
+	Success bool `json:"success"`
+}
+
+// GetResaleGiftsParams holds parameters for GetResaleGifts.
+type GetResaleGiftsParams struct {
+	GiftID      int64  `json:"giftId" validate:"required"`
+	Offset      string `json:"offset,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+	SortByPrice bool   `json:"sortByPrice,omitempty"`
+	SortByNum   bool   `json:"sortByNum,omitempty"`
+	Model       string `json:"model,omitempty"`
+	Pattern     string `json:"pattern,omitempty"`
+	Backdrop    string `json:"backdrop,omitempty"`
+}
+
+// Validate validates GetResaleGiftsParams.
+func (p GetResaleGiftsParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// ResaleGiftItem represents a gift listed for resale.
+type ResaleGiftItem struct {
+	ID                 int64           `json:"id"`
+	GiftID             int64           `json:"giftId"`
+	Title              string          `json:"title"`
+	Slug               string          `json:"slug"`
+	Num                int             `json:"num"`
+	OwnerName          string          `json:"ownerName,omitempty"`
+	ResellStars        int64           `json:"resellStars,omitempty"`
+	AvailabilityIssued int             `json:"availabilityIssued"`
+	AvailabilityTotal  int             `json:"availabilityTotal"`
+	Attributes         []GiftAttribute `json:"attributes,omitempty"`
+}
+
+// GetResaleGiftsResult is the result of GetResaleGifts.
+type GetResaleGiftsResult struct {
+	Gifts      []ResaleGiftItem `json:"gifts"`
+	Count      int              `json:"count"`
+	NextOffset string           `json:"nextOffset,omitempty"`
+}
+
+// GetGiftValueParams holds parameters for GetGiftValue.
+type GetGiftValueParams struct {
+	Slug string `json:"slug" validate:"required"`
+}
+
+// Validate validates GetGiftValueParams.
+func (p GetGiftValueParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// GetGiftValueResult is the result of GetGiftValue.
+type GetGiftValueResult struct {
+	Currency            string `json:"currency"`
+	Value               int64  `json:"value"`
+	InitialSaleDate     int    `json:"initialSaleDate"`
+	InitialSaleStars    int64  `json:"initialSaleStars"`
+	InitialSalePrice    int64  `json:"initialSalePrice"`
+	LastSaleDate        int    `json:"lastSaleDate,omitempty"`
+	LastSalePrice       int64  `json:"lastSalePrice,omitempty"`
+	LastSaleOnFragment  bool   `json:"lastSaleOnFragment,omitempty"`
+	ValueIsAverage      bool   `json:"valueIsAverage,omitempty"`
+	FloorPrice          int64  `json:"floorPrice,omitempty"`
+	AveragePrice        int64  `json:"averagePrice,omitempty"`
+	ListedCount         int    `json:"listedCount,omitempty"`
+	FragmentListedCount int    `json:"fragmentListedCount,omitempty"`
+	FragmentListedURL   string `json:"fragmentListedUrl,omitempty"`
+}
+
+// GetGiftInfoParams holds parameters for GetGiftInfo.
+type GetGiftInfoParams struct {
+	Slug string `json:"slug" validate:"required"`
+}
+
+// Validate validates GetGiftInfoParams.
+func (p GetGiftInfoParams) Validate() error {
+	return ValidateStruct(p)
+}
+
+// GiftAttribute represents a gift attribute (model, pattern, backdrop).
+type GiftAttribute struct {
+	Type           string `json:"type"`
+	Name           string `json:"name"`
+	RarityPermille int    `json:"rarityPermille,omitempty"`
+}
+
+// GetGiftInfoResult is the result of GetGiftInfo.
+type GetGiftInfoResult struct {
+	ID                 int64           `json:"id"`
+	GiftID             int64           `json:"giftId"`
+	Title              string          `json:"title"`
+	Slug               string          `json:"slug"`
+	Num                int             `json:"num"`
+	OwnerName          string          `json:"ownerName,omitempty"`
+	OwnerAddress       string          `json:"ownerAddress,omitempty"`
+	AvailabilityIssued int             `json:"availabilityIssued"`
+	AvailabilityTotal  int             `json:"availabilityTotal"`
+	ResellStars        int64           `json:"resellStars,omitempty"`
+	GiftAddress        string          `json:"giftAddress,omitempty"`
+	Attributes         []GiftAttribute `json:"attributes,omitempty"`
 }

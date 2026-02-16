@@ -120,4 +120,10 @@ type GiftClient interface {
 	GetSavedGifts(ctx context.Context, params types.GetSavedGiftsParams) (*types.GetSavedGiftsResult, error)
 	TransferStarGift(ctx context.Context, params types.TransferStarGiftParams) (*types.TransferStarGiftResult, error)
 	ConvertStarGift(ctx context.Context, params types.ConvertStarGiftParams) (*types.ConvertStarGiftResult, error)
+	UpdateGiftPrice(ctx context.Context, params types.UpdateGiftPriceParams) (*types.UpdateGiftPriceResult, error)
+	GetBalance(ctx context.Context, params types.GetBalanceParams) (*types.GetBalanceResult, error)
+	OfferGift(ctx context.Context, params types.OfferGiftParams) (*types.OfferGiftResult, error)
+	GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams) (*types.GetGiftInfoResult, error)
+	GetGiftValue(ctx context.Context, params types.GetGiftValueParams) (*types.GetGiftValueResult, error)
+	GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error)
 }

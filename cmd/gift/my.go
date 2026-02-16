@@ -80,6 +80,7 @@ func printSavedGifts(result any) {
 func printSavedGiftItem(gift map[string]any) {
 	giftID, _ := gift["giftId"].(float64)
 	stars, _ := gift["stars"].(float64)
+	resellStars, _ := gift["resellStars"].(float64)
 	title := cliutil.ExtractStringValue(gift, "title")
 	fromID := cliutil.ExtractStringValue(gift, "fromId")
 	slug := cliutil.ExtractStringValue(gift, "slug")
@@ -90,6 +91,9 @@ func printSavedGiftItem(gift map[string]any) {
 	}
 	if stars > 0 {
 		line += fmt.Sprintf(" (%d stars)", int64(stars))
+	}
+	if resellStars > 0 {
+		line += fmt.Sprintf(" price: %d stars", int64(resellStars))
 	}
 	if fromID != "" {
 		line += fmt.Sprintf(" from %s", fromID)

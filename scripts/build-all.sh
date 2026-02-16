@@ -31,7 +31,7 @@ for PLATFORM in "${PLATFORMS[@]}"; do
   fi
 
   echo "Building ${GOOS}/${GOARCH}..."
-  GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w -X main.version=${VERSION}" -o "$OUTPUT" .
+  GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w -X agent-telegram/cmd.version=${VERSION}" -o "$OUTPUT" .
 done
 
 echo ""
