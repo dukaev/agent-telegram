@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 // StoredConfig represents saved configuration in config.json.
@@ -53,7 +54,13 @@ func SaveConfig(appID int, appHash string) error {
 }
 
 // LoadStoredConfig loads configuration from config.json.
+// Falls back to TELEGRAM_APP_ID and TELEGRAM_APP_HASH env vars (for Docker/Coolify).
 func LoadStoredConfig() (*StoredConfig, error) {
+	// Try env vars first (for Docker/stateless deployments)
+	if cfg, ok := loadConfigFromEnv(); ok {
+		return cfg, nil
+	}
+
 	configPath, err := ConfigPath()
 	if err != nil {
 		return nil, err
@@ -62,7 +69,9 @@ func LoadStoredConfig() (*StoredConfig, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("config not found - please run 'agent-telegram login' first")
+			return nil, fmt.Errorf(
+				"config not found - run 'agent-telegram login' or set TELEGRAM_APP_ID and TELEGRAM_APP_HASH",
+			)
 		}
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
@@ -77,4 +86,20 @@ func LoadStoredConfig() (*StoredConfig, error) {
 	}
 
 	return &cfg, nil
+}
+
+// loadConfigFromEnv tries to load app credentials from environment variables.
+func loadConfigFromEnv() (*StoredConfig, bool) {
+	appIDStr := os.Getenv("TELEGRAM_APP_ID")
+	appHash := os.Getenv("TELEGRAM_APP_HASH")
+	if appIDStr == "" || appHash == "" {
+		return nil, false
+	}
+
+	appID, err := strconv.Atoi(appIDStr)
+	if err != nil || appID == 0 {
+		return nil, false
+	}
+
+	return &StoredConfig{AppID: appID, AppHash: appHash}, true
 }
