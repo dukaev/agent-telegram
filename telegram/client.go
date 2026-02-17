@@ -25,16 +25,17 @@ import (
 
 // Client wraps the Telegram client
 type Client struct {
-	client      *telegram.Client
-	appID       int
-	appHash     string
-	sessionPath string
-	updateStore *UpdateStore
-	peerCache   sync.Map // username → InputPeerClass cache
-	ready       chan struct{} // closed when client is fully initialized
-	reloadCh    chan struct{} // signals session reload request
-	cancelFn    context.CancelFunc // cancels current client context
-	mu          sync.Mutex // protects cancelFn
+	client         *telegram.Client
+	appID          int
+	appHash        string
+	sessionPath    string
+	sessionStorage session.Storage // optional: in-memory session (e.g. from env)
+	updateStore    *UpdateStore
+	peerCache      sync.Map // username → InputPeerClass cache
+	ready          chan struct{} // closed when client is fully initialized
+	reloadCh       chan struct{} // signals session reload request
+	cancelFn       context.CancelFunc // cancels current client context
+	mu             sync.Mutex // protects cancelFn
 	// Domain clients
 	message  *message.Client
 	media    *media.Client
@@ -63,6 +64,13 @@ func (c *Client) WithSessionPath(path string) *Client {
 	return c
 }
 
+// WithSessionStorage sets a custom session storage (e.g. EnvStorage).
+// When set, this takes priority over file-based storage.
+func (c *Client) WithSessionStorage(s session.Storage) *Client {
+	c.sessionStorage = s
+	return c
+}
+
 // WithUpdateStore sets a custom update store.
 func (c *Client) WithUpdateStore(store *UpdateStore) *Client {
 	c.updateStore = store
@@ -71,9 +79,16 @@ func (c *Client) WithUpdateStore(store *UpdateStore) *Client {
 
 // Start starts the Telegram client
 func (c *Client) Start(ctx context.Context) error {
-	sessionPath, err := c.GetSessionPath()
-	if err != nil {
-		return err
+	// Determine session storage: env-based takes priority over file-based
+	var storage session.Storage
+	if c.sessionStorage != nil {
+		storage = c.sessionStorage
+	} else {
+		sessionPath, err := c.GetSessionPath()
+		if err != nil {
+			return err
+		}
+		storage = &session.FileStorage{Path: sessionPath}
 	}
 
 	// Create dispatcher
@@ -82,7 +97,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 	// Create client
 	c.client = telegram.NewClient(c.appID, c.appHash, telegram.Options{
-		SessionStorage: &session.FileStorage{Path: sessionPath},
+		SessionStorage: storage,
 		UpdateHandler:  dispatcher,
 	})
 

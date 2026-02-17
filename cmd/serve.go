@@ -20,6 +20,8 @@ import (
 	"agent-telegram/telegram"
 )
 
+const envTelegramSession = "TELEGRAM_SESSION"
+
 var (
 	serveSocket     string
 	serveSession    string
@@ -184,11 +186,23 @@ func getSessionPath() string {
 
 
 // createTelegramClient creates and configures the Telegram client.
+// If TELEGRAM_SESSION env is set (base64-encoded session), uses in-memory storage.
+// Otherwise falls back to file-based session.
 func createTelegramClient(appID int, appHash, sessionPath string) *telegram.Client {
 	tgClient := telegram.NewClient(appID, appHash)
-	if sessionPath != "" {
+
+	if envSession := os.Getenv(envTelegramSession); envSession != "" {
+		storage, err := telegram.NewEnvStorage(envSession)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: invalid %s: %v\n", envTelegramSession, err)
+			os.Exit(1)
+		}
+		slog.Info("Using session from environment variable")
+		tgClient = tgClient.WithSessionStorage(storage)
+	} else if sessionPath != "" {
 		tgClient = tgClient.WithSessionPath(sessionPath)
 	}
+
 	return tgClient.WithUpdateStore(telegram.NewUpdateStore(1000))
 }
 

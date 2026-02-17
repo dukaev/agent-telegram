@@ -13,6 +13,7 @@ import (
 	"agent-telegram/cmd/open"
 	"agent-telegram/cmd/privacy"
 	"agent-telegram/cmd/search"
+	"agent-telegram/cmd/session"
 	"agent-telegram/cmd/sys"
 	"agent-telegram/cmd/user"
 )
@@ -55,6 +56,9 @@ func init() {
 
 	// Privacy commands
 	privacy.AddPrivacyCommand(RootCmd)
+
+	// Session commands
+	session.AddSessionCommand(RootCmd)
 
 	// System commands
 	sys.AddStatusCommand(RootCmd)

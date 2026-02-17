@@ -16,6 +16,7 @@ import (
 	_ "agent-telegram/cmd/open"
 	_ "agent-telegram/cmd/search"
 	_ "agent-telegram/cmd/send"
+	_ "agent-telegram/cmd/session"
 	_ "agent-telegram/cmd/sys"
 	_ "agent-telegram/cmd/user"
 )
