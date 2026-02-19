@@ -15,12 +15,12 @@ var (
 
 // OfferCmd represents the gift offer command.
 var OfferCmd = &cobra.Command{
-	Use:   "offer <slug>",
+	Use:   "offer <slug or URL>",
 	Short: "Make an offer to buy someone's gift",
 	Long: `Make an offer to buy a star gift owned by another user.
-Specify the gift by its unique slug.`,
+Specify the gift by its unique slug or URL.`,
 	Example: `  agent-telegram gift offer SwissWatch-718 --to @username --stars 5000
-  agent-telegram gift offer RestlessJar-55271 --to @username --stars 10000 --duration 86400`,
+  agent-telegram gift offer https://t.me/nft/RestlessJar-55271 --to @username --stars 10000 --duration 86400`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -37,7 +37,7 @@ func AddOfferCommand(parentCmd *cobra.Command) {
 	OfferCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(OfferCmd, false)
 		params := map[string]any{
-			"slug":  args[0],
+			"slug":  cliutil.ParseGiftSlug(args[0]),
 			"price": offerPrice,
 		}
 		offerTo.AddToParams(params)

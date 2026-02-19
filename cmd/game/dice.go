@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	diceTo       cliutil.Recipient
-	diceEmoticon string
+	diceTo        cliutil.Recipient
+	diceEmoticon  string
+	diceReplyToID int64
 )
 
 var diceCmd = &cobra.Command{
@@ -36,6 +37,7 @@ func addDiceCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(diceCmd)
 	diceCmd.Flags().VarP(&diceTo, "to", "t", "Recipient (@username or ID)")
 	diceCmd.Flags().StringVar(&diceEmoticon, "emoticon", "", "Dice emoticon (default: 🎲, also: 🎯, 🏀, ⚽, 🎳, 🎰)")
+	diceCmd.Flags().Int64Var(&diceReplyToID, "reply-to", 0, "Reply to message ID")
 }
 
 func runDiceGame(cmd *cobra.Command, args []string) {
@@ -53,6 +55,9 @@ func runDiceGame(cmd *cobra.Command, args []string) {
 	diceTo.AddToParams(params)
 	if diceEmoticon != "" {
 		params["emoticon"] = diceEmoticon
+	}
+	if diceReplyToID != 0 {
+		params["replyTo"] = diceReplyToID
 	}
 
 	result := runner.CallWithParams("send_dice", params)

@@ -14,12 +14,13 @@ var (
 
 // PriceCmd represents the gift price command.
 var PriceCmd = &cobra.Command{
-	Use:     "price [slug]",
+	Use:     "price [slug or URL]",
 	Aliases: []string{"sell"},
 	Short:   "Set resale price on a star gift",
 	Long: `Set or update the resale price on a saved star gift.
-Specify the gift by slug (positional) or --msg-id.`,
+Specify the gift by slug, URL (positional), or --msg-id.`,
 	Example: `  agent-telegram gift price SwissWatch-718 --stars 5000
+  agent-telegram gift price https://t.me/nft/SwissWatch-718 --stars 5000
   agent-telegram gift price --msg-id 123 --stars 1000`,
 	Args: cobra.MaximumNArgs(1),
 }
@@ -38,7 +39,7 @@ func AddPriceCommand(parentCmd *cobra.Command) {
 			"price": priceValue,
 		}
 		if len(args) > 0 {
-			params["slug"] = args[0]
+			params["slug"] = cliutil.ParseGiftSlug(args[0])
 		}
 		if priceMsgID != 0 {
 			params["msgId"] = priceMsgID

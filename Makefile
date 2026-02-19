@@ -1,4 +1,4 @@
-.PHONY: lint lint-fix build run test test-contracts validate-fixtures clean release-local release release-minor release-major npm-pack npm-publish
+.PHONY: lint lint-fix build run test test-contracts validate-fixtures clean release-local release release-minor release-major npm-pack npm-publish setup-hooks
 
 REVIVE = $(shell go env GOPATH)/bin/revive
 AIR = $(shell go env GOPATH)/bin/air
@@ -87,3 +87,6 @@ npm-pack: ## Pack npm package
 
 npm-publish: ## Publish to npm (requires npm login)
 	npm publish
+
+setup-hooks: ## Configure git to use .githooks/ for hooks
+	git config core.hooksPath .githooks

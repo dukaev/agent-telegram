@@ -13,12 +13,12 @@ var (
 
 // BuyCmd represents the gift buy command.
 var BuyCmd = &cobra.Command{
-	Use:   "buy <slug>",
+	Use:   "buy <slug or URL>",
 	Short: "Buy a gift from the marketplace",
 	Long: `Buy a unique star gift listed for resale on the marketplace.
 Payment is made in Telegram Stars.`,
 	Example: `  agent-telegram gift buy SantaHat-55373
-  agent-telegram gift buy SwissWatch-718 --to @username`,
+  agent-telegram gift buy https://t.me/nft/SwissWatch-718 --to @username`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -31,7 +31,7 @@ func AddBuyCommand(parentCmd *cobra.Command) {
 	BuyCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(BuyCmd, false)
 		params := map[string]any{
-			"slug": args[0],
+			"slug": cliutil.ParseGiftSlug(args[0]),
 		}
 		if buyTo.Peer() != "" {
 			params["peer"] = buyTo.Peer()

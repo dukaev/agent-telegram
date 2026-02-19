@@ -14,11 +14,12 @@ var (
 
 // TransferCmd represents the gift transfer command.
 var TransferCmd = &cobra.Command{
-	Use:   "transfer [slug]",
+	Use:   "transfer [slug or URL]",
 	Short: "Transfer a star gift to another user",
 	Long: `Transfer a saved star gift to another Telegram user.
-Specify the gift by slug (positional) or --msg-id.`,
+Specify the gift by slug, URL (positional), or --msg-id.`,
 	Example: `  agent-telegram gift transfer SantaHat-55373 --to @username
+  agent-telegram gift transfer https://t.me/nft/SantaHat-55373 --to @username
   agent-telegram gift transfer --to @username --msg-id 123`,
 	Args: cobra.MaximumNArgs(1),
 }
@@ -36,7 +37,7 @@ func AddTransferCommand(parentCmd *cobra.Command) {
 		params := map[string]any{}
 		transferTo.AddToParams(params)
 		if len(args) > 0 {
-			params["slug"] = args[0]
+			params["slug"] = cliutil.ParseGiftSlug(args[0])
 		}
 		if transferMsgID != 0 {
 			params["msgId"] = transferMsgID

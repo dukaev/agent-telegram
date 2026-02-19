@@ -13,12 +13,12 @@ import (
 
 // ValueCmd represents the gift value command.
 var ValueCmd = &cobra.Command{
-	Use:   "value <slug>",
+	Use:   "value <slug or URL>",
 	Short: "Show value analytics for a unique gift",
 	Long: `Show pricing and value information for a unique star gift,
 including floor price, average price, last sale, and Fragment listings.`,
 	Example: `  agent-telegram gift value SwissWatch-718
-  agent-telegram gift value RestlessJar-55271`,
+  agent-telegram gift value https://t.me/nft/RestlessJar-55271`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -29,7 +29,7 @@ func AddValueCommand(parentCmd *cobra.Command) {
 	ValueCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(ValueCmd, false)
 		params := map[string]any{
-			"slug": args[0],
+			"slug": cliutil.ParseGiftSlug(args[0]),
 		}
 		result := runner.CallWithParams("get_gift_value", params)
 		runner.PrintResult(result, printGiftValue)

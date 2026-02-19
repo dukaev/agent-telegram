@@ -12,12 +12,12 @@ import (
 
 // InfoCmd represents the gift info command.
 var InfoCmd = &cobra.Command{
-	Use:   "info <slug>",
+	Use:   "info <slug or URL>",
 	Short: "Show detailed info about a unique gift",
-	Long: `Show detailed information about a unique star gift by its slug,
+	Long: `Show detailed information about a unique star gift by its slug or URL,
 including owner, model, pattern, backdrop, and rarity.`,
 	Example: `  agent-telegram gift info SwissWatch-718
-  agent-telegram gift info RestlessJar-55271`,
+  agent-telegram gift info https://t.me/nft/RestlessJar-55271`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -28,7 +28,7 @@ func AddInfoCommand(parentCmd *cobra.Command) {
 	InfoCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(InfoCmd, false)
 		params := map[string]any{
-			"slug": args[0],
+			"slug": cliutil.ParseGiftSlug(args[0]),
 		}
 		result := runner.CallWithParams("get_gift_info", params)
 		runner.PrintResult(result, printGiftInfo)
