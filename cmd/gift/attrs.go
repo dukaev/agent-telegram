@@ -21,8 +21,8 @@ var AttrsCmd = &cobra.Command{
 Use --type to show only one attribute category.`,
 	Example: `  agent-telegram gift attrs Heart
   agent-telegram gift attrs 5170145012310081536
-  agent-telegram gift attrs Heart --type backdrop
-  agent-telegram gift attrs Heart --type model`,
+  agent-telegram gift attrs https://t.me/nft/RestlessJar-41157
+  agent-telegram gift attrs Heart --type backdrop`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -36,11 +36,21 @@ func AddAttrsCommand(parentCmd *cobra.Command) {
 		runner := cliutil.NewRunnerFromCmd(AttrsCmd, false)
 		runner.SetIDKey("name")
 		params := map[string]any{}
-		if id, err := strconv.ParseInt(args[0], 10, 64); err == nil {
+
+		arg := args[0]
+		slug := cliutil.ParseGiftSlug(arg)
+		if slug != arg {
+			// URL was parsed — resolve giftId via get_gift_info
+			info := runner.CallWithParams("get_gift_info", map[string]any{"slug": slug})
+			if r, ok := info.(map[string]any); ok {
+				params["giftId"] = int64(cliutil.ExtractFloat64(r, "giftId"))
+			}
+		} else if id, err := strconv.ParseInt(arg, 10, 64); err == nil {
 			params["giftId"] = id
 		} else {
-			params["name"] = args[0]
+			params["name"] = arg
 		}
+
 		result := runner.CallWithParams("get_gift_attrs", params)
 		runner.PrintResult(result, func(r any) {
 			printGiftAttrs(r, attrsType)

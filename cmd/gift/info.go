@@ -4,6 +4,7 @@ package gift
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -13,9 +14,9 @@ import (
 // InfoCmd represents the gift info command.
 var InfoCmd = &cobra.Command{
 	Use:   "info <slug or URL>",
-	Short: "Show detailed info about a unique gift",
+	Short: "Show detailed info and value analytics for a unique gift",
 	Long: `Show detailed information about a unique star gift by its slug or URL,
-including owner, model, pattern, backdrop, and rarity.`,
+including owner, model, pattern, backdrop, rarity, and value analytics.`,
 	Example: `  agent-telegram gift info SwissWatch-718
   agent-telegram gift info https://t.me/nft/RestlessJar-55271`,
 	Args: cobra.ExactArgs(1),
@@ -27,12 +28,41 @@ func AddInfoCommand(parentCmd *cobra.Command) {
 
 	InfoCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(InfoCmd, false)
+		slug := cliutil.ParseGiftSlug(args[0])
 		params := map[string]any{
-			"slug": cliutil.ParseGiftSlug(args[0]),
+			"slug": slug,
 		}
-		result := runner.CallWithParams("get_gift_info", params)
-		runner.PrintResult(result, PrintGiftInfo)
+
+		infoResult := runner.CallWithParams("get_gift_info", params)
+
+		// Fetch value analytics (may not be available for all gifts)
+		valueResult, valueErr := runner.Client().Call("get_gift_value", params)
+
+		// Merge value into info result for JSON output
+		if valueErr == nil && valueResult != nil {
+			if infoMap, ok := infoResult.(map[string]any); ok {
+				infoMap["value"] = valueResult
+			}
+		}
+
+		runner.PrintResult(infoResult, func(r any) {
+			PrintGiftInfo(r)
+			if valueErr == nil && valueResult != nil {
+				fmt.Fprintln(os.Stderr)
+				printGiftValue(valueResult)
+			}
+			printGiftInfoHints(slug)
+		})
 	}
+}
+
+func printGiftInfoHints(slug string) {
+	fmt.Fprintln(os.Stderr, "\nRelated commands:")
+	fmt.Fprintf(os.Stderr, "  gift attrs %s     # attributes for this gift type\n", slug)
+	fmt.Fprintf(os.Stderr, "  gift buy %s       # buy from marketplace\n", slug)
+	fmt.Fprintf(os.Stderr, "  gift offer %s     # make an offer to owner\n", slug)
+	fmt.Fprintf(os.Stderr, "  gift price %s     # set resale price\n", slug)
+	fmt.Fprintf(os.Stderr, "  gift send %s --to @user  # transfer to another user\n", slug)
 }
 
 //nolint:funlen // Printing many fields requires many statements
@@ -96,5 +126,82 @@ func PrintGiftInfo(result any) {
 			}
 			fmt.Fprintln(os.Stderr, line)
 		}
+	}
+}
+
+//nolint:funlen // Printing many fields requires many statements
+func printGiftValue(result any) {
+	r, ok := result.(map[string]any)
+	if !ok {
+		return
+	}
+
+	currency := cliutil.ExtractStringValue(r, "currency")
+	value := cliutil.ExtractInt64(r, "value")
+	initialStars := cliutil.ExtractInt64(r, "initialSaleStars")
+	initialPrice := cliutil.ExtractInt64(r, "initialSalePrice")
+	initialDate := cliutil.ExtractInt64(r, "initialSaleDate")
+	floorPrice := cliutil.ExtractInt64(r, "floorPrice")
+	avgPrice := cliutil.ExtractInt64(r, "averagePrice")
+	lastPrice := cliutil.ExtractInt64(r, "lastSalePrice")
+	lastDate := cliutil.ExtractInt64(r, "lastSaleDate")
+	lastOnFragment, _ := r["lastSaleOnFragment"].(bool)
+	valueIsAvg, _ := r["valueIsAverage"].(bool)
+	listedCount := cliutil.ExtractInt64(r, "listedCount")
+	fragmentCount := cliutil.ExtractInt64(r, "fragmentListedCount")
+	fragmentURL := cliutil.ExtractStringValue(r, "fragmentListedUrl")
+
+	// Estimated value
+	valueLabel := "Estimated value"
+	if valueIsAvg {
+		valueLabel = "Estimated value (avg)"
+	}
+	if value > 0 {
+		fmt.Fprintf(os.Stderr, "%s: %d %s\n", valueLabel, value, currency)
+	}
+
+	// Initial sale
+	if initialStars > 0 {
+		line := fmt.Sprintf("Initial sale: %d stars", initialStars)
+		if initialPrice > 0 {
+			line += fmt.Sprintf(" (%d %s)", initialPrice, currency)
+		}
+		if initialDate > 0 {
+			t := time.Unix(initialDate, 0)
+			line += fmt.Sprintf(" on %s", t.Format("2006-01-02"))
+		}
+		fmt.Fprintln(os.Stderr, line)
+	}
+
+	// Floor / Average
+	if floorPrice > 0 {
+		fmt.Fprintf(os.Stderr, "Floor price: %d stars\n", floorPrice)
+	}
+	if avgPrice > 0 {
+		fmt.Fprintf(os.Stderr, "Average price: %d stars\n", avgPrice)
+	}
+
+	// Last sale
+	if lastPrice > 0 {
+		line := fmt.Sprintf("Last sale: %d stars", lastPrice)
+		if lastDate > 0 {
+			t := time.Unix(lastDate, 0)
+			line += fmt.Sprintf(" on %s", t.Format("2006-01-02"))
+		}
+		if lastOnFragment {
+			line += " (on Fragment)"
+		}
+		fmt.Fprintln(os.Stderr, line)
+	}
+
+	// Listings
+	if listedCount > 0 {
+		fmt.Fprintf(os.Stderr, "Listed for sale: %d\n", listedCount)
+	}
+	if fragmentCount > 0 {
+		fmt.Fprintf(os.Stderr, "Listed on Fragment: %d\n", fragmentCount)
+	}
+	if fragmentURL != "" {
+		fmt.Fprintf(os.Stderr, "Fragment URL: %s\n", fragmentURL)
 	}
 }
