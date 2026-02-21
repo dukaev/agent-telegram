@@ -32,7 +32,7 @@ func AddChatsCommand(rootCmd *cobra.Command) {
 	ChatsCmd.Flags().IntVarP(&ChatsLimit, "limit", "l", 10, "Number of chats to return (max 100)")
 	ChatsCmd.Flags().IntVarP(&ChatsOffset, "offset", "o", 0, "Offset for pagination")
 	ChatsCmd.Flags().StringVarP(&ChatsSearch, "search", "Q", "", "Filter by title or username (case-insensitive)")
-	ChatsCmd.Flags().StringVarP(&ChatsType, "type", "T", "", "Filter by type: user, chat, channel, or bot")
+	ChatsCmd.Flags().StringVar(&ChatsType, "type", "", "Filter by type: user, chat, channel, or bot")
 
 	ChatsCmd.Run = func(*cobra.Command, []string) {
 		cliutil.GetChats(ChatsCmd, ChatsLimit, ChatsOffset, ChatsSearch, ChatsType)

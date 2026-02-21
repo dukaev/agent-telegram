@@ -37,7 +37,7 @@ func init() {
 	ChatsCmd.Flags().IntVarP(&chatsLimit, "limit", "l", 10, "Number of chats to return (max 100)")
 	ChatsCmd.Flags().IntVarP(&chatsOffset, "offset", "o", 0, "Offset for pagination")
 	ChatsCmd.Flags().StringVarP(&chatsSearch, "search", "Q", "", "Filter by title or username (case-insensitive)")
-	ChatsCmd.Flags().StringVarP(&chatsType, "type", "T", "", "Filter by type: user, chat, channel, or bot")
+	ChatsCmd.Flags().StringVar(&chatsType, "type", "", "Filter by type: user, chat, channel, or bot")
 
 	RootCmd.AddCommand(ChatsCmd)
 }

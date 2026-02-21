@@ -82,7 +82,7 @@ func AddSearchCommand(rootCmd *cobra.Command) {
 func setupGlobalSearchFlags() {
 	SearchGlobalCmd.Flags().IntVarP(&globalLimit, "limit", "l", cliutil.DefaultLimitMedium, "Number of results (max 100)")
 	SearchGlobalCmd.Flags().IntVarP(&globalOffset, "offset", "o", 0, "Offset for pagination")
-	SearchGlobalCmd.Flags().StringVarP(&globalType, "type", "T", "",
+	SearchGlobalCmd.Flags().StringVar(&globalType, "type", "",
 		"Filter by type: bots, users, chats, channels, or empty for all")
 }
 
@@ -90,7 +90,7 @@ func setupGlobalSearchFlags() {
 func setupInChatSearchFlags() {
 	SearchInChatCmd.Flags().VarP(&inChatPeer, "to", "t", "Recipient (@username, username, or chat ID)")
 	SearchInChatCmd.Flags().IntVarP(&inChatLimit, "limit", "l", cliutil.DefaultLimitMedium, "Number of results (max 100)")
-	SearchInChatCmd.Flags().StringVarP(&inChatType, "type", "T", "",
+	SearchInChatCmd.Flags().StringVar(&inChatType, "type", "",
 		"Filter by message type: text, photos, videos, documents, links, audio, voice")
 	SearchInChatCmd.Flags().IntVarP(&inChatOffset, "offset", "o", 0, "Offset for pagination (message ID)")
 	_ = SearchInChatCmd.MarkFlagRequired("to")

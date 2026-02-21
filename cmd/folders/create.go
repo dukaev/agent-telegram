@@ -34,7 +34,7 @@ Example:
 func AddCreateCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(CreateCmd)
 
-	CreateCmd.Flags().StringVarP(&createTitle, "title", "T", "", "Folder title")
+	CreateCmd.Flags().StringVar(&createTitle, "title", "", "Folder title")
 	CreateCmd.Flags().StringSliceVar(&createIncludedChats, "include", nil, "Chats to include")
 	CreateCmd.Flags().StringSliceVar(&createExcludedChats, "exclude", nil, "Chats to exclude")
 	CreateCmd.Flags().BoolVar(&createIncludeContacts, "include-contacts", false, "Include contacts")
