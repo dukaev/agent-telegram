@@ -31,12 +31,12 @@ func AddInfoCommand(parentCmd *cobra.Command) {
 			"slug": cliutil.ParseGiftSlug(args[0]),
 		}
 		result := runner.CallWithParams("get_gift_info", params)
-		runner.PrintResult(result, printGiftInfo)
+		runner.PrintResult(result, PrintGiftInfo)
 	}
 }
 
 //nolint:funlen // Printing many fields requires many statements
-func printGiftInfo(result any) {
+func PrintGiftInfo(result any) {
 	r, ok := result.(map[string]any)
 	if !ok {
 		fmt.Fprintln(os.Stderr, "Failed to get gift info")

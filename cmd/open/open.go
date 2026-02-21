@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"agent-telegram/cmd/gift"
 	"agent-telegram/internal/cliutil"
 )
 
@@ -22,25 +23,27 @@ var (
 // OpenCmd represents the open command.
 var OpenCmd = &cobra.Command{
 	GroupID: "chat",
-	Use:     "open [@username|invite-link]",
-	Short:   "Open a chat or join via invite link",
-	Long: `Open and view messages from a Telegram user/chat, or join via invite link.
+	Use:     "open [@username|invite-link|gift-url]",
+	Short:   "Open a chat, join via invite link, or view a gift",
+	Long: `Open and view messages from a Telegram user/chat, join via invite link, or view gift info.
 
+If the argument is a Telegram NFT gift URL, it will show gift details.
 If the argument is a Telegram invite link, it will join the chat.
 Otherwise, it will open and view messages from the user/chat.
 
-Supports various invite link formats:
-  - https://t.me/+hash
-  - https://t.me/joinchat/hash
-  - tg://join?invite=hash
-  - +hash
-  - hash
+Supports various formats:
+  - https://t.me/nft/SantaHat-55373 (gift URL)
+  - https://t.me/+hash (invite link)
+  - https://t.me/joinchat/hash (invite link)
+  - tg://join?invite=hash (invite link)
+  - @username (chat)
 
-Supports pagination with --limit and --offset flags.
+Supports pagination with --limit and --offset flags (for chat messages).
 
 Examples:
   agent-telegram open @username
-  agent-telegram open https://t.me/+abc123`,
+  agent-telegram open https://t.me/+abc123
+  agent-telegram open https://t.me/nft/SantaHat-55373`,
 	Args: cobra.ExactArgs(1),
 }
 
@@ -54,13 +57,32 @@ func AddOpenCommand(rootCmd *cobra.Command) {
 	OpenCmd.Run = func(_ *cobra.Command, args []string) {
 		arg := args[0]
 
-		// Check if argument is an invite link
-		if isInviteLink(arg) {
+		switch {
+		case isGiftURL(arg):
+			runGiftInfo(arg)
+		case isInviteLink(arg):
 			runJoin(arg)
-		} else {
+		default:
 			runOpen(arg)
 		}
 	}
+}
+
+// isGiftURL checks if the argument is a Telegram NFT gift URL.
+func isGiftURL(arg string) bool {
+	return strings.HasPrefix(arg, "https://t.me/nft/") ||
+		strings.HasPrefix(arg, "http://t.me/nft/") ||
+		strings.HasPrefix(arg, "t.me/nft/")
+}
+
+// runGiftInfo fetches and displays gift info by URL.
+func runGiftInfo(url string) {
+	runner := cliutil.NewRunnerFromCmd(OpenCmd, false)
+	params := map[string]any{
+		"slug": cliutil.ParseGiftSlug(url),
+	}
+	result := runner.CallWithParams("get_gift_info", params)
+	runner.PrintResult(result, gift.PrintGiftInfo)
 }
 
 // isInviteLink checks if the argument appears to be an invite link.
