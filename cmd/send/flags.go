@@ -4,6 +4,7 @@ package send
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -13,9 +14,11 @@ import (
 // SendFlags holds common flags for all send commands.
 //revive:disable:exported stutter
 type SendFlags struct {
-	To      cliutil.Recipient
-	Caption string
-	cmd     *cobra.Command
+	To          cliutil.Recipient
+	Caption     string
+	WaitReply   bool
+	WaitTimeout time.Duration
+	cmd         *cobra.Command
 }
 
 // Register registers common flags on a cobra command (with caption).
@@ -31,6 +34,8 @@ func (f *SendFlags) RegisterOptionalTo(command *cobra.Command) {
 	f.cmd = command
 	command.Flags().VarP(&f.To, "to", "t", "Recipient (@username, username, or chat ID)")
 	command.Flags().StringVar(&f.Caption, "caption", "", "Caption")
+	command.Flags().BoolVarP(&f.WaitReply, "wait-reply", "w", false, "Wait for a reply after sending")
+	command.Flags().DurationVar(&f.WaitTimeout, "timeout", 10*time.Second, "Timeout for --wait-reply")
 }
 
 // RegisterWithoutCaption registers flags without caption option.

@@ -27,6 +27,7 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	AddPressButtonCommand(MsgCmd)
 	AddReactionCommand(MsgCmd)
 	AddInspectKeyboardCommand(MsgCmd)
+	AddPressKeyboardCommand(MsgCmd)
 	AddReadCommand(MsgCmd)
 	AddTypingCommand(MsgCmd)
 	AddScheduledCommand(MsgCmd)
@@ -39,7 +40,8 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	InspectButtonsCmd.Use = "inspect-buttons <message_id>"
 	PressButtonCmd.Use = "press-button <message_id> <button_index>"
 	ReactionCmd.Use = "reaction <message_id> <emoji>"
-	InspectKeyboardCmd.Use = "inspect-keyboard"
+	InspectKeyboardCmd.Use = "inspect-keyboard [peer]"
+	PressKeyboardCmd.Use = "press-keyboard [peer] <button_text_or_index>"
 
 	// Add send command as a top-level command (in "Manage Messages" group)
 	send.AddSendCommand(rootCmd)

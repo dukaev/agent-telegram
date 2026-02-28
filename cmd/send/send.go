@@ -155,6 +155,12 @@ func AddSendCommand(rootCmd *cobra.Command) {
 
 		result := runner.CallWithParams(method, params)
 
+		// Handle --wait-reply: send, then poll for reply
+		if sendFlags.WaitReply {
+			HandleWaitReply(runner, sendFlags.To.Peer(), result, sendFlags.WaitTimeout)
+			return
+		}
+
 		// For send_message, extract and output just the message ID
 		if method == methodSendMessage || method == methodSendReply {
 			if r, ok := result.(map[string]any); ok {
