@@ -176,6 +176,30 @@ type SetTypingResult struct {
 	Success bool `json:"success"`
 }
 
+// GetRepliesParams holds parameters for GetReplies.
+type GetRepliesParams struct {
+	PeerInfo
+	MsgID
+	Limit    int `json:"limit,omitempty"`
+	OffsetID int `json:"offsetId,omitempty"`
+}
+
+// Validate validates GetRepliesParams.
+func (p GetRepliesParams) Validate() error {
+	if err := p.ValidatePeer(); err != nil {
+		return err
+	}
+	return p.ValidateMessageID()
+}
+
+// GetRepliesResult is the result of GetReplies.
+type GetRepliesResult struct {
+	Messages []MessageResult `json:"messages"`
+	Count    int             `json:"count"`
+	Peer     string          `json:"peer"`
+	ThreadID int64           `json:"threadId"`
+}
+
 // GetScheduledMessagesParams holds parameters for GetScheduledMessages.
 type GetScheduledMessagesParams struct {
 	Peer string `json:"peer" validate:"required"`

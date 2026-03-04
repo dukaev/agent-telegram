@@ -129,6 +129,9 @@ func setTypingHandler(c Client) HandlerFunc {
 func getScheduledMessagesHandler(c Client) HandlerFunc {
 	return Handler(c.Message().GetScheduledMessages, "get scheduled messages")
 }
+func getRepliesHandler(c Client) HandlerFunc {
+	return Handler(c.Message().GetReplies, "get replies")
+}
 func sendVoiceHandler(c Client) HandlerFunc {
 	return FileHandler(func(p types.SendVoiceParams) string { return p.File }, c.Media().SendVoice, "send voice")
 }

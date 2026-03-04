@@ -86,6 +86,7 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"read_messages":          readMessagesHandler,
 	"set_typing":             setTypingHandler,
 	"get_scheduled_messages": getScheduledMessagesHandler,
+	"get_replies":            getRepliesHandler,
 	"send_voice":             sendVoiceHandler,
 	"send_video_note":        sendVideoNoteHandler,
 	"send_sticker":           sendStickerHandler,

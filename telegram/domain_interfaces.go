@@ -62,6 +62,7 @@ type MessageClient interface {
 	GetScheduledMessages(
 		ctx context.Context, params types.GetScheduledMessagesParams,
 	) (*types.GetScheduledMessagesResult, error)
+	GetReplies(ctx context.Context, params types.GetRepliesParams) (*types.GetRepliesResult, error)
 }
 
 //nolint:dupl // Domain interfaces intentionally share similar signatures
