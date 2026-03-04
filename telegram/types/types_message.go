@@ -200,6 +200,38 @@ type GetRepliesResult struct {
 	ThreadID int64           `json:"threadId"`
 }
 
+// ReplyToCommentParams holds parameters for ReplyToComment.
+type ReplyToCommentParams struct {
+	PeerInfo
+	MsgID
+	CommentID int64  `json:"commentId" validate:"required"`
+	Text      string `json:"text" validate:"required"`
+}
+
+// Validate validates ReplyToCommentParams.
+func (p ReplyToCommentParams) Validate() error {
+	if err := p.ValidatePeer(); err != nil {
+		return err
+	}
+	if err := p.ValidateMessageID(); err != nil {
+		return err
+	}
+	if p.CommentID == 0 {
+		return fmt.Errorf("commentId is required")
+	}
+	return ValidateStruct(p)
+}
+
+// ReplyToCommentResult is the result of ReplyToComment.
+type ReplyToCommentResult struct {
+	ID       int64  `json:"id"`
+	Date     int64  `json:"date"`
+	Peer     string `json:"peer"`
+	Text     string `json:"text"`
+	ReplyTo  int64  `json:"replyTo"`
+	ThreadID int64  `json:"threadId"`
+}
+
 // GetScheduledMessagesParams holds parameters for GetScheduledMessages.
 type GetScheduledMessagesParams struct {
 	Peer string `json:"peer" validate:"required"`

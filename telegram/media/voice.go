@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
 )
 
@@ -40,12 +41,17 @@ func (c *Client) SendVoice(ctx context.Context, params types.SendVoiceParams) (*
 		Attributes: attributes,
 	}
 
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	parsed, entities := helpers.ParseCustomEmojis(params.Caption)
+	req := &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
-		Message:  params.Caption,
+		Message:  parsed,
 		RandomID: time.Now().UnixNano(),
-	})
+	}
+	if len(entities) > 0 {
+		req.SetEntities(entities)
+	}
+	result, err := c.API.MessagesSendMedia(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send voice: %w", err)
 	}

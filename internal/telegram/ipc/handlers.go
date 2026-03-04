@@ -132,6 +132,9 @@ func getScheduledMessagesHandler(c Client) HandlerFunc {
 func getRepliesHandler(c Client) HandlerFunc {
 	return Handler(c.Message().GetReplies, "get replies")
 }
+func replyToCommentHandler(c Client) HandlerFunc {
+	return Handler(c.Message().ReplyToComment, "reply to comment")
+}
 func sendVoiceHandler(c Client) HandlerFunc {
 	return FileHandler(func(p types.SendVoiceParams) string { return p.File }, c.Media().SendVoice, "send voice")
 }

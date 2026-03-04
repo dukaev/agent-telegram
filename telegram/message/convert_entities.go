@@ -71,6 +71,9 @@ func convertEntities(entities []tg.MessageEntityClass) []map[string]any {
 			}
 		case *tg.MessageEntityBlockquote:
 			entity["type"] = "blockquote"
+		case *tg.MessageEntityCustomEmoji:
+			entity["type"] = "custom_emoji"
+			entity["document_id"] = ent.DocumentID
 		}
 		result = append(result, entity)
 	}

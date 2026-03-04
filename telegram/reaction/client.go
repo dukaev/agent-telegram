@@ -4,6 +4,8 @@ package reaction
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/client"
@@ -23,7 +25,14 @@ func NewClient(tc client.ParentClient) *Client {
 }
 
 // createReaction creates a Reaction from emoji string.
+// Supports custom emoji via "custom:<documentId>" format.
 func createReaction(emoji string) tg.ReactionClass {
+	if strings.HasPrefix(emoji, "custom:") {
+		docID, err := strconv.ParseInt(strings.TrimPrefix(emoji, "custom:"), 10, 64)
+		if err == nil {
+			return &tg.ReactionCustomEmoji{DocumentID: docID}
+		}
+	}
 	return &tg.ReactionEmoji{
 		Emoticon: emoji,
 	}

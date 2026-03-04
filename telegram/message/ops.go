@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
 )
 
@@ -23,11 +24,16 @@ func (c *Client) UpdateMessage(
 		return nil, err
 	}
 
-	_, err = c.API.MessagesEditMessage(ctx, &tg.MessagesEditMessageRequest{
+	parsed, entities := helpers.ParseCustomEmojis(params.Text)
+	req := &tg.MessagesEditMessageRequest{
 		Peer:    inputPeer,
 		ID:      int(params.MessageID),
-		Message: params.Text,
-	})
+		Message: parsed,
+	}
+	if len(entities) > 0 {
+		req.SetEntities(entities)
+	}
+	_, err = c.API.MessagesEditMessage(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update message: %w", err)
 	}

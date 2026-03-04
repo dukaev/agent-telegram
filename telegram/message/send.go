@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
 )
 
@@ -23,11 +24,16 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 	}
 
 	// Send message
-	result, err := c.API.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+	parsed, entities := helpers.ParseCustomEmojis(params.Message)
+	req := &tg.MessagesSendMessageRequest{
 		Peer:     inputPeer,
-		Message:  params.Message,
+		Message:  parsed,
 		RandomID: time.Now().UnixNano(),
-	})
+	}
+	if len(entities) > 0 {
+		req.SetEntities(entities)
+	}
+	result, err := c.API.MessagesSendMessage(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
@@ -54,12 +60,17 @@ func (c *Client) SendReply(ctx context.Context, params types.SendReplyParams) (*
 		return nil, err
 	}
 
-	result, err := c.API.MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+	parsed, entities := helpers.ParseCustomEmojis(params.Text)
+	req := &tg.MessagesSendMessageRequest{
 		Peer:     inputPeer,
-		Message:  params.Text,
+		Message:  parsed,
 		ReplyTo:  &tg.InputReplyToMessage{ReplyToMsgID: int(params.MessageID)},
 		RandomID: time.Now().UnixNano(),
-	})
+	}
+	if len(entities) > 0 {
+		req.SetEntities(entities)
+	}
+	result, err := c.API.MessagesSendMessage(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send reply: %w", err)
 	}

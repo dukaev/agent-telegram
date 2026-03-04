@@ -33,6 +33,7 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	AddScheduledCommand(MsgCmd)
 	AddClearCommand(MsgCmd)
 	AddRepliesCommand(MsgCmd)
+	AddReplyCommentCommand(MsgCmd)
 
 	// Update Use strings for subcommands
 	DeleteCmd.Use = "delete <message_id|id1,id2,...>"
