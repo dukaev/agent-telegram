@@ -3,6 +3,7 @@ package message
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gotd/td/tg"
@@ -51,6 +52,16 @@ func (c *Client) resolveDiscussionPeer(
 	}
 	if discussionPeer == nil {
 		return nil, 0, fmt.Errorf("could not resolve discussion group peer")
+	}
+
+	// Cache the discussion peer so subsequent commands (send, reaction, etc.)
+	// can resolve it by numeric ID without needing dialogs lookup.
+	if ch, ok := discussionPeer.(*tg.InputPeerChannel); ok {
+		peerStr := "-100" + strconv.FormatInt(ch.ChannelID, 10)
+		c.CachePeer(peerStr, discussionPeer)
+	} else if chat, ok := discussionPeer.(*tg.InputPeerChat); ok {
+		peerStr := "-" + strconv.FormatInt(chat.ChatID, 10)
+		c.CachePeer(peerStr, discussionPeer)
 	}
 
 	return discussionPeer, threadID, nil

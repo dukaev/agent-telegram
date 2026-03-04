@@ -18,6 +18,7 @@ type BaseClient struct {
 // ParentClient is an interface for accessing parent client methods.
 type ParentClient interface {
 	ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error)
+	CachePeer(peer string, inputPeer tg.InputPeerClass)
 }
 
 // SetAPI sets the API client (called when the telegram client is initialized).
@@ -31,6 +32,13 @@ func (b *BaseClient) ResolvePeer(ctx context.Context, peer string) (tg.InputPeer
 		return nil, fmt.Errorf("parent client not set")
 	}
 	return b.Parent.ResolvePeer(ctx, peer)
+}
+
+// CachePeer stores a resolved peer in the parent client's cache.
+func (b *BaseClient) CachePeer(peer string, inputPeer tg.InputPeerClass) {
+	if b.Parent != nil {
+		b.Parent.CachePeer(peer, inputPeer)
+	}
 }
 
 // IsInitialized returns true if the API client is set.

@@ -52,6 +52,13 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 	return inputPeer, nil
 }
 
+// CachePeer stores a resolved peer in the cache.
+// This allows domain clients to populate the cache from API responses
+// (e.g., discussion group peers discovered via messages.getDiscussionMessage).
+func (c *Client) CachePeer(peer string, inputPeer tg.InputPeerClass) {
+	c.peerCache.Store(peer, inputPeer)
+}
+
 // resolveUsername resolves a username via Telegram API.
 func (c *Client) resolveUsername(ctx context.Context, username string) (tg.InputPeerClass, error) {
 	peerClass, err := c.client.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
