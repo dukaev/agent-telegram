@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"agent-telegram/internal/cliutil"
+
 	// Import subpackages to trigger their init() registration
 	_ "agent-telegram/cmd/auth"
 	_ "agent-telegram/cmd/chat"
@@ -51,10 +53,31 @@ It provides commands to:
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the RootCmd.
 func Execute() {
+	// Handle --schema before cobra's Execute to bypass required flag/arg validation.
+	if hasFlag(os.Args[1:], "--schema") {
+		cmd, _, _ := RootCmd.Find(os.Args[1:])
+		if cmd != nil && cmd != RootCmd {
+			cliutil.PrintCommandSchema(cmd)
+		}
+	}
+
 	err := RootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+// hasFlag checks if a flag is present in args.
+func hasFlag(args []string, flag string) bool {
+	for _, a := range args {
+		if a == "--" {
+			return false
+		}
+		if a == flag {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {
@@ -72,5 +95,6 @@ func init() {
 	RootCmd.PersistentFlags().StringSlice("fields", nil, "Select output fields (comma-separated)")
 	RootCmd.PersistentFlags().StringSlice("filter", nil, "Filter results (e.g., 'stars>1000', 'type=channel')")
 	RootCmd.PersistentFlags().Bool("dry-run", false, "Preview action without executing")
+	RootCmd.PersistentFlags().Bool("schema", false, "Output result schema without executing")
 }
 

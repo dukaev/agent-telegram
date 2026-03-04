@@ -2,6 +2,7 @@ package cliutil
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -37,6 +38,21 @@ func NewListCommand(cfg ListCommandConfig) *cobra.Command {
 		Long:  cfg.Long,
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
+			// Handle --schema before required flag validation
+			if s, _ := cmd.Flags().GetBool("schema"); s {
+				if printSchema(cfg.Method) {
+					os.Exit(0)
+				}
+				fmt.Fprintf(os.Stderr, "Error: no schema for method %q\n", cfg.Method)
+				os.Exit(1)
+			}
+
+			if to.Peer() == "" {
+				fmt.Fprintln(os.Stderr, "Error: required flag \"--to\" not set")
+				_ = cmd.Usage()
+				os.Exit(1)
+			}
+
 			pag := NewPagination(limit, offset, PaginationConfig{
 				MaxLimit: maxLimit,
 			})
@@ -61,7 +77,9 @@ func NewListCommand(cfg ListCommandConfig) *cobra.Command {
 	if cfg.HasOffset {
 		cmd.Flags().IntVarP(&offset, "offset", "o", 0, "Offset for pagination")
 	}
-	_ = cmd.MarkFlagRequired("to")
+
+	// Register method for schema support
+	RegisterMethod(cmd, cfg.Method)
 
 	return cmd
 }

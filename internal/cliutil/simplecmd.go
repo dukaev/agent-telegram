@@ -62,6 +62,18 @@ func NewSimpleCommand(def SimpleCommandDef) *cobra.Command {
 		Long:  def.Long,
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
+			// Handle --schema before required flag validation
+			if s, _ := cmd.Flags().GetBool("schema"); s {
+				if printSchema(def.Method) {
+					os.Exit(0)
+				}
+				fmt.Fprintf(os.Stderr, "Error: no schema for method %q\n", def.Method)
+				os.Exit(1)
+			}
+
+			// Validate required flags manually
+			validateRequiredFlags(cmd, def.Flags, vals)
+
 			runner := NewRunnerFromCmd(cmd, true)
 			params := buildParams(def.Flags, vals)
 
@@ -75,10 +87,13 @@ func NewSimpleCommand(def SimpleCommandDef) *cobra.Command {
 		},
 	}
 
-	// Add flags based on type
+	// Add flags based on type (without MarkFlagRequired — validated in Run)
 	for _, f := range def.Flags {
 		addFlag(cmd, f, vals)
 	}
+
+	// Register method for schema support
+	RegisterMethod(cmd, def.Method)
 
 	return cmd
 }
@@ -111,8 +126,35 @@ func addFlag(cmd *cobra.Command, f Flag, vals *flagValues) {
 		*vals.stringSlices[f.Name] = []string{}
 		cmd.Flags().StringSliceVarP(vals.stringSlices[f.Name], f.Name, f.Short, []string{}, f.Usage)
 	}
-	if f.Required {
-		_ = cmd.MarkFlagRequired(f.Name)
+}
+
+// validateRequiredFlags checks that all required flags have values, exiting on error.
+func validateRequiredFlags(cmd *cobra.Command, flags []Flag, vals *flagValues) {
+	for _, f := range flags {
+		if !f.Required {
+			continue
+		}
+		missing := false
+		switch f.Type {
+		case FlagString:
+			if ptr := vals.strings[f.Name]; ptr == nil || *ptr == "" {
+				missing = true
+			}
+		case FlagStringSlice:
+			if ptr := vals.stringSlices[f.Name]; ptr == nil || len(*ptr) == 0 {
+				missing = true
+			}
+		case FlagInt:
+			// Int flags with value 0 are considered "unset" for required check
+			if ptr := vals.ints[f.Name]; ptr == nil || *ptr == 0 {
+				missing = true
+			}
+		}
+		if missing {
+			fmt.Fprintf(os.Stderr, "Error: required flag \"--%s\" not set\n", f.Name)
+			_ = cmd.Usage()
+			os.Exit(1)
+		}
 	}
 }
 

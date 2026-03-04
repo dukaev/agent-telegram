@@ -50,6 +50,22 @@ func NewToggleCommand(cfg ToggleCommandConfig) *cobra.Command {
 		Long:  cfg.Long,
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
+			// Handle --schema before required flag validation
+			if s, _ := cmd.Flags().GetBool("schema"); s {
+				method, _ := resolveToggleMethod(cfg, disable)
+				if printSchema(method) {
+					os.Exit(0)
+				}
+				fmt.Fprintf(os.Stderr, "Error: no schema for method %q\n", method)
+				os.Exit(1)
+			}
+
+			if to.Peer() == "" {
+				fmt.Fprintln(os.Stderr, "Error: required flag \"--to\" not set")
+				_ = cmd.Usage()
+				os.Exit(1)
+			}
+
 			runner := NewRunnerFromCmd(cmd, false)
 			params := map[string]any{}
 			to.AddToParams(params)
@@ -83,7 +99,13 @@ func NewToggleCommand(cfg ToggleCommandConfig) *cobra.Command {
 
 	cmd.Flags().VarP(&to, "to", "t", "Recipient (@username, username, or chat ID)")
 	cmd.Flags().BoolVarP(&disable, "disable", "d", false, "Disable/reverse the action")
-	_ = cmd.MarkFlagRequired("to")
+
+	// Register primary method for schema support
+	method := cfg.EnableMethod
+	if method == "" {
+		method = cfg.SingleMethod
+	}
+	RegisterMethod(cmd, method)
 
 	return cmd
 }
