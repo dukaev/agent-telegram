@@ -15,6 +15,7 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"get_me":       GetMeHandler,
 	"get_chats":    getChatsHandler,
 	"get_updates":  GetUpdatesHandler,
+	"get_message":  getMessageHandler,
 	"get_messages": getMessagesHandler,
 	"get_user_info": getUserInfoHandler,
 

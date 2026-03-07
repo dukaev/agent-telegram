@@ -45,6 +45,7 @@ type ChatClient interface {
 //nolint:dupl // Domain interfaces intentionally share similar signatures
 // MessageClient defines the interface for message operations.
 type MessageClient interface {
+	GetMessage(ctx context.Context, params types.GetMessageParams) (*types.GetMessageResult, error)
 	GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error)
 	SendMessage(ctx context.Context, params types.SendMessageParams) (*types.SendMessageResult, error)
 	SendReply(ctx context.Context, params types.SendReplyParams) (*types.SendReplyResult, error)

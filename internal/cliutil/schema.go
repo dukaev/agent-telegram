@@ -20,6 +20,7 @@ var resultTypes = map[string]reflect.Type{
 	"get_me":        reflect.TypeOf(types.GetMeResult{}),
 	"get_chats":     reflect.TypeOf(types.GetChatsResult{}),
 	"get_updates":   reflect.TypeOf(types.GetUpdatesResult{}),
+	"get_message":   reflect.TypeOf(types.GetMessageResult{}),
 	"get_messages":  reflect.TypeOf(types.GetMessagesResult{}),
 	"get_user_info": reflect.TypeOf(types.GetUserInfoResult{}),
 

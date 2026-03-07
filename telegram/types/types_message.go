@@ -3,6 +3,25 @@ package types // revive:disable:var-naming
 
 import "fmt"
 
+// GetMessageParams holds parameters for GetMessage (single message by ID).
+type GetMessageParams struct {
+	PeerInfo
+	MsgID
+}
+
+// Validate validates GetMessageParams.
+func (p GetMessageParams) Validate() error {
+	if err := p.ValidatePeer(); err != nil {
+		return err
+	}
+	return p.ValidateMessageID()
+}
+
+// GetMessageResult is the result of GetMessage.
+type GetMessageResult struct {
+	Message MessageResult `json:"message"`
+}
+
 // SendReplyParams holds parameters for SendReply.
 type SendReplyParams struct {
 	PeerInfo

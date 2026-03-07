@@ -4,6 +4,7 @@ package ipc
 import "agent-telegram/telegram/types"
 
 // Message handlers.
+func getMessageHandler(c Client) HandlerFunc  { return Handler(c.Message().GetMessage, "get message") }
 func sendMessageHandler(c Client) HandlerFunc { return Handler(c.Message().SendMessage, "send message") }
 func sendReplyHandler(c Client) HandlerFunc   { return Handler(c.Message().SendReply, "send reply") }
 func updateMessageHandler(c Client) HandlerFunc {

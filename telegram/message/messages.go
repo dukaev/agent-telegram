@@ -34,6 +34,59 @@ func normalizePeer(peer string) string {
 	return "@" + peer
 }
 
+// GetMessage returns a single message by ID from a chat.
+func (c *Client) GetMessage(ctx context.Context, params types.GetMessageParams) (*types.GetMessageResult, error) {
+	if err := c.CheckInitialized(); err != nil {
+		return nil, err
+	}
+
+	peer := params.Peer
+	if peer == "" {
+		peer = params.Username
+	}
+
+	inputPeer, err := c.ResolvePeer(ctx, normalizePeer(peer))
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve peer %s: %w", peer, err)
+	}
+
+	msgIDs := []tg.InputMessageClass{&tg.InputMessageID{ID: int(params.MessageID)}}
+
+	var messagesClass tg.MessagesMessagesClass
+	if ch, ok := inputPeer.(*tg.InputPeerChannel); ok {
+		messagesClass, err = c.API.ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
+			Channel: &tg.InputChannel{ChannelID: ch.ChannelID, AccessHash: ch.AccessHash},
+			ID:      msgIDs,
+		})
+	} else {
+		messagesClass, err = c.API.MessagesGetMessages(ctx, msgIDs)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message: %w", err)
+	}
+
+	messages, users := extractMessagesData(messagesClass)
+	if len(messages) == 0 {
+		return nil, fmt.Errorf("message %d not found", params.MessageID)
+	}
+
+	userMap := make(map[int64]tg.UserClass)
+	for _, u := range users {
+		if user, ok := u.(*tg.User); ok {
+			userMap[user.ID] = user
+		}
+	}
+
+	results := convertMessagesToResult(messages, userMap)
+	if len(results) == 0 {
+		return nil, fmt.Errorf("message %d not found", params.MessageID)
+	}
+
+	return &types.GetMessageResult{
+		Message: results[0],
+	}, nil
+}
+
 // GetMessages returns messages from a dialog with the given username.
 func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error) {
 	if err := c.CheckInitialized(); err != nil {

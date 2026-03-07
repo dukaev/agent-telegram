@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gotd/td/tg"
+	"github.com/gotd/td/tgerr"
 
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
@@ -21,6 +22,9 @@ func (c *Client) resolveDiscussionPeer(
 		MsgID: int(msgID),
 	})
 	if err != nil {
+		if tgerr.Is(err, "MSG_ID_INVALID") {
+			return nil, 0, fmt.Errorf("message %d not found or comments are disabled for this post", msgID)
+		}
 		return nil, 0, fmt.Errorf("failed to get discussion message: %w", err)
 	}
 
