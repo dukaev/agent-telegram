@@ -145,6 +145,30 @@ func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface
 		if m.ReplyMarkup != nil {
 			data["buttons"] = extractButtonsData(m.ReplyMarkup)
 		}
+
+		// Channel post extra fields
+		if views, ok := m.GetViews(); ok {
+			data["views"] = views
+		}
+		if fwds, ok := m.GetForwards(); ok {
+			data["forwards"] = fwds
+		}
+		if gid, ok := m.GetGroupedID(); ok {
+			data["grouped_id"] = gid
+		}
+		if author, ok := m.GetPostAuthor(); ok && author != "" {
+			data["post_author"] = author
+		}
+		if m.Post {
+			data["post"] = true
+		}
+		if fwdFrom, ok := m.GetFwdFrom(); ok {
+			if fwdFrom.FromID != nil {
+				data["fwd_from"] = helpers.FormatPeer(fwdFrom.FromID, helpers.PeerFormatTyped)
+			} else if fromName, nameOk := fwdFrom.GetFromName(); nameOk && fromName != "" {
+				data["fwd_from"] = fromName
+			}
+		}
 	}
 	return data
 }

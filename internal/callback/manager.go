@@ -2,6 +2,7 @@ package callback
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"strings"
 	"sync/atomic"
@@ -65,12 +66,20 @@ func (m *Manager) HandleUpdate(update types.StoredUpdate) {
 
 	state := m.store.Get()
 	for _, sub := range state.Subscriptions {
-		if m.matchesSubscription(update, sub) {
-			m.pending.Add(1)
-			m.sender.Send(update)
-			m.pending.Add(-1)
-			return // send once even if multiple subs match
+		eventType, ok := m.matchesSubscription(update, sub)
+		if !ok {
+			continue
 		}
+		event := toCallbackEvent(update, eventType)
+		payload, err := json.Marshal(event)
+		if err != nil {
+			slog.Error("callback: marshal event failed", "error", err)
+			return
+		}
+		m.pending.Add(1)
+		m.sender.Send(payload)
+		m.pending.Add(-1)
+		return // send once even if multiple subs match
 	}
 }
 
@@ -102,28 +111,62 @@ func (m *Manager) ConfirmVerification() error {
 	return nil
 }
 
-// matchesSubscription returns true if the update matches the subscription's
-// channel and event type filters.
-func (m *Manager) matchesSubscription(update types.StoredUpdate, sub Subscription) bool {
-	// Check event type
-	matched := false
+// matchesSubscription returns the matched event type and true if the update
+// matches the subscription's channel and event type filters.
+func (m *Manager) matchesSubscription(
+	update types.StoredUpdate, sub Subscription,
+) (string, bool) {
 	for _, et := range sub.EventTypes {
-		if updateType, ok := eventTypeToUpdateType[et]; ok {
-			if string(update.Type) == updateType {
-				matched = true
-				break
-			}
+		updateType, ok := eventTypeToUpdateType[et]
+		if !ok {
+			continue
+		}
+		if string(update.Type) != updateType {
+			continue
+		}
+		// Event type matched — check peer
+		if sub.ChannelID == "" || peerMatchesUpdate(update, sub.ChannelID) {
+			return et, true
 		}
 	}
-	if !matched {
-		return false
-	}
+	return "", false
+}
 
-	// Check peer
-	if sub.ChannelID == "" {
-		return true
+// toCallbackEvent transforms a StoredUpdate into an Event.
+//nolint:nestif // Extracting multiple optional fields from a map requires nested type assertions
+func toCallbackEvent(update types.StoredUpdate, eventType string) Event {
+	msg, _ := update.Data["message"].(map[string]any)
+	post := Post{}
+	if msg != nil {
+		if id, ok := msg["id"].(int); ok {
+			post.ID = id
+		}
+		if date, ok := msg["date"].(int); ok {
+			post.Date = date
+		}
+		if text, ok := msg["text"].(string); ok {
+			post.Text = text
+		}
+		if views, ok := msg["views"].(int); ok {
+			post.Views = views
+		}
+		if peer, ok := msg["peer"].(string); ok {
+			post.ChannelID = peer
+		}
+		if fwdFrom, ok := msg["fwd_from"].(string); ok {
+			post.ForwardedFrom = fwdFrom
+		}
+		if gid, ok := msg["grouped_id"].(int64); ok {
+			post.GroupID = &gid
+		}
+		if author, ok := msg["post_author"].(string); ok {
+			post.PostAuthor = author
+		}
+		if media, ok := msg["media"].(map[string]any); ok {
+			post.Media = media
+		}
 	}
-	return peerMatchesUpdate(update, sub.ChannelID)
+	return Event{EventType: eventType, Post: post}
 }
 
 // peerMatchesUpdate checks if the update's peer matches the subscription channel.
