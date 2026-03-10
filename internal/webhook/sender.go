@@ -4,14 +4,10 @@ package webhook
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
-
-	"agent-telegram/telegram/types"
 )
 
 const (
@@ -21,23 +17,13 @@ const (
 	defaultHTTPTimeout = 10 * time.Second
 )
 
-// Filter determines which updates to forward to the webhook.
-type Filter struct {
-	// Peer filters by peer string (e.g. "@channel", "channel:123").
-	// Empty means no filter.
-	Peer string
-	// Types filters by update type. Empty means all types.
-	Types []string
-}
-
-// Sender sends Telegram updates to an HTTP endpoint.
+// Sender delivers pre-marshaled JSON payloads to an HTTP endpoint with retry.
 type Sender struct {
 	url        string
 	httpClient *http.Client
-	ch         chan types.StoredUpdate
+	ch         chan []byte
 	retries    int
 	retryDelay time.Duration
-	filter     Filter
 }
 
 // Option configures a Sender.
@@ -53,17 +39,12 @@ func WithRetryDelay(d time.Duration) Option {
 	return func(s *Sender) { s.retryDelay = d }
 }
 
-// WithFilter sets the update filter.
-func WithFilter(f Filter) Option {
-	return func(s *Sender) { s.filter = f }
-}
-
-// New creates a new Sender that will POST updates to the given URL.
+// New creates a new Sender that will POST payloads to the given URL.
 func New(url string, opts ...Option) *Sender {
 	s := &Sender{
 		url:        url,
 		httpClient: &http.Client{Timeout: defaultHTTPTimeout},
-		ch:         make(chan types.StoredUpdate, defaultBufferSize),
+		ch:         make(chan []byte, defaultBufferSize),
 		retries:    defaultRetries,
 		retryDelay: defaultRetryDelay,
 	}
@@ -73,62 +54,31 @@ func New(url string, opts ...Option) *Sender {
 	return s
 }
 
-// Send enqueues an update for delivery. Non-blocking: drops the update if the
-// internal buffer is full (to avoid blocking the Telegram dispatcher goroutine).
-func (s *Sender) Send(update types.StoredUpdate) {
+// Send enqueues a pre-marshaled JSON payload for delivery. Non-blocking: drops
+// the payload if the internal buffer is full.
+func (s *Sender) Send(payload []byte) {
 	select {
-	case s.ch <- update:
+	case s.ch <- payload:
 	default:
-		slog.Warn("webhook: buffer full, dropping update", "update_id", update.ID, "type", update.Type)
+		slog.Warn("webhook: buffer full, dropping payload")
 	}
 }
 
-// Run reads updates from the internal channel and delivers them to the webhook
+// Run reads payloads from the internal channel and delivers them to the webhook
 // URL. It blocks until ctx is cancelled.
 func (s *Sender) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case update := <-s.ch:
-			if !s.matches(update) {
-				continue
-			}
-			s.deliver(ctx, update)
+		case payload := <-s.ch:
+			s.deliver(ctx, payload)
 		}
 	}
 }
 
-// matches returns true if the update passes the filter.
-func (s *Sender) matches(update types.StoredUpdate) bool {
-	if len(s.filter.Types) > 0 {
-		found := false
-		for _, t := range s.filter.Types {
-			if string(update.Type) == t {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	if s.filter.Peer == "" {
-		return true
-	}
-
-	return peerMatchesUpdate(update, s.filter.Peer)
-}
-
-// deliver POSTs the update to the webhook URL with retry logic.
-func (s *Sender) deliver(ctx context.Context, update types.StoredUpdate) {
-	body, err := json.Marshal(update)
-	if err != nil {
-		slog.Error("webhook: failed to marshal update", "error", err)
-		return
-	}
-
+// deliver POSTs the payload to the webhook URL with retry logic.
+func (s *Sender) deliver(ctx context.Context, payload []byte) {
 	for attempt := 0; attempt <= s.retries; attempt++ {
 		if attempt > 0 {
 			delay := s.retryDelay * time.Duration(1<<(attempt-1)) // exponential backoff
@@ -139,21 +89,20 @@ func (s *Sender) deliver(ctx context.Context, update types.StoredUpdate) {
 			}
 		}
 
-		if err := s.post(ctx, body); err != nil {
+		if err := s.post(ctx, payload); err != nil {
 			slog.Warn("webhook: delivery failed",
 				"attempt", attempt+1,
 				"max_attempts", s.retries+1,
-				"update_id", update.ID,
 				"error", err,
 			)
 			continue
 		}
 
-		slog.Debug("webhook: delivered update", "update_id", update.ID, "type", update.Type)
+		slog.Debug("webhook: delivered payload")
 		return
 	}
 
-	slog.Error("webhook: giving up after retries", "update_id", update.ID, "retries", s.retries)
+	slog.Error("webhook: giving up after retries", "retries", s.retries)
 }
 
 // post performs a single HTTP POST with the given body.
@@ -174,36 +123,4 @@ func (s *Sender) post(ctx context.Context, body []byte) error {
 		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 	return nil
-}
-
-// peerMatchesUpdate checks if the update's peer field matches the filter value.
-func peerMatchesUpdate(update types.StoredUpdate, filterPeer string) bool {
-	// Normalise: strip leading @
-	filter := strings.TrimPrefix(filterPeer, "@")
-
-	msg, ok := update.Data["message"].(map[string]any)
-	if !ok {
-		return false
-	}
-
-	peer, _ := msg["peer"].(string) // e.g. "channel:123"
-	if peer == "" {
-		return false
-	}
-
-	// Exact match or partial case-insensitive match
-	if strings.EqualFold(peer, filter) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(peer), strings.ToLower(filter)) {
-		return true
-	}
-
-	// Numeric ID match: "channel:123" vs "123"
-	parts := strings.SplitN(peer, ":", 2)
-	if len(parts) == 2 && parts[1] == filter {
-		return true
-	}
-
-	return false
 }
