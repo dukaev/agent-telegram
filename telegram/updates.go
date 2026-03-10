@@ -13,10 +13,11 @@ import (
 
 // UpdateStore stores Telegram updates in memory.
 type UpdateStore struct {
-	mu      sync.RWMutex
-	updates []types.StoredUpdate
-	nextID  int64
-	limit   int
+	mu       sync.RWMutex
+	updates  []types.StoredUpdate
+	nextID   int64
+	limit    int
+	onUpdate func(types.StoredUpdate)
 }
 
 // NewUpdateStore creates a new UpdateStore with the given limit.
@@ -31,10 +32,17 @@ func NewUpdateStore(limit int) *UpdateStore {
 	}
 }
 
+// SetOnUpdate sets a callback that is called after each update is stored.
+// The callback is called outside the lock to avoid deadlocks.
+func (s *UpdateStore) SetOnUpdate(fn func(types.StoredUpdate)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onUpdate = fn
+}
+
 // Add adds a new update to the store.
 func (s *UpdateStore) Add(update types.StoredUpdate) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	update.ID = s.nextID
 	update.Timestamp = time.Now()
@@ -44,9 +52,15 @@ func (s *UpdateStore) Add(update types.StoredUpdate) {
 
 	// Trim old updates if we exceed the limit
 	if len(s.updates) > s.limit {
-		// Remove oldest updates (from the beginning)
 		over := len(s.updates) - s.limit
 		s.updates = s.updates[over:]
+	}
+
+	onUpdate := s.onUpdate
+	s.mu.Unlock()
+
+	if onUpdate != nil {
+		onUpdate(update)
 	}
 }
 

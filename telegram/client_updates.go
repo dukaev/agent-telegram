@@ -35,6 +35,24 @@ func (c *Client) RegisterUpdateHandlers(dispatcher tg.UpdateDispatcher) {
 		}))
 		return nil
 	})
+
+	// New channel posts
+	dispatcher.OnNewChannelMessage(
+		func(_ context.Context, entities tg.Entities, update *tg.UpdateNewChannelMessage) error {
+			c.updateStore.Add(NewStoredUpdate(types.UpdateTypeNewMessage, map[string]any{
+				"message": MessageData(update.Message, entities),
+			}))
+			return nil
+		})
+
+	// Edited channel posts
+	dispatcher.OnEditChannelMessage(
+		func(_ context.Context, entities tg.Entities, update *tg.UpdateEditChannelMessage) error {
+			c.updateStore.Add(NewStoredUpdate(types.UpdateTypeEditMessage, map[string]any{
+				"message": MessageData(update.Message, entities),
+			}))
+			return nil
+		})
 }
 
 // giftActionData extracts gift data from a service message, or returns nil.
