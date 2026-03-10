@@ -5,62 +5,134 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strings"
-	"sync/atomic"
+	"sync"
 
 	"agent-telegram/internal/webhook"
 	"agent-telegram/telegram/types"
 )
 
+// PeerResolver resolves and normalizes a peer string (e.g., "@username" or "-100123")
+// to a typed ID string (e.g., "channel:123"). Returns an error if the peer doesn't exist.
+type PeerResolver func(ctx context.Context, peer string) (string, error)
+
 // eventTypeToUpdateType maps API event types to internal update types.
 var eventTypeToUpdateType = map[string]string{
-	"new_post":  string(types.UpdateTypeNewMessage),
-	"edit_post": string(types.UpdateTypeEditMessage),
+	"new_post":    string(types.UpdateTypeNewMessage),
+	"edit_post":   string(types.UpdateTypeEditMessage),
+	"delete_post": string(types.UpdateTypeDelete),
 }
 
 // Manager routes Telegram updates to matching subscriptions and delivers them
 // to the configured callback URL.
 type Manager struct {
-	store   *Store
-	sender  *webhook.Sender
-	pending atomic.Int64
+	store        *Store
+	mu           sync.Mutex
+	sender       *webhook.Sender
+	senderCancel context.CancelFunc
+	parentCtx    context.Context  //nolint:containedctx // intentionally stored for goroutine lifecycle
+	stopped      bool
+	peerResolver PeerResolver
 }
 
 // NewManager creates a Manager using the given store.
-// The sender is created lazily when a callback URL is set.
 func NewManager(store *Store) *Manager {
-	m := &Manager{store: store}
-	m.rebuildSender()
-	return m
+	return &Manager{store: store}
 }
 
-// rebuildSender recreates the sender from the current store state.
-// Call after changing the callback URL.
+// WithPeerResolver sets the function used to validate and normalize channel IDs.
+func (m *Manager) WithPeerResolver(fn PeerResolver) {
+	m.mu.Lock()
+	m.peerResolver = fn
+	m.mu.Unlock()
+}
+
+// ResolveChannelID validates and normalizes a channel ID via Telegram API.
+// Returns the normalized ID (e.g., "channel:123") or the original if no resolver is set.
+func (m *Manager) ResolveChannelID(
+	ctx context.Context, channelID string,
+) (string, error) {
+	m.mu.Lock()
+	resolver := m.peerResolver
+	m.mu.Unlock()
+	if resolver == nil {
+		return channelID, nil
+	}
+	return resolver(ctx, channelID)
+}
+
+// Run stores the parent context and starts the sender goroutine if a verified
+// URL already exists. It blocks until ctx is cancelled, then stops the sender.
+func (m *Manager) Run(ctx context.Context) {
+	m.mu.Lock()
+	m.parentCtx = ctx
+	m.stopped = false
+	m.mu.Unlock()
+
+	m.rebuildSender() //nolint:contextcheck // uses stored parentCtx for sender lifecycle
+
+	<-ctx.Done()
+
+	m.mu.Lock()
+	m.stopped = true
+	m.stopSenderLocked()
+	m.mu.Unlock()
+}
+
+// rebuildSender stops any existing sender goroutine, creates a new Sender
+// for the current verified URL, and starts its goroutine if Run() is active.
 func (m *Manager) rebuildSender() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.stopSenderLocked()
+
 	state := m.store.Get()
 	if state.CallbackURL == "" || !state.Verified {
-		m.sender = nil
 		return
 	}
+	if m.stopped || m.parentCtx == nil {
+		return
+	}
+
 	m.sender = webhook.New(
 		state.CallbackURL,
 		webhook.WithRetries(3),
+		webhook.WithOnError(func(msg string) { m.store.RecordError(msg) }),
 	)
+
+	sCtx, cancel := context.WithCancel(m.parentCtx)
+	m.senderCancel = cancel
+	go m.sender.Run(sCtx)
+	slog.Info("callback: sender started", "url", state.CallbackURL)
 }
 
-// Run starts the sender goroutine (if a verified callback URL exists).
-// It blocks until ctx is cancelled.
-func (m *Manager) Run(ctx context.Context) {
-	if m.sender != nil {
-		m.sender.Run(ctx)
-	} else {
-		<-ctx.Done()
+// stopSenderLocked cancels the sender goroutine and waits for it to drain.
+// Must be called with m.mu held.
+func (m *Manager) stopSenderLocked() {
+	if m.senderCancel != nil {
+		sender := m.sender
+		m.senderCancel()
+		m.senderCancel = nil
+		m.sender = nil
+
+		// Wait for drain outside the lock to avoid blocking other operations.
+		if sender != nil {
+			m.mu.Unlock()
+			<-sender.Done()
+			m.mu.Lock()
+		}
 	}
+	m.sender = nil
 }
 
 // HandleUpdate is the callback for UpdateStore.SetOnUpdate.
 // It checks all active subscriptions and dispatches matching updates.
 func (m *Manager) HandleUpdate(update types.StoredUpdate) {
-	if m.sender == nil {
+	m.mu.Lock()
+	sender := m.sender
+	m.mu.Unlock()
+
+	if sender == nil {
 		return
 	}
 
@@ -76,16 +148,29 @@ func (m *Manager) HandleUpdate(update types.StoredUpdate) {
 			slog.Error("callback: marshal event failed", "error", err)
 			return
 		}
-		m.pending.Add(1)
-		m.sender.Send(payload)
-		m.pending.Add(-1)
+		sender.Send(payload)
 		return // send once even if multiple subs match
 	}
 }
 
 // PendingCount returns the number of updates currently queued for delivery.
 func (m *Manager) PendingCount() int64 {
-	return m.pending.Load()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.sender == nil {
+		return 0
+	}
+	return int64(m.sender.QueueLen())
+}
+
+// DroppedCount returns the total number of payloads dropped due to full buffer.
+func (m *Manager) DroppedCount() int64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.sender == nil {
+		return 0
+	}
+	return m.sender.DroppedCount()
 }
 
 // SetCallbackURL sets a new callback URL (triggers verification flow).
@@ -95,19 +180,19 @@ func (m *Manager) SetCallbackURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m.sender = nil // invalidate until verified
+	// Invalidate sender until verification completes.
+	m.mu.Lock()
+	m.stopSenderLocked()
+	m.mu.Unlock()
 	return code, nil
 }
 
-// ConfirmVerification marks the URL as verified and rebuilds the sender.
+// ConfirmVerification marks the URL as verified and starts the new sender.
 func (m *Manager) ConfirmVerification() error {
 	if err := m.store.MarkVerified(); err != nil {
 		return err
 	}
 	m.rebuildSender()
-	if m.sender != nil {
-		slog.Info("callback: URL verified and active", "url", m.store.Get().CallbackURL)
-	}
 	return nil
 }
 
@@ -136,7 +221,7 @@ func (m *Manager) matchesSubscription(
 //nolint:nestif // Extracting multiple optional fields from a map requires nested type assertions
 func toCallbackEvent(update types.StoredUpdate, eventType string) Event {
 	msg, _ := update.Data["message"].(map[string]any)
-	post := Post{}
+	post := Post{IsDeleted: eventType == "delete_post"}
 	if msg != nil {
 		if id, ok := msg["id"].(int); ok {
 			post.ID = id
@@ -183,10 +268,8 @@ func peerMatchesUpdate(update types.StoredUpdate, filterPeer string) bool {
 		return false
 	}
 
+	// Exact match (case-insensitive)
 	if strings.EqualFold(peer, filter) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(peer), strings.ToLower(filter)) {
 		return true
 	}
 

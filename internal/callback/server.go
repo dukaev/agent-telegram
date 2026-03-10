@@ -23,12 +23,14 @@ const (
 type Server struct {
 	manager *Manager
 	port    int
+	secret  string
 	srv     *http.Server
 }
 
 // NewServer creates the HTTP API server.
-func NewServer(manager *Manager, port int) *Server {
-	s := &Server{manager: manager, port: port}
+// If secret is non-empty, all requests must include the X-Secret header.
+func NewServer(manager *Manager, port int, secret string) *Server {
+	s := &Server{manager: manager, port: port, secret: secret}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /callback/set-callback-url", s.handleSetCallbackURL)
@@ -37,13 +39,29 @@ func NewServer(manager *Manager, port int) *Server {
 	mux.HandleFunc("GET /callback/subscriptions-list", s.handleSubscriptionsList)
 	mux.HandleFunc("POST /callback/unsubscribe", s.handleUnsubscribe)
 
+	var handler http.Handler = mux
+	if secret != "" {
+		handler = s.authMiddleware(mux)
+	}
+
 	s.srv = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
 	return s
+}
+
+// authMiddleware enforces X-Secret header authentication.
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Secret") != s.secret {
+			writeError(w, "unauthorized")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Start starts the HTTP server. Blocks until ctx is cancelled.
@@ -69,9 +87,10 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	shutCtx, shutCancel := context.WithTimeout(ctx, shutdownGrace)
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer shutCancel()
-	return s.srv.Shutdown(shutCtx)
+
+	return s.srv.Shutdown(shutCtx) //nolint:contextcheck // parent ctx already cancelled
 }
 
 // --- Handlers ---
@@ -102,15 +121,25 @@ func (s *Server) handleSetCallbackURL(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the URL by sending a POST and expecting verifyCode in response
 	if err := s.verifyURL(r.Context(), req.CallbackURL, verifyCode); err != nil {
-		slog.Warn("callback: URL verification failed", "url", req.CallbackURL, "error", err)
+		slog.Warn("callback: URL verification failed",
+			"url", req.CallbackURL, "error", err,
+		)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":      "error",
-			"error":       "wrong verify code",
+			"error":       fmt.Sprintf("verification failed: %v", err),
 			"verify_code": verifyCode,
 		})
 		return
 	}
 
+	// Check URL hasn't changed between verify and confirm (race protection)
+	cur := s.manager.store.Get()
+	if cur.CallbackURL != req.CallbackURL {
+		writeError(w, "callback URL changed during verification")
+		return
+	}
+
+	//nolint:contextcheck // sender goroutine uses app-level context, not HTTP request context
 	if err := s.manager.ConfirmVerification(); err != nil {
 		writeError(w, "internal error")
 		return
@@ -140,6 +169,7 @@ func (s *Server) handleGetCallbackInfo(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+//nolint:funlen // Handler validates peer, event types, optional subscription edit — inherently verbose
 func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) {
 	state := s.manager.store.Get()
 	if state.CallbackURL == "" || !state.Verified {
@@ -176,26 +206,32 @@ func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// Edit existing subscription
-	if req.SubscriptionID != nil {
-		if err := s.manager.store.RemoveSubscription(*req.SubscriptionID); err != nil {
-			writeJSON(w, http.StatusOK, map[string]any{
-				"status": "error",
-				"error":  "subscription not found",
-			})
-			return
-		}
+	// Resolve and normalize channelId via Telegram API (validates it exists)
+	resolvedChannelID, err := s.manager.ResolveChannelID(r.Context(), req.ChannelID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status": "error",
+			"error":  fmt.Sprintf("channel not found: %s", req.ChannelID),
+		})
+		return
 	}
 
 	sub := Subscription{
 		Type:       "channel",
-		ChannelID:  req.ChannelID,
+		ChannelID:  resolvedChannelID,
 		EventTypes: eventTypes,
 	}
-	id, err := s.manager.store.AddSubscription(sub)
+
+	var id int64
+	if req.SubscriptionID != nil {
+		// Atomic edit: remove old + add new in one lock
+		id, err = s.manager.store.EditSubscription(*req.SubscriptionID, sub)
+	} else {
+		id, err = s.manager.store.AddSubscription(sub)
+	}
 	if err != nil {
-		slog.Error("callback: add subscription failed", "error", err)
-		writeError(w, "internal error")
+		slog.Error("callback: subscription failed", "error", err)
+		writeError(w, err.Error())
 		return
 	}
 

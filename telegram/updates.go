@@ -60,7 +60,7 @@ func (s *UpdateStore) Add(update types.StoredUpdate) {
 	s.mu.Unlock()
 
 	if onUpdate != nil {
-		onUpdate(update)
+		go onUpdate(update)
 	}
 }
 

@@ -130,6 +130,32 @@ func (s *Store) RemoveSubscription(id int64) error {
 	return fmt.Errorf("subscription not found")
 }
 
+// EditSubscription atomically replaces a subscription's fields.
+// Returns the new subscription ID. Returns error if the old subscription is not found.
+func (s *Store) EditSubscription(oldID int64, sub Subscription) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	found := false
+	for i, existing := range s.data.Subscriptions {
+		if existing.ID == oldID {
+			s.data.Subscriptions = append(s.data.Subscriptions[:i], s.data.Subscriptions[i+1:]...)
+			found = true
+			break
+		}
+	}
+	if !found {
+		return 0, fmt.Errorf("subscription not found")
+	}
+
+	sub.ID = s.data.NextSubID
+	sub.CreatedAt = time.Now().Unix()
+	s.data.NextSubID++
+	s.data.Subscriptions = append(s.data.Subscriptions, sub)
+
+	return sub.ID, s.save()
+}
+
 // RecordError stores the last delivery error.
 func (s *Store) RecordError(msg string) {
 	s.mu.Lock()

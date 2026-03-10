@@ -16,6 +16,7 @@ import (
 var (
 	serveCallbackPort    int
 	serveCallbackSession string
+	serveCallbackSecret  string
 )
 
 var serveCallbackCmd = &cobra.Command{
@@ -42,17 +43,18 @@ func init() {
 
 	serveCallbackCmd.Flags().IntVar(&serveCallbackPort, "port", 3000, "HTTP API server port")
 	serveCallbackCmd.Flags().StringVar(&serveCallbackSession, "session", "", "Path to Telegram session file")
+	serveCallbackCmd.Flags().StringVar(&serveCallbackSecret, "secret", "", "X-Secret auth token (optional)")
 }
 
 func runServeCallback(_ *cobra.Command, _ []string) {
+	ctx, cancel := setupContext()
+	setupLogger()
+
 	storedCfg, err := config.LoadStoredConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
-	ctx, _ := setupContext()
-	setupLogger()
 
 	// Prepare state directory
 	dir, err := paths.EnsureConfigDir()
@@ -82,17 +84,22 @@ func runServeCallback(_ *cobra.Command, _ []string) {
 	startTelegramClient(ctx, tgClient)
 	waitForTelegramReady(ctx, tgClient)
 
+	// Wire peer resolver so subscribe-channel validates channel IDs via Telegram
+	manager.WithPeerResolver(tgClient.ResolvePeerID)
+
 	// Start the webhook sender goroutine
 	go manager.Run(ctx)
 
 	// Start HTTP API server
-	apiServer := callback.NewServer(manager, serveCallbackPort)
+	apiServer := callback.NewServer(manager, serveCallbackPort, serveCallbackSecret)
 	fmt.Fprintf(os.Stderr, "Callback API on http://localhost:%d\n", serveCallbackPort)
 
 	if err := apiServer.Start(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+		cancel()
 		os.Exit(1)
 	}
 
+	cancel()
 	fmt.Fprintln(os.Stderr, "serve-callback stopped.")
 }
