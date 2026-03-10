@@ -87,9 +87,10 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	shutCtx, shutCancel := context.WithTimeout(ctx, shutdownGrace)
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer shutCancel()
-	return s.srv.Shutdown(shutCtx)
+
+	return s.srv.Shutdown(shutCtx) //nolint:contextcheck // parent ctx already cancelled
 }
 
 // --- Handlers ---
@@ -120,12 +121,21 @@ func (s *Server) handleSetCallbackURL(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the URL by sending a POST and expecting verifyCode in response
 	if err := s.verifyURL(r.Context(), req.CallbackURL, verifyCode); err != nil {
-		slog.Warn("callback: URL verification failed", "url", req.CallbackURL, "error", err)
+		slog.Warn("callback: URL verification failed",
+			"url", req.CallbackURL, "error", err,
+		)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":      "error",
-			"error":       "wrong verify code",
+			"error":       fmt.Sprintf("verification failed: %v", err),
 			"verify_code": verifyCode,
 		})
+		return
+	}
+
+	// Check URL hasn't changed between verify and confirm (race protection)
+	cur := s.manager.store.Get()
+	if cur.CallbackURL != req.CallbackURL {
+		writeError(w, "callback URL changed during verification")
 		return
 	}
 
@@ -206,26 +216,22 @@ func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Edit existing subscription
-	if req.SubscriptionID != nil {
-		if err := s.manager.store.RemoveSubscription(*req.SubscriptionID); err != nil {
-			writeJSON(w, http.StatusOK, map[string]any{
-				"status": "error",
-				"error":  "subscription not found",
-			})
-			return
-		}
-	}
-
 	sub := Subscription{
 		Type:       "channel",
 		ChannelID:  resolvedChannelID,
 		EventTypes: eventTypes,
 	}
-	id, err := s.manager.store.AddSubscription(sub)
+
+	var id int64
+	if req.SubscriptionID != nil {
+		// Atomic edit: remove old + add new in one lock
+		id, err = s.manager.store.EditSubscription(*req.SubscriptionID, sub)
+	} else {
+		id, err = s.manager.store.AddSubscription(sub)
+	}
 	if err != nil {
-		slog.Error("callback: add subscription failed", "error", err)
-		writeError(w, "internal error")
+		slog.Error("callback: subscription failed", "error", err)
+		writeError(w, err.Error())
 		return
 	}
 

@@ -30,6 +30,7 @@ type Manager struct {
 	sender       *webhook.Sender
 	senderCancel context.CancelFunc
 	parentCtx    context.Context  //nolint:containedctx // intentionally stored for goroutine lifecycle
+	stopped      bool
 	peerResolver PeerResolver
 }
 
@@ -47,7 +48,9 @@ func (m *Manager) WithPeerResolver(fn PeerResolver) {
 
 // ResolveChannelID validates and normalizes a channel ID via Telegram API.
 // Returns the normalized ID (e.g., "channel:123") or the original if no resolver is set.
-func (m *Manager) ResolveChannelID(ctx context.Context, channelID string) (string, error) {
+func (m *Manager) ResolveChannelID(
+	ctx context.Context, channelID string,
+) (string, error) {
 	m.mu.Lock()
 	resolver := m.peerResolver
 	m.mu.Unlock()
@@ -58,15 +61,21 @@ func (m *Manager) ResolveChannelID(ctx context.Context, channelID string) (strin
 }
 
 // Run stores the parent context and starts the sender goroutine if a verified
-// URL already exists. It blocks until ctx is cancelled.
+// URL already exists. It blocks until ctx is cancelled, then stops the sender.
 func (m *Manager) Run(ctx context.Context) {
 	m.mu.Lock()
 	m.parentCtx = ctx
+	m.stopped = false
 	m.mu.Unlock()
 
-	m.rebuildSender() //nolint:contextcheck // parentCtx is stored explicitly for sender goroutine lifecycle
+	m.rebuildSender() //nolint:contextcheck // uses stored parentCtx for sender lifecycle
 
 	<-ctx.Done()
+
+	m.mu.Lock()
+	m.stopped = true
+	m.stopSenderLocked()
+	m.mu.Unlock()
 }
 
 // rebuildSender stops any existing sender goroutine, creates a new Sender
@@ -75,14 +84,13 @@ func (m *Manager) rebuildSender() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.senderCancel != nil {
-		m.senderCancel()
-		m.senderCancel = nil
-	}
-	m.sender = nil
+	m.stopSenderLocked()
 
 	state := m.store.Get()
 	if state.CallbackURL == "" || !state.Verified {
+		return
+	}
+	if m.stopped || m.parentCtx == nil {
 		return
 	}
 
@@ -92,12 +100,29 @@ func (m *Manager) rebuildSender() {
 		webhook.WithOnError(func(msg string) { m.store.RecordError(msg) }),
 	)
 
-	if m.parentCtx != nil {
-		sCtx, cancel := context.WithCancel(m.parentCtx)
-		m.senderCancel = cancel
-		go m.sender.Run(sCtx)
-		slog.Info("callback: sender started", "url", state.CallbackURL)
+	sCtx, cancel := context.WithCancel(m.parentCtx)
+	m.senderCancel = cancel
+	go m.sender.Run(sCtx)
+	slog.Info("callback: sender started", "url", state.CallbackURL)
+}
+
+// stopSenderLocked cancels the sender goroutine and waits for it to drain.
+// Must be called with m.mu held.
+func (m *Manager) stopSenderLocked() {
+	if m.senderCancel != nil {
+		sender := m.sender
+		m.senderCancel()
+		m.senderCancel = nil
+		m.sender = nil
+
+		// Wait for drain outside the lock to avoid blocking other operations.
+		if sender != nil {
+			m.mu.Unlock()
+			<-sender.Done()
+			m.mu.Lock()
+		}
 	}
+	m.sender = nil
 }
 
 // HandleUpdate is the callback for UpdateStore.SetOnUpdate.
@@ -138,6 +163,16 @@ func (m *Manager) PendingCount() int64 {
 	return int64(m.sender.QueueLen())
 }
 
+// DroppedCount returns the total number of payloads dropped due to full buffer.
+func (m *Manager) DroppedCount() int64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.sender == nil {
+		return 0
+	}
+	return m.sender.DroppedCount()
+}
+
 // SetCallbackURL sets a new callback URL (triggers verification flow).
 // Returns the verify code to expect from the target URL.
 func (m *Manager) SetCallbackURL(url string) (string, error) {
@@ -147,11 +182,7 @@ func (m *Manager) SetCallbackURL(url string) (string, error) {
 	}
 	// Invalidate sender until verification completes.
 	m.mu.Lock()
-	if m.senderCancel != nil {
-		m.senderCancel()
-		m.senderCancel = nil
-	}
-	m.sender = nil
+	m.stopSenderLocked()
 	m.mu.Unlock()
 	return code, nil
 }
@@ -224,7 +255,6 @@ func toCallbackEvent(update types.StoredUpdate, eventType string) Event {
 }
 
 // peerMatchesUpdate checks if the update's peer matches the subscription channel.
-// Supports exact match (case-insensitive) and numeric ID match ("channel:123" vs "123").
 func peerMatchesUpdate(update types.StoredUpdate, filterPeer string) bool {
 	filter := strings.TrimPrefix(filterPeer, "@")
 

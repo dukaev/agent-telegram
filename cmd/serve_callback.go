@@ -47,14 +47,14 @@ func init() {
 }
 
 func runServeCallback(_ *cobra.Command, _ []string) {
+	ctx, cancel := setupContext()
+	setupLogger()
+
 	storedCfg, err := config.LoadStoredConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-
-	ctx, _ := setupContext()
-	setupLogger()
 
 	// Prepare state directory
 	dir, err := paths.EnsureConfigDir()
@@ -96,8 +96,10 @@ func runServeCallback(_ *cobra.Command, _ []string) {
 
 	if err := apiServer.Start(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+		cancel()
 		os.Exit(1)
 	}
 
+	cancel()
 	fmt.Fprintln(os.Stderr, "serve-callback stopped.")
 }
