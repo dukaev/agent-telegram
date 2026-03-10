@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strings"
-	"sync/atomic"
+	"sync"
 
 	"agent-telegram/internal/webhook"
 	"agent-telegram/telegram/types"
@@ -13,54 +13,77 @@ import (
 
 // eventTypeToUpdateType maps API event types to internal update types.
 var eventTypeToUpdateType = map[string]string{
-	"new_post":  string(types.UpdateTypeNewMessage),
-	"edit_post": string(types.UpdateTypeEditMessage),
+	"new_post":    string(types.UpdateTypeNewMessage),
+	"edit_post":   string(types.UpdateTypeEditMessage),
+	"delete_post": string(types.UpdateTypeDelete),
 }
 
 // Manager routes Telegram updates to matching subscriptions and delivers them
 // to the configured callback URL.
 type Manager struct {
-	store   *Store
-	sender  *webhook.Sender
-	pending atomic.Int64
+	store        *Store
+	mu           sync.Mutex
+	sender       *webhook.Sender
+	senderCancel context.CancelFunc
+	parentCtx    context.Context //nolint:containedctx // intentionally stored for goroutine lifecycle
 }
 
 // NewManager creates a Manager using the given store.
-// The sender is created lazily when a callback URL is set.
 func NewManager(store *Store) *Manager {
-	m := &Manager{store: store}
-	m.rebuildSender()
-	return m
+	return &Manager{store: store}
 }
 
-// rebuildSender recreates the sender from the current store state.
-// Call after changing the callback URL.
+// Run stores the parent context and starts the sender goroutine if a verified
+// URL already exists. It blocks until ctx is cancelled.
+func (m *Manager) Run(ctx context.Context) {
+	m.mu.Lock()
+	m.parentCtx = ctx
+	m.mu.Unlock()
+
+	m.rebuildSender() //nolint:contextcheck // parentCtx is stored explicitly for sender goroutine lifecycle
+
+	<-ctx.Done()
+}
+
+// rebuildSender stops any existing sender goroutine, creates a new Sender
+// for the current verified URL, and starts its goroutine if Run() is active.
 func (m *Manager) rebuildSender() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.senderCancel != nil {
+		m.senderCancel()
+		m.senderCancel = nil
+	}
+	m.sender = nil
+
 	state := m.store.Get()
 	if state.CallbackURL == "" || !state.Verified {
-		m.sender = nil
 		return
 	}
+
 	m.sender = webhook.New(
 		state.CallbackURL,
 		webhook.WithRetries(3),
+		webhook.WithOnError(func(msg string) { m.store.RecordError(msg) }),
 	)
-}
 
-// Run starts the sender goroutine (if a verified callback URL exists).
-// It blocks until ctx is cancelled.
-func (m *Manager) Run(ctx context.Context) {
-	if m.sender != nil {
-		m.sender.Run(ctx)
-	} else {
-		<-ctx.Done()
+	if m.parentCtx != nil {
+		sCtx, cancel := context.WithCancel(m.parentCtx)
+		m.senderCancel = cancel
+		go m.sender.Run(sCtx)
+		slog.Info("callback: sender started", "url", state.CallbackURL)
 	}
 }
 
 // HandleUpdate is the callback for UpdateStore.SetOnUpdate.
 // It checks all active subscriptions and dispatches matching updates.
 func (m *Manager) HandleUpdate(update types.StoredUpdate) {
-	if m.sender == nil {
+	m.mu.Lock()
+	sender := m.sender
+	m.mu.Unlock()
+
+	if sender == nil {
 		return
 	}
 
@@ -76,16 +99,19 @@ func (m *Manager) HandleUpdate(update types.StoredUpdate) {
 			slog.Error("callback: marshal event failed", "error", err)
 			return
 		}
-		m.pending.Add(1)
-		m.sender.Send(payload)
-		m.pending.Add(-1)
+		sender.Send(payload)
 		return // send once even if multiple subs match
 	}
 }
 
 // PendingCount returns the number of updates currently queued for delivery.
 func (m *Manager) PendingCount() int64 {
-	return m.pending.Load()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.sender == nil {
+		return 0
+	}
+	return int64(m.sender.QueueLen())
 }
 
 // SetCallbackURL sets a new callback URL (triggers verification flow).
@@ -95,19 +121,23 @@ func (m *Manager) SetCallbackURL(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	m.sender = nil // invalidate until verified
+	// Invalidate sender until verification completes.
+	m.mu.Lock()
+	if m.senderCancel != nil {
+		m.senderCancel()
+		m.senderCancel = nil
+	}
+	m.sender = nil
+	m.mu.Unlock()
 	return code, nil
 }
 
-// ConfirmVerification marks the URL as verified and rebuilds the sender.
+// ConfirmVerification marks the URL as verified and starts the new sender.
 func (m *Manager) ConfirmVerification() error {
 	if err := m.store.MarkVerified(); err != nil {
 		return err
 	}
 	m.rebuildSender()
-	if m.sender != nil {
-		slog.Info("callback: URL verified and active", "url", m.store.Get().CallbackURL)
-	}
 	return nil
 }
 
@@ -136,7 +166,7 @@ func (m *Manager) matchesSubscription(
 //nolint:nestif // Extracting multiple optional fields from a map requires nested type assertions
 func toCallbackEvent(update types.StoredUpdate, eventType string) Event {
 	msg, _ := update.Data["message"].(map[string]any)
-	post := Post{}
+	post := Post{IsDeleted: eventType == "delete_post"}
 	if msg != nil {
 		if id, ok := msg["id"].(int); ok {
 			post.ID = id
@@ -170,6 +200,7 @@ func toCallbackEvent(update types.StoredUpdate, eventType string) Event {
 }
 
 // peerMatchesUpdate checks if the update's peer matches the subscription channel.
+// Supports exact match (case-insensitive) and numeric ID match ("channel:123" vs "123").
 func peerMatchesUpdate(update types.StoredUpdate, filterPeer string) bool {
 	filter := strings.TrimPrefix(filterPeer, "@")
 
@@ -183,10 +214,8 @@ func peerMatchesUpdate(update types.StoredUpdate, filterPeer string) bool {
 		return false
 	}
 
+	// Exact match (case-insensitive)
 	if strings.EqualFold(peer, filter) {
-		return true
-	}
-	if strings.Contains(strings.ToLower(peer), strings.ToLower(filter)) {
 		return true
 	}
 

@@ -3,6 +3,7 @@ package telegram
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gotd/td/tg"
 
@@ -51,6 +52,18 @@ func (c *Client) RegisterUpdateHandlers(dispatcher tg.UpdateDispatcher) {
 			c.updateStore.Add(NewStoredUpdate(types.UpdateTypeEditMessage, map[string]any{
 				"message": MessageData(update.Message, entities),
 			}))
+			return nil
+		})
+
+	// Deleted channel posts (one StoredUpdate per message ID)
+	dispatcher.OnDeleteChannelMessages(
+		func(_ context.Context, _ tg.Entities, update *tg.UpdateDeleteChannelMessages) error {
+			peer := fmt.Sprintf("channel:%d", update.ChannelID)
+			for _, id := range update.Messages {
+				c.updateStore.Add(NewStoredUpdate(types.UpdateTypeDelete, map[string]any{
+					"message": map[string]any{"id": id, "peer": peer},
+				}))
+			}
 			return nil
 		})
 }

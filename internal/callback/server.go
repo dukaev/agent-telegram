@@ -111,6 +111,7 @@ func (s *Server) handleSetCallbackURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//nolint:contextcheck // sender goroutine uses app-level context, not HTTP request context
 	if err := s.manager.ConfirmVerification(); err != nil {
 		writeError(w, "internal error")
 		return

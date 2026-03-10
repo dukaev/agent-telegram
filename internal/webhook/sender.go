@@ -24,6 +24,7 @@ type Sender struct {
 	ch         chan []byte
 	retries    int
 	retryDelay time.Duration
+	onError    func(string)
 }
 
 // Option configures a Sender.
@@ -37,6 +38,11 @@ func WithRetries(n int) Option {
 // WithRetryDelay sets the base delay between retries (exponential backoff).
 func WithRetryDelay(d time.Duration) Option {
 	return func(s *Sender) { s.retryDelay = d }
+}
+
+// WithOnError sets a callback invoked after all retries are exhausted.
+func WithOnError(fn func(string)) Option {
+	return func(s *Sender) { s.onError = fn }
 }
 
 // New creates a new Sender that will POST payloads to the given URL.
@@ -62,6 +68,11 @@ func (s *Sender) Send(payload []byte) {
 	default:
 		slog.Warn("webhook: buffer full, dropping payload")
 	}
+}
+
+// QueueLen returns the number of payloads currently waiting in the buffer.
+func (s *Sender) QueueLen() int {
+	return len(s.ch)
 }
 
 // Run reads payloads from the internal channel and delivers them to the webhook
@@ -102,7 +113,11 @@ func (s *Sender) deliver(ctx context.Context, payload []byte) {
 		return
 	}
 
-	slog.Error("webhook: giving up after retries", "retries", s.retries)
+	msg := fmt.Sprintf("giving up after %d retries", s.retries)
+	slog.Error("webhook: " + msg)
+	if s.onError != nil {
+		s.onError(msg)
+	}
 }
 
 // post performs a single HTTP POST with the given body.
