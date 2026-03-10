@@ -52,6 +52,25 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 	return inputPeer, nil
 }
 
+// ResolvePeerID resolves a peer string and returns its normalized typed format
+// (e.g., "channel:123", "user:456", "chat:789").
+func (c *Client) ResolvePeerID(ctx context.Context, peer string) (string, error) {
+	inputPeer, err := c.ResolvePeer(ctx, peer)
+	if err != nil {
+		return "", err
+	}
+	switch p := inputPeer.(type) {
+	case *tg.InputPeerChannel:
+		return fmt.Sprintf("channel:%d", p.ChannelID), nil
+	case *tg.InputPeerChat:
+		return fmt.Sprintf("chat:%d", p.ChatID), nil
+	case *tg.InputPeerUser:
+		return fmt.Sprintf("user:%d", p.UserID), nil
+	default:
+		return peer, nil
+	}
+}
+
 // CachePeer stores a resolved peer in the cache.
 // This allows domain clients to populate the cache from API responses
 // (e.g., discussion group peers discovered via messages.getDiscussionMessage).

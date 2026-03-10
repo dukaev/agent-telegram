@@ -23,12 +23,14 @@ const (
 type Server struct {
 	manager *Manager
 	port    int
+	secret  string
 	srv     *http.Server
 }
 
 // NewServer creates the HTTP API server.
-func NewServer(manager *Manager, port int) *Server {
-	s := &Server{manager: manager, port: port}
+// If secret is non-empty, all requests must include the X-Secret header.
+func NewServer(manager *Manager, port int, secret string) *Server {
+	s := &Server{manager: manager, port: port, secret: secret}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /callback/set-callback-url", s.handleSetCallbackURL)
@@ -37,13 +39,29 @@ func NewServer(manager *Manager, port int) *Server {
 	mux.HandleFunc("GET /callback/subscriptions-list", s.handleSubscriptionsList)
 	mux.HandleFunc("POST /callback/unsubscribe", s.handleUnsubscribe)
 
+	var handler http.Handler = mux
+	if secret != "" {
+		handler = s.authMiddleware(mux)
+	}
+
 	s.srv = &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      mux,
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
 	return s
+}
+
+// authMiddleware enforces X-Secret header authentication.
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Secret") != s.secret {
+			writeError(w, "unauthorized")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Start starts the HTTP server. Blocks until ctx is cancelled.
@@ -141,6 +159,7 @@ func (s *Server) handleGetCallbackInfo(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+//nolint:funlen // Handler validates peer, event types, optional subscription edit — inherently verbose
 func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) {
 	state := s.manager.store.Get()
 	if state.CallbackURL == "" || !state.Verified {
@@ -177,6 +196,16 @@ func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	// Resolve and normalize channelId via Telegram API (validates it exists)
+	resolvedChannelID, err := s.manager.ResolveChannelID(r.Context(), req.ChannelID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status": "error",
+			"error":  fmt.Sprintf("channel not found: %s", req.ChannelID),
+		})
+		return
+	}
+
 	// Edit existing subscription
 	if req.SubscriptionID != nil {
 		if err := s.manager.store.RemoveSubscription(*req.SubscriptionID); err != nil {
@@ -190,7 +219,7 @@ func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) 
 
 	sub := Subscription{
 		Type:       "channel",
-		ChannelID:  req.ChannelID,
+		ChannelID:  resolvedChannelID,
 		EventTypes: eventTypes,
 	}
 	id, err := s.manager.store.AddSubscription(sub)

@@ -11,6 +11,10 @@ import (
 	"agent-telegram/telegram/types"
 )
 
+// PeerResolver resolves and normalizes a peer string (e.g., "@username" or "-100123")
+// to a typed ID string (e.g., "channel:123"). Returns an error if the peer doesn't exist.
+type PeerResolver func(ctx context.Context, peer string) (string, error)
+
 // eventTypeToUpdateType maps API event types to internal update types.
 var eventTypeToUpdateType = map[string]string{
 	"new_post":    string(types.UpdateTypeNewMessage),
@@ -25,12 +29,32 @@ type Manager struct {
 	mu           sync.Mutex
 	sender       *webhook.Sender
 	senderCancel context.CancelFunc
-	parentCtx    context.Context //nolint:containedctx // intentionally stored for goroutine lifecycle
+	parentCtx    context.Context  //nolint:containedctx // intentionally stored for goroutine lifecycle
+	peerResolver PeerResolver
 }
 
 // NewManager creates a Manager using the given store.
 func NewManager(store *Store) *Manager {
 	return &Manager{store: store}
+}
+
+// WithPeerResolver sets the function used to validate and normalize channel IDs.
+func (m *Manager) WithPeerResolver(fn PeerResolver) {
+	m.mu.Lock()
+	m.peerResolver = fn
+	m.mu.Unlock()
+}
+
+// ResolveChannelID validates and normalizes a channel ID via Telegram API.
+// Returns the normalized ID (e.g., "channel:123") or the original if no resolver is set.
+func (m *Manager) ResolveChannelID(ctx context.Context, channelID string) (string, error) {
+	m.mu.Lock()
+	resolver := m.peerResolver
+	m.mu.Unlock()
+	if resolver == nil {
+		return channelID, nil
+	}
+	return resolver(ctx, channelID)
 }
 
 // Run stores the parent context and starts the sender goroutine if a verified
