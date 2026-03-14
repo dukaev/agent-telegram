@@ -137,7 +137,8 @@ type GetMessagesResult struct {
 // GetUpdatesParams holds parameters for GetUpdates.
 type GetUpdatesParams struct {
 	PeerInfo
-	Limit int `json:"limit"`
+	Limit  int   `json:"limit"`
+	Offset int64 `json:"offset,omitempty"` // Return updates with ID > offset (for polling)
 }
 
 // GetUpdatesResult is the result of GetUpdates.

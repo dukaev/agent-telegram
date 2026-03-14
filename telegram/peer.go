@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/gotd/td/tg"
+
 	"agent-telegram/telegram/helpers"
 )
 
 // ResolvePeer resolves a peer string to InputPeerClass with caching.
-// This method is shared across all domain clients to avoid duplicate API calls.
+// Uses singleflight to deduplicate concurrent resolutions of the same peer.
 // Supported formats:
 //   - @username - resolves via API
 //   - 123456789 - positive number = user ID
@@ -25,31 +26,45 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 		}
 	}
 
-	var inputPeer tg.InputPeerClass
-	var err error
-
 	// "me", "self", "current_user" resolves to InputPeerSelf (Saved Messages)
 	if peer == "me" || peer == "self" || peer == "current_user" {
-		inputPeer = &tg.InputPeerSelf{}
+		inputPeer := &tg.InputPeerSelf{}
 		c.peerCache.Store(peer, inputPeer)
 		return inputPeer, nil
 	}
 
-	// If peer starts with @, it's a username - resolve it with cache
-	if len(peer) > 0 && peer[0] == '@' {
-		inputPeer, err = c.resolveUsername(ctx, peer[1:])
-	} else {
-		// Try to parse as numeric ID
-		inputPeer, err = c.resolveNumericPeer(ctx, peer)
-	}
+	// Use singleflight to deduplicate concurrent resolutions of the same peer.
+	// This prevents thundering herd when multiple handlers resolve the same peer.
+	result, err, _ := c.peerFlight.Do(peer, func() (interface{}, error) {
+		// Double-check cache inside singleflight (another goroutine may have populated it)
+		if cached, ok := c.peerCache.Load(peer); ok {
+			if inputPeer, ok := cached.(tg.InputPeerClass); ok {
+				return inputPeer, nil
+			}
+		}
+
+		var inputPeer tg.InputPeerClass
+		var err error
+
+		if len(peer) > 0 && peer[0] == '@' {
+			inputPeer, err = c.resolveUsername(ctx, peer[1:])
+		} else {
+			inputPeer, err = c.resolveNumericPeer(ctx, peer)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		c.peerCache.Store(peer, inputPeer)
+		return inputPeer, nil
+	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	// Store in cache
-	c.peerCache.Store(peer, inputPeer)
-	return inputPeer, nil
+	return result.(tg.InputPeerClass), nil
 }
 
 // ResolvePeerID resolves a peer string and returns its normalized typed format

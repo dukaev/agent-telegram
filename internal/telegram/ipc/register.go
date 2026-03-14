@@ -2,6 +2,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -128,22 +129,19 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 	}
 }
 
-// registerHandler registers a single handler with error wrapping and panic recovery.
+// registerHandler registers a single handler with error wrapping and request timeout.
 func registerHandler(srv ipc.MethodRegistrar, method string, handler HandlerFunc) {
 	srv.Register(method, func(params json.RawMessage) (result interface{}, rpcErr *ipc.ErrorObject) {
-		// Recover from panics (e.g., nil pointer when client not initialized)
-		defer func() {
-			if r := recover(); r != nil {
-				// If panic is due to nil pointer, it's likely not initialized
-				rpcErr = ipc.ErrNotInitialized
-			}
-		}()
+		ctx, cancel := context.WithTimeout(context.Background(), DefaultRequestTimeout)
+		defer cancel()
 
-		res, err := handler(params)
+		res, err := handler(ctx, params)
 		if err != nil {
-			// Check for specific error types
 			if errors.Is(err, client.ErrNotInitialized) {
 				return nil, ipc.ErrNotInitialized
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, &ipc.ErrorObject{Code: -32000, Message: "request timed out"}
 			}
 			return nil, &ipc.ErrorObject{Code: -32000, Message: err.Error()}
 		}
