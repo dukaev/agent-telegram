@@ -7,6 +7,14 @@ import (
 	"strings"
 )
 
+// NoValidation is an embeddable type that provides a no-op Validate() method.
+// Embed this in Params types that rely solely on struct-tag validation
+// (the Handler auto-runs ValidateStruct before calling Validate).
+type NoValidation struct{}
+
+// Validate is a no-op — struct-tag validation is handled by Handler.
+func (NoValidation) Validate() error { return nil }
+
 // ValidateStruct validates a struct using struct tags.
 // Supported tags:
 //   - validate:"required" - field must not be empty/zero

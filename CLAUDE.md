@@ -74,6 +74,23 @@ internal/
 - Pagination: `cliutil.NewPagination(limit, offset, cfg)` → `pag.ToParams(params, includeOffset)`
 - Success output: `cliutil.PrintSuccessSummary(result, "message")`
 
+## Workflow
+
+IMPORTANT: After every code change, ALWAYS perform the full release cycle:
+
+1. Verify: `go build ./...` and `go vet ./...`
+2. Commit and push:
+   ```bash
+   git add <changed files>
+   git commit -m "Description of change"
+   git push
+   ```
+3. Release: `make release` (patch bump, creates tag, pushes)
+4. Wait for GitHub Actions to complete: `gh run list --limit 1` then poll until `conclusion: success`
+5. Update local install: `npm install -g agent-telegram@<new-version>`
+
+Do NOT skip any step. Every change must be released and installed locally.
+
 ## Conventions
 
 - Go module: `agent-telegram`

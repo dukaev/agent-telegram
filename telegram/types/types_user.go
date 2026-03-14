@@ -45,14 +45,10 @@ type GetUserInfoResult struct {
 
 // UpdateProfileParams holds parameters for UpdateProfile.
 type UpdateProfileParams struct {
+	NoValidation
 	FirstName string `json:"firstName" validate:"required"`
 	LastName  string `json:"lastName,omitempty"`
 	Bio       string `json:"bio,omitempty"`
-}
-
-// Validate validates UpdateProfileParams.
-func (p UpdateProfileParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // UpdateProfileResult is the result of UpdateProfile.
@@ -62,12 +58,8 @@ type UpdateProfileResult struct {
 
 // UpdateAvatarParams holds parameters for UpdateAvatar.
 type UpdateAvatarParams struct {
+	NoValidation
 	File string `json:"file" validate:"required"`
-}
-
-// Validate validates UpdateAvatarParams.
-func (p UpdateAvatarParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // UpdateAvatarResult is the result of UpdateAvatar.
@@ -80,11 +72,6 @@ type BlockPeerParams struct {
 	PeerInfo
 }
 
-// Validate validates BlockPeerParams.
-func (p BlockPeerParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // BlockPeerResult is the result of BlockPeer.
 type BlockPeerResult struct {
 	Success bool   `json:"success"`
@@ -94,11 +81,6 @@ type BlockPeerResult struct {
 // UnblockPeerParams holds parameters for UnblockPeer.
 type UnblockPeerParams struct {
 	PeerInfo
-}
-
-// Validate validates UnblockPeerParams.
-func (p UnblockPeerParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // UnblockPeerResult is the result of UnblockPeer.

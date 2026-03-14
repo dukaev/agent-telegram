@@ -17,12 +17,10 @@ var GiftCmd = &cobra.Command{
 func AddGiftCommand(rootCmd *cobra.Command) {
 	AddListCommand(GiftCmd)
 	AddSendCommand(GiftCmd)
-	AddMyCommand(GiftCmd)
 	AddConvertCommand(GiftCmd)
 	AddPriceCommand(GiftCmd)
 	AddOfferCommand(GiftCmd)
 	AddInfoCommand(GiftCmd)
-	AddBuyCommand(GiftCmd)
 	AddAttrsCommand(GiftCmd)
 	AddAcceptCommand(GiftCmd)
 	AddDeclineCommand(GiftCmd)

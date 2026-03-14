@@ -56,3 +56,12 @@ func (b *BaseClient) CheckInitialized() error {
 	}
 	return nil
 }
+
+// InitAndResolve checks initialization and resolves a peer in one call.
+// Replaces the common CheckInitialized + ResolvePeer boilerplate.
+func (b *BaseClient) InitAndResolve(ctx context.Context, peer string) (tg.InputPeerClass, error) {
+	if err := b.CheckInitialized(); err != nil {
+		return nil, err
+	}
+	return b.ResolvePeer(ctx, peer)
+}

@@ -17,22 +17,25 @@ var (
 	sendHideName bool
 	sendMessage  string
 	sendMsgID    int
+	sendBuy      bool
 )
 
 // SendCmd represents the gift send command.
 var SendCmd = &cobra.Command{
 	Use:   "send <gift_name_or_slug>",
-	Short: "Send a gift or transfer an existing one",
-	Long: `Send a star gift from the catalog, or transfer a saved gift to another user.
+	Short: "Send, transfer, or buy a gift",
+	Long: `Send a star gift from the catalog, transfer a saved gift, or buy from the marketplace.
 
-If the argument is a gift name or catalog ID, a new gift is purchased and sent.
-If the argument is a slug (e.g. SantaHat-55373) or URL, an existing gift is transferred.
-Use --msg-id to transfer by saved gift message ID.`,
+  gift send Heart --to @user           Send a new gift from catalog
+  gift send SantaHat-55373 --to @user  Transfer your saved gift
+  gift send SantaHat-55373             Buy from marketplace (for yourself)
+  gift send SantaHat-55373 --to @user --buy  Buy for another user
+  gift send --to @user --msg-id 123    Transfer by message ID`,
 	Example: `  agent-telegram gift send Heart --to @username
   agent-telegram gift send Heart --to @username -m "Happy birthday!"
-  agent-telegram gift send 5170145012310081615 --to @username
   agent-telegram gift send SantaHat-55373 --to @username
-  agent-telegram gift send https://t.me/nft/SantaHat-55373 --to @username
+  agent-telegram gift send SantaHat-55373
+  agent-telegram gift send https://t.me/nft/SwissWatch-718 --buy
   agent-telegram gift send --to @username --msg-id 123`,
 	Args: cobra.MaximumNArgs(1),
 }
@@ -45,14 +48,38 @@ func AddSendCommand(parentCmd *cobra.Command) {
 	SendCmd.Flags().StringVarP(&sendMessage, "msg", "m", "", "Message to attach with the gift")
 	SendCmd.Flags().BoolVar(&sendHideName, "hide-name", false, "Hide your name from the recipient's profile")
 	SendCmd.Flags().IntVar(&sendMsgID, "msg-id", 0, "Message ID of a saved gift to transfer")
-	_ = SendCmd.MarkFlagRequired("to")
+	SendCmd.Flags().BoolVar(&sendBuy, "buy", false, "Buy from marketplace instead of transferring")
 
 	SendCmd.Run = func(_ *cobra.Command, args []string) {
 		runner := cliutil.NewRunnerFromCmd(SendCmd, false)
+		hasSlug := len(args) > 0 && isGiftSlug(args[0])
+		hasTo := sendTo.Peer() != ""
 
-		// Determine if this is a transfer or a catalog send
-		if sendMsgID != 0 || (len(args) > 0 && isGiftSlug(args[0])) {
-			// Transfer an existing gift
+		// Buy from marketplace: slug without --to, or --buy flag
+		if sendBuy || (hasSlug && !hasTo && sendMsgID == 0) {
+			if len(args) == 0 {
+				fmt.Fprintln(os.Stderr, "Error: requires a gift slug or URL to buy")
+				os.Exit(1)
+			}
+			params := map[string]any{
+				"slug": cliutil.ParseGiftSlug(args[0]),
+			}
+			if hasTo {
+				params["peer"] = sendTo.Peer()
+			}
+			result := runner.CallWithParams("buy_resale_gift", params)
+			runner.PrintResult(result, func(result any) {
+				cliutil.PrintSuccessWithDuration(result, "Gift purchased successfully!", runner.LastDuration())
+			})
+			return
+		}
+
+		// Transfer: slug/URL with --to, or --msg-id
+		if sendMsgID != 0 || hasSlug {
+			if !hasTo {
+				fmt.Fprintln(os.Stderr, "Error: --to is required for transfers")
+				os.Exit(1)
+			}
 			params := map[string]any{}
 			sendTo.AddToParams(params)
 			if len(args) > 0 {
@@ -68,9 +95,13 @@ func AddSendCommand(parentCmd *cobra.Command) {
 			return
 		}
 
-		// Send a new gift from catalog
+		// Send new gift from catalog
 		if len(args) == 0 {
 			fmt.Fprintln(os.Stderr, "Error: requires a gift name, catalog ID, slug, or --msg-id")
+			os.Exit(1)
+		}
+		if !hasTo {
+			fmt.Fprintln(os.Stderr, "Error: --to is required when sending a gift")
 			os.Exit(1)
 		}
 

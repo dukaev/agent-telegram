@@ -13,13 +13,9 @@ import (
 
 // SendSticker sends a sticker to a peer.
 func (c *Client) SendSticker(ctx context.Context, params types.SendStickerParams) (*types.SendStickerResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	var media tg.InputMediaClass
@@ -98,13 +94,9 @@ func (c *Client) GetStickerPacks(
 
 // SendGIF sends a GIF/animation to a peer.
 func (c *Client) SendGIF(ctx context.Context, params types.SendGIFParams) (*types.SendGIFResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	uploadedFile, err := uploadFile(ctx, c.API, params.File)

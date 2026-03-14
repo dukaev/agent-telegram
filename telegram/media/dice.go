@@ -16,13 +16,9 @@ const defaultDiceEmoticon = "🎲"
 
 // SendDice sends a dice (random value) to a peer.
 func (c *Client) SendDice(ctx context.Context, params types.SendDiceParams) (*types.SendDiceResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer %s: %w", params.Peer, err)
+		return nil, err
 	}
 
 	emoticon := params.Emoticon

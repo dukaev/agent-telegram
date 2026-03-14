@@ -141,11 +141,7 @@ func (c *Client) GetStarGifts(ctx context.Context, params types.GetStarGiftsPara
 
 // SendStarGift buys a star gift from the catalog and sends it to a peer.
 func (c *Client) SendStarGift(ctx context.Context, params types.SendStarGiftParams) (*types.SendStarGiftResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -278,11 +274,7 @@ func (c *Client) GetSavedGifts(ctx context.Context, params types.GetSavedGiftsPa
 //
 //nolint:lll // Long function signature due to Go generics pattern
 func (c *Client) TransferStarGift(ctx context.Context, params types.TransferStarGiftParams) (*types.TransferStarGiftResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -448,11 +440,7 @@ func (c *Client) GetBalance(ctx context.Context, _ types.GetBalanceParams) (*typ
 
 // OfferGift makes an offer to buy someone's gift.
 func (c *Client) OfferGift(ctx context.Context, params types.OfferGiftParams) (*types.OfferGiftResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

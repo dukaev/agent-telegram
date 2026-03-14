@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"agent-telegram/telegram/types"
 )
 
 // DefaultRequestTimeout is the default timeout for IPC request handlers.
@@ -16,13 +18,14 @@ const DefaultRequestTimeout = 30 * time.Second
 // Accepts a context for cancellation and timeout propagation.
 type HandlerFunc = func(ctx context.Context, params json.RawMessage) (any, error)
 
-// Params interface for types that can validate themselves.
+// Params is a constraint for handler parameter types.
+// Types only need Validate() for custom logic beyond struct-tag validation.
 type Params interface {
 	Validate() error
 }
 
 // Handler returns a generic JSON-RPC handler for the given params type.
-// The context is propagated from the IPC layer to enable cancellation and timeouts.
+// Automatically runs struct-tag validation (validate:"required") before calling Validate().
 func Handler[T Params, R any](
 	callFn func(context.Context, T) (R, error),
 	methodName string,
@@ -35,6 +38,11 @@ func Handler[T Params, R any](
 			}
 		}
 
+		// Auto struct-tag validation (validate:"required", embedded Validate())
+		if err := types.ValidateStruct(&p); err != nil {
+			return nil, err
+		}
+		// Custom validation (no-op for types embedding types.NoValidation)
 		if err := p.Validate(); err != nil {
 			return nil, err
 		}

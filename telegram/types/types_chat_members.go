@@ -5,12 +5,8 @@ import "fmt"
 
 // LeaveParams holds parameters for Leave.
 type LeaveParams struct {
+	NoValidation
 	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
-}
-
-// Validate validates LeaveParams.
-func (p LeaveParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // LeaveResult is the result of Leave.
@@ -26,9 +22,6 @@ type InviteParams struct {
 
 // Validate validates InviteParams.
 func (p InviteParams) Validate() error {
-	if err := ValidateStruct(p); err != nil {
-		return err
-	}
 	if len(p.Members) == 0 {
 		return fmt.Errorf("at least one member is required")
 	}
@@ -54,13 +47,9 @@ type Participant struct {
 
 // GetParticipantsParams holds parameters for GetParticipants.
 type GetParticipantsParams struct {
+	NoValidation
 	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
 	Limit int    `json:"limit,omitempty"`          // Maximum number of participants (default 100)
-}
-
-// Validate validates GetParticipantsParams.
-func (p GetParticipantsParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // GetParticipantsResult is the result of GetParticipants.
@@ -72,13 +61,9 @@ type GetParticipantsResult struct {
 
 // GetAdminsParams holds parameters for GetAdmins.
 type GetAdminsParams struct {
+	NoValidation
 	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
 	Limit int    `json:"limit,omitempty"`          // Maximum number of admins (default 100)
-}
-
-// Validate validates GetAdminsParams.
-func (p GetAdminsParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // GetAdminsResult is the result of GetAdmins.
@@ -90,13 +75,9 @@ type GetAdminsResult struct {
 
 // GetBannedParams holds parameters for GetBanned.
 type GetBannedParams struct {
+	NoValidation
 	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
 	Limit int    `json:"limit,omitempty"`          // Maximum number of banned users (default 100)
-}
-
-// Validate validates GetBannedParams.
-func (p GetBannedParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // GetBannedResult is the result of GetBanned.

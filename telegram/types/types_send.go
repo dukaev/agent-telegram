@@ -9,11 +9,6 @@ type SendMessageParams struct {
 	Message string `json:"message" validate:"required"`
 }
 
-// Validate validates SendMessageParams.
-func (p SendMessageParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // SendMessageResult is the result of SendMessage.
 type SendMessageResult struct {
 	ID      int64  `json:"id"`
@@ -31,9 +26,6 @@ type SendLocationParams struct {
 
 // Validate validates SendLocationParams.
 func (p SendLocationParams) Validate() error {
-	if err := ValidateStruct(p); err != nil {
-		return err
-	}
 	if err := ValidateLatitude(p.Latitude); err != nil {
 		return err
 	}
@@ -56,11 +48,6 @@ type SendPhotoParams struct {
 	Caption string `json:"caption,omitempty"`
 }
 
-// Validate validates SendPhotoParams.
-func (p SendPhotoParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // SendPhotoResult is the result of SendPhoto.
 type SendPhotoResult struct {
 	ID      int64  `json:"id"`
@@ -77,11 +64,6 @@ type SendContactParams struct {
 	LastName  string `json:"lastName,omitempty"`
 }
 
-// Validate validates SendContactParams.
-func (p SendContactParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // SendContactResult is the result of SendContact.
 type SendContactResult struct {
 	ID    int64  `json:"id"`
@@ -95,11 +77,6 @@ type SendFileParams struct {
 	PeerInfo
 	File    string `json:"file" validate:"required"`
 	Caption string `json:"caption,omitempty"`
-}
-
-// Validate validates SendFileParams.
-func (p SendFileParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SendFileResult is the result of SendFile.
@@ -127,9 +104,6 @@ type SendPollParams struct {
 
 // Validate validates SendPollParams.
 func (p SendPollParams) Validate() error {
-	if err := ValidateStruct(p); err != nil {
-		return err
-	}
 	if len(p.Options) < 2 {
 		return fmt.Errorf("at least 2 options are required")
 	}
@@ -165,11 +139,6 @@ type SendVideoParams struct {
 	Caption string `json:"caption,omitempty"`
 }
 
-// Validate validates SendVideoParams.
-func (p SendVideoParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // SendVideoResult is the result of SendVideo.
 type SendVideoResult struct {
 	ID      int64  `json:"id"`
@@ -180,15 +149,11 @@ type SendVideoResult struct {
 
 // SendVoiceParams holds parameters for SendVoice.
 type SendVoiceParams struct {
+	NoValidation
 	Peer     string `json:"peer" validate:"required"`
 	File     string `json:"file" validate:"required"` // Path to voice file (OGG/OPUS)
 	Duration int    `json:"duration,omitempty"`       // Duration in seconds
 	Caption  string `json:"caption,omitempty"`
-}
-
-// Validate validates SendVoiceParams.
-func (p SendVoiceParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SendVoiceResult is the result of SendVoice.
@@ -201,15 +166,11 @@ type SendVoiceResult struct {
 
 // SendVideoNoteParams holds parameters for SendVideoNote.
 type SendVideoNoteParams struct {
+	NoValidation
 	Peer     string `json:"peer" validate:"required"`
 	File     string `json:"file" validate:"required"` // Path to video file
 	Duration int    `json:"duration,omitempty"`       // Duration in seconds
 	Length   int    `json:"length,omitempty"`         // Video width/height (square)
-}
-
-// Validate validates SendVideoNoteParams.
-func (p SendVideoNoteParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SendVideoNoteResult is the result of SendVideoNote.
@@ -222,14 +183,10 @@ type SendVideoNoteResult struct {
 
 // SendGIFParams holds parameters for SendGIF.
 type SendGIFParams struct {
+	NoValidation
 	Peer    string `json:"peer" validate:"required"`
 	File    string `json:"file" validate:"required"` // Path to GIF file
 	Caption string `json:"caption,omitempty"`
-}
-
-// Validate validates SendGIFParams.
-func (p SendGIFParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SendGIFResult is the result of SendGIF.
@@ -252,9 +209,6 @@ type SendStickerParams struct {
 
 // Validate validates SendStickerParams.
 func (p SendStickerParams) Validate() error {
-	if err := ValidateStruct(p); err != nil {
-		return err
-	}
 	if p.StickerID == "" && p.File == "" {
 		return ErrRequiresStickerOrFile
 	}
@@ -275,11 +229,6 @@ type SendDiceParams struct {
 	ReplyTo  int64  `json:"replyTo,omitempty"`
 }
 
-// Validate validates SendDiceParams.
-func (p SendDiceParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // SendDiceResult is the result of SendDice.
 type SendDiceResult struct {
 	ID       int64  `json:"id"`
@@ -291,12 +240,8 @@ type SendDiceResult struct {
 
 // GetStickerPacksParams holds parameters for GetStickerPacks.
 type GetStickerPacksParams struct {
+	NoValidation
 	// No required params - returns all sticker packs
-}
-
-// Validate validates GetStickerPacksParams.
-func (p GetStickerPacksParams) Validate() error {
-	return nil
 }
 
 // StickerPack represents a sticker pack.

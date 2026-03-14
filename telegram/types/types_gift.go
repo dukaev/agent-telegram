@@ -5,12 +5,8 @@ import "fmt"
 
 // GetStarGiftsParams holds parameters for GetStarGifts.
 type GetStarGiftsParams struct {
+	NoValidation
 	Limit int `json:"limit,omitempty"`
-}
-
-// Validate validates GetStarGiftsParams.
-func (p GetStarGiftsParams) Validate() error {
-	return nil
 }
 
 // GiftItem represents a star gift from the catalog.
@@ -61,14 +57,10 @@ type SendStarGiftResult struct {
 
 // GetSavedGiftsParams holds parameters for GetSavedGifts.
 type GetSavedGiftsParams struct {
+	NoValidation
 	Peer   string `json:"peer,omitempty"`
 	Offset string `json:"offset,omitempty"`
 	Limit  int    `json:"limit,omitempty"`
-}
-
-// Validate validates GetSavedGiftsParams.
-func (p GetSavedGiftsParams) Validate() error {
-	return nil
 }
 
 // SavedGiftItem represents a saved star gift.
@@ -160,11 +152,8 @@ type UpdateGiftPriceResult struct {
 }
 
 // GetBalanceParams holds parameters for GetBalance.
-type GetBalanceParams struct{}
-
-// Validate validates GetBalanceParams.
-func (p GetBalanceParams) Validate() error {
-	return nil
+type GetBalanceParams struct {
+	NoValidation
 }
 
 // GetBalanceResult is the result of GetBalance.
@@ -176,15 +165,11 @@ type GetBalanceResult struct {
 
 // OfferGiftParams holds parameters for OfferGift.
 type OfferGiftParams struct {
+	NoValidation
 	Peer     string `json:"peer" validate:"required"`
 	Slug     string `json:"slug" validate:"required"`
 	Price    int64  `json:"price" validate:"required"`
 	Duration int    `json:"duration,omitempty"`
-}
-
-// Validate validates OfferGiftParams.
-func (p OfferGiftParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // OfferGiftResult is the result of OfferGift.
@@ -236,13 +221,9 @@ type GetResaleGiftsResult struct {
 
 // BuyResaleGiftParams holds parameters for BuyResaleGift.
 type BuyResaleGiftParams struct {
+	NoValidation
 	Slug string `json:"slug" validate:"required"`
 	Peer string `json:"peer,omitempty"`
-}
-
-// Validate validates BuyResaleGiftParams.
-func (p BuyResaleGiftParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // BuyResaleGiftResult is the result of BuyResaleGift.
@@ -252,12 +233,8 @@ type BuyResaleGiftResult struct {
 
 // GetGiftValueParams holds parameters for GetGiftValue.
 type GetGiftValueParams struct {
+	NoValidation
 	Slug string `json:"slug" validate:"required"`
-}
-
-// Validate validates GetGiftValueParams.
-func (p GetGiftValueParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // GetGiftValueResult is the result of GetGiftValue.
@@ -280,12 +257,8 @@ type GetGiftValueResult struct {
 
 // GetGiftInfoParams holds parameters for GetGiftInfo.
 type GetGiftInfoParams struct {
+	NoValidation
 	Slug string `json:"slug" validate:"required"`
-}
-
-// Validate validates GetGiftInfoParams.
-func (p GetGiftInfoParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // GiftAttribute represents a gift attribute (model, pattern, backdrop).
@@ -320,12 +293,8 @@ type GetGiftAttrsResult struct {
 
 // AcceptGiftOfferParams holds parameters for AcceptGiftOffer.
 type AcceptGiftOfferParams struct {
+	NoValidation
 	OfferMsgID int `json:"offerMsgId" validate:"required"`
-}
-
-// Validate validates AcceptGiftOfferParams.
-func (p AcceptGiftOfferParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // AcceptGiftOfferResult is the result of AcceptGiftOffer.
@@ -335,12 +304,8 @@ type AcceptGiftOfferResult struct {
 
 // DeclineGiftOfferParams holds parameters for DeclineGiftOffer.
 type DeclineGiftOfferParams struct {
+	NoValidation
 	OfferMsgID int `json:"offerMsgId" validate:"required"`
-}
-
-// Validate validates DeclineGiftOfferParams.
-func (p DeclineGiftOfferParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // DeclineGiftOfferResult is the result of DeclineGiftOffer.

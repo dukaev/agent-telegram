@@ -14,14 +14,10 @@ type SearchResult struct {
 
 // SearchGlobalParams holds parameters for SearchGlobal.
 type SearchGlobalParams struct {
+	NoValidation
 	Query string `json:"query" validate:"required"`
 	Type  string `json:"type,omitempty"` // bots, users, chats, channels, or empty for all
 	Limit int    `json:"limit,omitempty"`
-}
-
-// Validate validates SearchGlobalParams.
-func (p SearchGlobalParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SearchGlobalResult is the result of SearchGlobal.
@@ -34,16 +30,12 @@ type SearchGlobalResult struct {
 
 // SearchInChatParams holds parameters for SearchInChat.
 type SearchInChatParams struct {
+	NoValidation
 	Peer   string `json:"peer" validate:"required"`
 	Query  string `json:"query" validate:"required"`
 	Type   string `json:"type,omitempty"` // text, photos, videos, documents, links, audio, voice
 	Limit  int    `json:"limit,omitempty"`
 	Offset int    `json:"offset,omitempty"`
-}
-
-// Validate validates SearchInChatParams.
-func (p SearchInChatParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SearchInChatResult is the result of SearchInChat.

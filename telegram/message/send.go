@@ -51,11 +51,7 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 
 // SendReply sends a reply to a message.
 func (c *Client) SendReply(ctx context.Context, params types.SendReplyParams) (*types.SendReplyResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

@@ -13,13 +13,9 @@ import (
 
 // Archive moves a chat to the archive folder.
 func (c *Client) Archive(ctx context.Context, params types.ArchiveParams) (*types.ArchiveResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	// Archive folder has ID 1
@@ -35,13 +31,9 @@ func (c *Client) Archive(ctx context.Context, params types.ArchiveParams) (*type
 
 // Unarchive moves a chat from the archive folder back to main list.
 func (c *Client) Unarchive(ctx context.Context, params types.UnarchiveParams) (*types.UnarchiveResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	// Main folder has ID 0
@@ -57,13 +49,9 @@ func (c *Client) Unarchive(ctx context.Context, params types.UnarchiveParams) (*
 
 // Mute mutes notifications for a chat.
 func (c *Client) Mute(ctx context.Context, params types.MuteParams) (*types.MuteResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	// Mute until max int32 (forever)
@@ -82,13 +70,9 @@ func (c *Client) Mute(ctx context.Context, params types.MuteParams) (*types.Mute
 
 // Unmute unmutes notifications for a chat.
 func (c *Client) Unmute(ctx context.Context, params types.UnmuteParams) (*types.UnmuteResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	// Unmute by setting mute_until to 0
@@ -107,13 +91,9 @@ func (c *Client) Unmute(ctx context.Context, params types.UnmuteParams) (*types.
 
 // EditTitle edits the title of a chat or channel.
 func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*types.EditTitleResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	switch p := peer.(type) {
@@ -148,13 +128,9 @@ func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*
 
 // SetPhoto sets the photo for a chat or channel.
 func (c *Client) SetPhoto(ctx context.Context, params types.SetPhotoParams) (*types.SetPhotoResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	// Upload the photo file
@@ -210,13 +186,9 @@ func (c *Client) SetPhoto(ctx context.Context, params types.SetPhotoParams) (*ty
 
 // DeletePhoto deletes the photo from a chat or channel.
 func (c *Client) DeletePhoto(ctx context.Context, params types.DeletePhotoParams) (*types.DeletePhotoResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	switch p := peer.(type) {
@@ -248,13 +220,9 @@ func (c *Client) DeletePhoto(ctx context.Context, params types.DeletePhotoParams
 
 // SetSlowMode sets slow mode for a channel/supergroup.
 func (c *Client) SetSlowMode(ctx context.Context, params types.SetSlowModeParams) (*types.SetSlowModeResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	inputChannel, ok := peer.(*tg.InputPeerChannel)
@@ -285,13 +253,9 @@ func (c *Client) SetChatPermissions(
 	ctx context.Context,
 	params types.SetChatPermissionsParams,
 ) (*types.SetChatPermissionsResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	// Build banned rights (inverted - true means banned)

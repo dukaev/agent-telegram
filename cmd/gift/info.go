@@ -59,7 +59,7 @@ func AddInfoCommand(parentCmd *cobra.Command) {
 func printGiftInfoHints(slug string) {
 	fmt.Fprintln(os.Stderr, "\nRelated commands:")
 	fmt.Fprintf(os.Stderr, "  gift attrs %s     # attributes for this gift type\n", slug)
-	fmt.Fprintf(os.Stderr, "  gift buy %s       # buy from marketplace\n", slug)
+	fmt.Fprintf(os.Stderr, "  gift send %s      # buy from marketplace\n", slug)
 	fmt.Fprintf(os.Stderr, "  gift offer %s     # make an offer to owner\n", slug)
 	fmt.Fprintf(os.Stderr, "  gift price %s     # set resale price\n", slug)
 	fmt.Fprintf(os.Stderr, "  gift send %s --to @user  # transfer to another user\n", slug)

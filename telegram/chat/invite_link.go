@@ -15,13 +15,9 @@ func (c *Client) GetInviteLink(
 	ctx context.Context,
 	params types.GetInviteLinkParams,
 ) (*types.GetInviteLinkResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	switch p := peer.(type) {

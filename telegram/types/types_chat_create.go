@@ -11,9 +11,6 @@ type CreateGroupParams struct {
 
 // Validate validates CreateGroupParams.
 func (p CreateGroupParams) Validate() error {
-	if err := ValidateStruct(p); err != nil {
-		return err
-	}
 	if len(p.Members) == 0 {
 		return fmt.Errorf("at least one member is required")
 	}
@@ -29,15 +26,11 @@ type CreateGroupResult struct {
 
 // CreateChannelParams holds parameters for CreateChannel.
 type CreateChannelParams struct {
-	Title       string `json:"title" validate:"required"`  // Channel title
-	Description string `json:"description,omitempty"`      // Channel description
-	Username    string `json:"username,omitempty"`         // Channel username (optional)
-	Megagroup   bool   `json:"megagroup,omitempty"`        // Create as supergroup instead of channel
-}
-
-// Validate validates CreateChannelParams.
-func (p CreateChannelParams) Validate() error {
-	return ValidateStruct(p)
+	NoValidation
+	Title       string `json:"title" validate:"required"` // Channel title
+	Description string `json:"description,omitempty"`     // Channel description
+	Username    string `json:"username,omitempty"`        // Channel username (optional)
+	Megagroup   bool   `json:"megagroup,omitempty"`       // Create as supergroup instead of channel
 }
 
 // CreateChannelResult is the result of CreateChannel.
@@ -49,13 +42,9 @@ type CreateChannelResult struct {
 
 // EditTitleParams holds parameters for EditTitle.
 type EditTitleParams struct {
+	NoValidation
 	Peer  string `json:"peer" validate:"required"`  // Chat/channel username or ID
 	Title string `json:"title" validate:"required"` // New title
-}
-
-// Validate validates EditTitleParams.
-func (p EditTitleParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // EditTitleResult is the result of EditTitle.
@@ -66,13 +55,9 @@ type EditTitleResult struct {
 
 // SetPhotoParams holds parameters for SetPhoto.
 type SetPhotoParams struct {
+	NoValidation
 	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
 	File string `json:"file" validate:"required"` // Path to photo file
-}
-
-// Validate validates SetPhotoParams.
-func (p SetPhotoParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SetPhotoResult is the result of SetPhoto.
@@ -82,12 +67,8 @@ type SetPhotoResult struct {
 
 // DeletePhotoParams holds parameters for DeletePhoto.
 type DeletePhotoParams struct {
+	NoValidation
 	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
-}
-
-// Validate validates DeletePhotoParams.
-func (p DeletePhotoParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // DeletePhotoResult is the result of DeletePhoto.
