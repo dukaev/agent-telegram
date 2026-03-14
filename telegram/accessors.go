@@ -62,10 +62,11 @@ func (c *Client) GetMe(ctx context.Context) (*tg.User, error) {
 	return c.client.Self(ctx)
 }
 
-// GetUpdates pops and returns stored updates.
-func (c *Client) GetUpdates(limit int) []types.StoredUpdate {
+// GetUpdates returns stored updates without removing them.
+// Use offset to get only updates newer than the given ID.
+func (c *Client) GetUpdates(limit int, offset ...int64) []types.StoredUpdate {
 	if c.updateStore == nil {
 		return []types.StoredUpdate{}
 	}
-	return c.updateStore.Get(limit)
+	return c.updateStore.Get(limit, offset...)
 }

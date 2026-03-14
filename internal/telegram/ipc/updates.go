@@ -2,6 +2,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 
 // GetUpdatesHandler returns a handler for get_updates requests.
 func GetUpdatesHandler(client Client) HandlerFunc {
-	return func(params json.RawMessage) (interface{}, error) {
+	return func(_ context.Context, params json.RawMessage) (interface{}, error) {
 		var p types.GetUpdatesParams
 		if len(params) > 0 {
 			if err := json.Unmarshal(params, &p); err != nil {
@@ -33,7 +34,7 @@ func GetUpdatesHandler(client Client) HandlerFunc {
 		if p.Peer != "" || p.Username != "" {
 			fetchLimit = 100 // Get more to filter from
 		}
-		updates := client.GetUpdates(fetchLimit)
+		updates := client.GetUpdates(fetchLimit, p.Offset)
 
 		// Filter by peer if specified
 		if p.Peer != "" || p.Username != "" {

@@ -15,11 +15,7 @@ import (
 func (c *Client) UpdateMessage(
 	ctx context.Context, params types.UpdateMessageParams,
 ) (*types.UpdateMessageResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

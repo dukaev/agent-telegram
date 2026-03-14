@@ -15,13 +15,9 @@ func (c *Client) GetParticipants(
 	ctx context.Context,
 	params types.GetParticipantsParams,
 ) (*types.GetParticipantsResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	limit := params.Limit
@@ -188,13 +184,9 @@ func (c *Client) GetAdmins(ctx context.Context, params types.GetAdminsParams) (*
 
 // GetBanned retrieves banned users from a chat or channel.
 func (c *Client) GetBanned(ctx context.Context, params types.GetBannedParams) (*types.GetBannedResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	peer, err := c.ResolvePeer(ctx, params.Peer)
+	peer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	inputChannel, ok := peer.(*tg.InputPeerChannel)

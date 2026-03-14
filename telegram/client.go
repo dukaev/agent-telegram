@@ -12,6 +12,7 @@ import (
 	"github.com/gotd/td/session"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
+	"golang.org/x/sync/singleflight"
 
 	"agent-telegram/telegram/chat"
 	"agent-telegram/telegram/gift"
@@ -31,11 +32,12 @@ type Client struct {
 	sessionPath    string
 	sessionStorage session.Storage // optional: in-memory session (e.g. from env)
 	updateStore    *UpdateStore
-	peerCache      sync.Map // username → InputPeerClass cache
-	ready          chan struct{} // closed when client is fully initialized
-	reloadCh       chan struct{} // signals session reload request
-	cancelFn       context.CancelFunc // cancels current client context
-	mu             sync.Mutex // protects cancelFn
+	peerCache      sync.Map             // username → InputPeerClass cache
+	peerFlight     singleflight.Group   // deduplicates concurrent peer resolutions
+	ready          chan struct{}         // closed when client is fully initialized
+	reloadCh       chan struct{}         // signals session reload request
+	cancelFn       context.CancelFunc   // cancels current client context
+	mu             sync.Mutex           // protects cancelFn and ready
 	// Domain clients
 	message  *message.Client
 	media    *media.Client
@@ -189,13 +191,19 @@ type ClientStatus struct {
 
 // Ready returns a channel that is closed when the client is fully initialized.
 func (c *Client) Ready() <-chan struct{} {
-	return c.ready
+	c.mu.Lock()
+	ch := c.ready
+	c.mu.Unlock()
+	return ch
 }
 
 // IsInitialized returns true if the client API is ready.
 func (c *Client) IsInitialized() bool {
+	c.mu.Lock()
+	ch := c.ready
+	c.mu.Unlock()
 	select {
-	case <-c.ready:
+	case <-ch:
 		return true
 	default:
 		return false
@@ -232,11 +240,13 @@ func (c *Client) ReloadCh() <-chan struct{} {
 // Reload signals the client to reload the session.
 // This will disconnect and reconnect with the new session file.
 func (c *Client) Reload() {
-	// Reset ready channel for new connection
 	c.mu.Lock()
+	// Reset ready channel for new connection
 	c.ready = make(chan struct{})
 	// Clear peer cache since we might be a different user
 	c.peerCache = sync.Map{}
+	// Reset singleflight group to discard in-flight resolutions
+	c.peerFlight = singleflight.Group{}
 	cancelFn := c.cancelFn
 	c.mu.Unlock()
 

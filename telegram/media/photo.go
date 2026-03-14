@@ -12,11 +12,7 @@ import (
 
 // SendPhoto sends a photo to a peer.
 func (c *Client) SendPhoto(ctx context.Context, params types.SendPhotoParams) (*types.SendPhotoResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

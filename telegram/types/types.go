@@ -76,53 +76,49 @@ const (
 
 // StoredUpdate represents a stored Telegram update.
 type StoredUpdate struct {
-	ID        int64     `json:"id"`
-	Type      UpdateType `json:"type"`
-	Timestamp time.Time `json:"timestamp"`
+	ID        int64          `json:"id"`
+	Type      UpdateType     `json:"type"`
+	Timestamp time.Time      `json:"timestamp"`
 	Data      map[string]any `json:"data"`
 }
 
 // MessageResult represents a single message result.
 type MessageResult struct {
-	ID             int64           `json:"id"`
-	Date           int64           `json:"date"`
-	Text           string          `json:"text,omitempty"`
-	FromID         string          `json:"fromId,omitempty"`
-	FromName       string          `json:"fromName,omitempty"`
-	Out            bool            `json:"out"`
-	Buttons        []InlineButton  `json:"buttons,omitempty"`
+	ID       int64          `json:"id"`
+	Date     int64          `json:"date"`
+	Text     string         `json:"text,omitempty"`
+	FromID   string         `json:"fromId,omitempty"`
+	FromName string         `json:"fromName,omitempty"`
+	Out      bool           `json:"out"`
+	Buttons  []InlineButton `json:"buttons,omitempty"`
 
 	// Additional message fields
-	PeerID         string          `json:"peerId,omitempty"`        // Chat where message was sent
-	EditDate       int64           `json:"editDate,omitempty"`      // When message was edited
-	Media          map[string]any  `json:"media,omitempty"`         // Media attachment (photo, document, etc.)
-	Views          int             `json:"views,omitempty"`         // View count for channel posts
-	Forwards       int             `json:"forwards,omitempty"`      // Forward counter
-	ReplyTo        map[string]any  `json:"replyTo,omitempty"`       // Reply information
-	Forwarded      bool            `json:"forwarded,omitempty"`     // Whether message was forwarded
-	FwdFrom        map[string]any  `json:"fwdFrom,omitempty"`       // Forwarded from
-	Reactions      []map[string]any `json:"reactions,omitempty"`    // Reactions to message
-	Entities       []map[string]any `json:"entities,omitempty"`     // Message entities (formatting)
-	Pinned         bool            `json:"pinned,omitempty"`        // Whether message is pinned
-	ViaBotID       int64           `json:"viaBotId,omitempty"`      // ID of inline bot
-	PostAuthor     string          `json:"postAuthor,omitempty"`    // Author of channel post
-	GroupedID      int64           `json:"groupedId,omitempty"`     // Album/media group ID
-	TTLPeriod      int             `json:"ttlPeriod,omitempty"`     // Time to live
-	Mentioned      bool            `json:"mentioned,omitempty"`     // Whether we were mentioned
-	Silent         bool            `json:"silent,omitempty"`        // Silent message (no notification)
-	Post           bool            `json:"post,omitempty"`          // Channel post
+	PeerID     string           `json:"peerId,omitempty"`     // Chat where message was sent
+	EditDate   int64            `json:"editDate,omitempty"`   // When message was edited
+	Media      map[string]any   `json:"media,omitempty"`      // Media attachment (photo, document, etc.)
+	Views      int              `json:"views,omitempty"`      // View count for channel posts
+	Forwards   int              `json:"forwards,omitempty"`   // Forward counter
+	ReplyTo    map[string]any   `json:"replyTo,omitempty"`    // Reply information
+	Forwarded  bool             `json:"forwarded,omitempty"`  // Whether message was forwarded
+	FwdFrom    map[string]any   `json:"fwdFrom,omitempty"`    // Forwarded from
+	Reactions  []map[string]any `json:"reactions,omitempty"`  // Reactions to message
+	Entities   []map[string]any `json:"entities,omitempty"`   // Message entities (formatting)
+	Pinned     bool             `json:"pinned,omitempty"`     // Whether message is pinned
+	ViaBotID   int64            `json:"viaBotId,omitempty"`   // ID of inline bot
+	PostAuthor string           `json:"postAuthor,omitempty"` // Author of channel post
+	GroupedID  int64            `json:"groupedId,omitempty"`  // Album/media group ID
+	TTLPeriod  int              `json:"ttlPeriod,omitempty"`  // Time to live
+	Mentioned  bool             `json:"mentioned,omitempty"`  // Whether we were mentioned
+	Silent     bool             `json:"silent,omitempty"`     // Silent message (no notification)
+	Post       bool             `json:"post,omitempty"`       // Channel post
 }
 
 // GetMessagesParams holds parameters for GetMessages.
 type GetMessagesParams struct {
+	NoValidation
 	Username string `json:"username" validate:"required"`
 	Limit    int    `json:"limit"`
 	Offset   int    `json:"offset"`
-}
-
-// Validate validates GetMessagesParams.
-func (p GetMessagesParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // GetMessagesResult is the result of GetMessages.
@@ -137,7 +133,8 @@ type GetMessagesResult struct {
 // GetUpdatesParams holds parameters for GetUpdates.
 type GetUpdatesParams struct {
 	PeerInfo
-	Limit int `json:"limit"`
+	Limit  int   `json:"limit"`
+	Offset int64 `json:"offset,omitempty"` // Return updates with ID > offset (for polling)
 }
 
 // GetUpdatesResult is the result of GetUpdates.
@@ -145,4 +142,3 @@ type GetUpdatesResult struct {
 	Updates []StoredUpdate `json:"updates"`
 	Count   int            `json:"count"`
 }
-

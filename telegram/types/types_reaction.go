@@ -11,7 +11,10 @@ type AddReactionParams struct {
 
 // Validate validates AddReactionParams.
 func (p AddReactionParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // AddReactionResult is the result of AddReaction.
@@ -29,7 +32,10 @@ type RemoveReactionParams struct {
 
 // Validate validates RemoveReactionParams.
 func (p RemoveReactionParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // RemoveReactionResult is the result of RemoveReaction.
@@ -55,7 +61,10 @@ type ListReactionsParams struct {
 
 // Validate validates ListReactionsParams.
 func (p ListReactionsParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // ListReactionsResult is the result of ListReactions.

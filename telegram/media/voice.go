@@ -13,13 +13,9 @@ import (
 
 // SendVoice sends a voice message to a peer.
 func (c *Client) SendVoice(ctx context.Context, params types.SendVoiceParams) (*types.SendVoiceResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	uploadedFile, err := uploadFile(ctx, c.API, params.File)
@@ -69,13 +65,9 @@ func (c *Client) SendVoice(ctx context.Context, params types.SendVoiceParams) (*
 func (c *Client) SendVideoNote(
 	ctx context.Context, params types.SendVideoNoteParams,
 ) (*types.SendVideoNoteResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	uploadedFile, err := uploadFile(ctx, c.API, params.File)

@@ -31,7 +31,10 @@ type SendReplyParams struct {
 
 // Validate validates SendReplyParams.
 func (p SendReplyParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // SendReplyResult is the result of SendReply.
@@ -52,7 +55,10 @@ type UpdateMessageParams struct {
 
 // Validate validates UpdateMessageParams.
 func (p UpdateMessageParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // UpdateMessageResult is the result of UpdateMessage.
@@ -69,7 +75,10 @@ type DeleteMessageParams struct {
 
 // Validate validates DeleteMessageParams.
 func (p DeleteMessageParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // DeleteMessageResult is the result of DeleteMessage.
@@ -86,7 +95,10 @@ type PinMessageParams struct {
 
 // Validate validates PinMessageParams.
 func (p PinMessageParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // PinMessageResult is the result of PinMessage.
@@ -103,7 +115,10 @@ type UnpinMessageParams struct {
 
 // Validate validates UnpinMessageParams.
 func (p UnpinMessageParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // UnpinMessageResult is the result of UnpinMessage.
@@ -128,7 +143,10 @@ type InspectInlineButtonsParams struct {
 
 // Validate validates InspectInlineButtonsParams.
 func (p InspectInlineButtonsParams) Validate() error {
-	return ValidateStruct(p)
+	if err := p.PeerInfo.Validate(); err != nil {
+		return err
+	}
+	return p.MsgID.Validate()
 }
 
 // InspectInlineButtonsResult is the result of InspectInlineButtons.
@@ -147,9 +165,6 @@ type PressInlineButtonParams struct {
 
 // Validate validates PressInlineButtonParams.
 func (p PressInlineButtonParams) Validate() error {
-	if err := ValidateStruct(p); err != nil {
-		return err
-	}
 	if p.ButtonIndex < 0 {
 		return fmt.Errorf("buttonIndex must be >= 0")
 	}
@@ -164,13 +179,9 @@ type PressInlineButtonResult struct {
 
 // ReadMessagesParams holds parameters for ReadMessages.
 type ReadMessagesParams struct {
+	NoValidation
 	Peer  string `json:"peer" validate:"required"`
 	MaxID int64  `json:"maxId,omitempty"` // Mark all messages up to this ID as read
-}
-
-// Validate validates ReadMessagesParams.
-func (p ReadMessagesParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // ReadMessagesResult is the result of ReadMessages.
@@ -181,13 +192,9 @@ type ReadMessagesResult struct {
 
 // SetTypingParams holds parameters for SetTyping.
 type SetTypingParams struct {
+	NoValidation
 	Peer   string `json:"peer" validate:"required"`
 	Action string `json:"action,omitempty"` // typing, upload_photo, record_video, record_audio, etc.
-}
-
-// Validate validates SetTypingParams.
-func (p SetTypingParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // SetTypingResult is the result of SetTyping.
@@ -253,12 +260,8 @@ type ReplyToCommentResult struct {
 
 // GetScheduledMessagesParams holds parameters for GetScheduledMessages.
 type GetScheduledMessagesParams struct {
+	NoValidation
 	Peer string `json:"peer" validate:"required"`
-}
-
-// Validate validates GetScheduledMessagesParams.
-func (p GetScheduledMessagesParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // ScheduledMessage represents a scheduled message.

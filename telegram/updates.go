@@ -18,6 +18,7 @@ type UpdateStore struct {
 	nextID   int64
 	limit    int
 	onUpdate func(types.StoredUpdate)
+	wg       sync.WaitGroup // tracks in-flight onUpdate callbacks
 }
 
 // NewUpdateStore creates a new UpdateStore with the given limit.
@@ -60,14 +61,26 @@ func (s *UpdateStore) Add(update types.StoredUpdate) {
 	s.mu.Unlock()
 
 	if onUpdate != nil {
-		go onUpdate(update)
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			onUpdate(update)
+		}()
 	}
 }
 
-// Get pops and returns updates (newest first, removes from store).
-func (s *UpdateStore) Get(limit int) []types.StoredUpdate {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// Wait blocks until all in-flight onUpdate callbacks complete.
+// Call this during shutdown to prevent goroutine leaks.
+func (s *UpdateStore) Wait() {
+	s.wg.Wait()
+}
+
+// Get returns updates (newest first) without removing them from the store.
+// Use offset to get updates after a specific update ID (for polling).
+// When offset > 0, only updates with ID > offset are returned.
+func (s *UpdateStore) Get(limit int, offset ...int64) []types.StoredUpdate {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	// Set defaults
 	if limit <= 0 {
@@ -82,24 +95,36 @@ func (s *UpdateStore) Get(limit int) []types.StoredUpdate {
 		return []types.StoredUpdate{}
 	}
 
-	// Determine how many to return
-	count := limit
-	if count > total {
-		count = total
+	// Determine starting index based on offset
+	startIdx := 0
+	if len(offset) > 0 && offset[0] > 0 {
+		for i, u := range s.updates {
+			if u.ID > offset[0] {
+				startIdx = i
+				break
+			}
+			// If we've gone through all updates and none are newer, return empty
+			if i == total-1 {
+				return []types.StoredUpdate{}
+			}
+		}
 	}
 
-	// Take from the end (newest)
-	start := total - count
-	result := make([]types.StoredUpdate, count)
-	copy(result, s.updates[start:])
+	// Get available updates from startIdx
+	available := s.updates[startIdx:]
+	count := len(available)
+	if count > limit {
+		// Take the newest ones
+		available = available[count-limit:]
+		count = limit
+	}
 
-	// Reverse to have newest first
+	// Copy and reverse to have newest first
+	result := make([]types.StoredUpdate, count)
+	copy(result, available)
 	for i, j := 0, len(result)-1; i < j; i, j = i+1, j-1 {
 		result[i], result[j] = result[j], result[i]
 	}
-
-	// Remove returned updates from store
-	s.updates = s.updates[:start]
 
 	return result
 }

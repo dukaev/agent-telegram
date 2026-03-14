@@ -40,11 +40,7 @@ func createReaction(emoji string) tg.ReactionClass {
 
 // AddReaction adds a reaction to a message.
 func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams) (*types.AddReactionResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +69,7 @@ func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams
 func (c *Client) RemoveReaction(
 	ctx context.Context, params types.RemoveReactionParams,
 ) (*types.RemoveReactionResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

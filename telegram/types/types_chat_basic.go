@@ -32,11 +32,6 @@ type ClearMessagesParams struct {
 	MessageIDs []int64 `json:"messageIds" validate:"required"`
 }
 
-// Validate validates ClearMessagesParams.
-func (p ClearMessagesParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // ClearMessagesResult is the result of ClearMessages.
 type ClearMessagesResult struct {
 	Success bool   `json:"success"`
@@ -50,11 +45,6 @@ type ClearHistoryParams struct {
 	Revoke bool `json:"revoke,omitempty"`
 }
 
-// Validate validates ClearHistoryParams.
-func (p ClearHistoryParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // ClearHistoryResult is the result of ClearHistory.
 type ClearHistoryResult struct {
 	Success bool   `json:"success"`
@@ -64,14 +54,10 @@ type ClearHistoryResult struct {
 
 // ForwardMessageParams holds parameters for ForwardMessage.
 type ForwardMessageParams struct {
+	NoValidation
 	FromPeer  string `json:"fromPeer" validate:"required"`
 	MessageID int64  `json:"messageId" validate:"required"`
 	ToPeer    string `json:"toPeer" validate:"required"`
-}
-
-// Validate validates ForwardMessageParams.
-func (p ForwardMessageParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // ForwardMessageResult is the result of ForwardMessage.
@@ -86,11 +72,6 @@ type PinChatParams struct {
 	Disable bool `json:"disable"` // true to unpin, false to pin
 }
 
-// Validate validates PinChatParams.
-func (p PinChatParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // PinChatResult is the result of PinChat.
 type PinChatResult struct {
 	Success bool   `json:"success"`
@@ -101,11 +82,6 @@ type PinChatResult struct {
 // ArchiveParams holds parameters for Archive.
 type ArchiveParams struct {
 	PeerInfo
-}
-
-// Validate validates ArchiveParams.
-func (p ArchiveParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // ArchiveResult is the result of Archive.
@@ -119,11 +95,6 @@ type UnarchiveParams struct {
 	PeerInfo
 }
 
-// Validate validates UnarchiveParams.
-func (p UnarchiveParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // UnarchiveResult is the result of Unarchive.
 type UnarchiveResult struct {
 	Success bool   `json:"success"`
@@ -135,11 +106,6 @@ type MuteParams struct {
 	PeerInfo
 }
 
-// Validate validates MuteParams.
-func (p MuteParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // MuteResult is the result of Mute.
 type MuteResult struct {
 	Success bool   `json:"success"`
@@ -149,11 +115,6 @@ type MuteResult struct {
 // UnmuteParams holds parameters for Unmute.
 type UnmuteParams struct {
 	PeerInfo
-}
-
-// Validate validates UnmuteParams.
-func (p UnmuteParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // UnmuteResult is the result of Unmute.

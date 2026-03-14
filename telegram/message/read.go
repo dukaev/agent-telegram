@@ -11,13 +11,9 @@ import (
 
 // ReadMessages marks messages as read in a chat.
 func (c *Client) ReadMessages(ctx context.Context, params types.ReadMessagesParams) (*types.ReadMessagesResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	maxID := int(params.MaxID)
@@ -51,13 +47,9 @@ func (c *Client) ReadMessages(ctx context.Context, params types.ReadMessagesPara
 
 // SetTyping sends a typing indicator to a chat.
 func (c *Client) SetTyping(ctx context.Context, params types.SetTypingParams) (*types.SetTypingResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	// Determine action type

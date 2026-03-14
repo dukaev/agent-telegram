@@ -16,13 +16,9 @@ func (c *Client) GetScheduledMessages(
 	ctx context.Context,
 	params types.GetScheduledMessagesParams,
 ) (*types.GetScheduledMessagesResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve peer: %w", err)
+		return nil, err
 	}
 
 	result, err := c.API.MessagesGetScheduledHistory(ctx, &tg.MessagesGetScheduledHistoryRequest{

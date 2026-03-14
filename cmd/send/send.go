@@ -70,14 +70,11 @@ func AddSendCommand(rootCmd *cobra.Command) {
 
 	// Register subcommands
 	addTextCommand(SendCmd)
-	addPhotoCommand(SendCmd)
-	addVideoCommand(SendCmd)
-	addVoiceCommand(SendCmd)
+	addMediaCommands(SendCmd)
 	addDiceCommand(SendCmd)
 	addPollCommand(SendCmd)
 	addLocationCommand(SendCmd)
 	addContactCommand(SendCmd)
-	addStickerCommand(SendCmd)
 
 	// Register common flags with optional --to (positional peer supported)
 	sendFlags.RegisterOptionalTo(SendCmd)

@@ -40,11 +40,7 @@ func (c *Client) ClearMessages(
 
 // ClearHistory clears all chat history for a peer.
 func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}
@@ -66,11 +62,7 @@ func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryPara
 
 // PinChat pins or unpins a chat in the dialog list.
 func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error) {
-	if err := c.CheckInitialized(); err != nil {
-		return nil, err
-	}
-
-	inputPeer, err := c.ResolvePeer(ctx, params.Peer)
+	inputPeer, err := c.InitAndResolve(ctx, params.Peer)
 	if err != nil {
 		return nil, err
 	}

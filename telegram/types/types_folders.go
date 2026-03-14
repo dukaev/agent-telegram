@@ -3,12 +3,8 @@ package types
 
 // GetFoldersParams holds parameters for GetFolders.
 type GetFoldersParams struct {
+	NoValidation
 	// No required params
-}
-
-// Validate validates GetFoldersParams.
-func (p GetFoldersParams) Validate() error {
-	return nil
 }
 
 // ChatFolder represents a chat folder.
@@ -32,6 +28,7 @@ type GetFoldersResult struct {
 
 // CreateFolderParams holds parameters for CreateFolder.
 type CreateFolderParams struct {
+	NoValidation
 	Title              string   `json:"title" validate:"required"`
 	IncludedChats      []string `json:"includedChats,omitempty"`
 	ExcludedChats      []string `json:"excludedChats,omitempty"`
@@ -42,11 +39,6 @@ type CreateFolderParams struct {
 	IncludeBots        bool     `json:"includeBots,omitempty"`
 }
 
-// Validate validates CreateFolderParams.
-func (p CreateFolderParams) Validate() error {
-	return ValidateStruct(p)
-}
-
 // CreateFolderResult is the result of CreateFolder.
 type CreateFolderResult struct {
 	Success bool `json:"success"`
@@ -55,12 +47,8 @@ type CreateFolderResult struct {
 
 // DeleteFolderParams holds parameters for DeleteFolder.
 type DeleteFolderParams struct {
+	NoValidation
 	ID int `json:"id" validate:"required"`
-}
-
-// Validate validates DeleteFolderParams.
-func (p DeleteFolderParams) Validate() error {
-	return ValidateStruct(p)
 }
 
 // DeleteFolderResult is the result of DeleteFolder.
