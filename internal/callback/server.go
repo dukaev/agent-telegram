@@ -3,6 +3,7 @@ package callback
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,12 +12,14 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"agent-telegram/internal/ipc"
 )
 
 const (
-	verifyTimeout  = 5 * time.Second
-	maxBodySize    = 1 << 16 // 64 KB
-	shutdownGrace  = 5 * time.Second
+	verifyTimeout = 5 * time.Second
+	maxBodySize   = 1 << 16 // 64 KB
+	shutdownGrace = 5 * time.Second
 )
 
 // Server is the HTTP API server for callback management.
@@ -48,7 +51,7 @@ func NewServer(manager *Manager, port int, secret string) *Server {
 		Addr:         fmt.Sprintf(":%d", port),
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: ipc.ClientTimeout(),
 	}
 	return s
 }
@@ -56,7 +59,7 @@ func NewServer(manager *Manager, port int, secret string) *Server {
 // authMiddleware enforces X-Secret header authentication.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Secret") != s.secret {
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Secret")), []byte(s.secret)) != 1 {
 			writeError(w, "unauthorized")
 			return
 		}
@@ -97,22 +100,24 @@ func (s *Server) Start(ctx context.Context) error {
 
 func (s *Server) handleSetCallbackURL(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		CallbackURL string `json:"callbackUrl"`
+		CallbackURL      string `json:"callbackUrl"`
+		CallbackURLSnake string `json:"callback_url"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		writeError(w, "invalid request body")
 		return
 	}
-	if req.CallbackURL == "" {
+	callbackURL := firstNonEmpty(req.CallbackURL, req.CallbackURLSnake)
+	if callbackURL == "" {
 		writeError(w, "callback_url is required")
 		return
 	}
-	if !strings.HasPrefix(req.CallbackURL, "http://") && !strings.HasPrefix(req.CallbackURL, "https://") {
+	if !strings.HasPrefix(callbackURL, "http://") && !strings.HasPrefix(callbackURL, "https://") {
 		writeError(w, "callback_url is not valid")
 		return
 	}
 
-	verifyCode, err := s.manager.SetCallbackURL(req.CallbackURL)
+	verifyCode, err := s.manager.SetCallbackURL(callbackURL)
 	if err != nil {
 		slog.Error("callback: set URL failed", "error", err)
 		writeError(w, "internal error")
@@ -120,9 +125,9 @@ func (s *Server) handleSetCallbackURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the URL by sending a POST and expecting verifyCode in response
-	if err := s.verifyURL(r.Context(), req.CallbackURL, verifyCode); err != nil {
+	if err := s.verifyURL(r.Context(), callbackURL, verifyCode); err != nil {
 		slog.Warn("callback: URL verification failed",
-			"url", req.CallbackURL, "error", err,
+			"url", callbackURL, "error", err,
 		)
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":      "error",
@@ -134,7 +139,7 @@ func (s *Server) handleSetCallbackURL(w http.ResponseWriter, r *http.Request) {
 
 	// Check URL hasn't changed between verify and confirm (race protection)
 	cur := s.manager.store.Get()
-	if cur.CallbackURL != req.CallbackURL {
+	if cur.CallbackURL != callbackURL {
 		writeError(w, "callback URL changed during verification")
 		return
 	}
@@ -181,24 +186,29 @@ func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var req struct {
-		SubscriptionID *int64 `json:"subscriptionId"`
-		ChannelID      string `json:"channelId"`
-		EventTypes     string `json:"eventTypes"` // comma-separated
+		SubscriptionID      *int64 `json:"subscriptionId"`
+		SubscriptionIDSnake *int64 `json:"subscription_id"`
+		ChannelID           string `json:"channelId"`
+		ChannelIDSnake      string `json:"channel_id"`
+		EventTypes          string `json:"eventTypes"`  // comma-separated
+		EventTypesSnake     string `json:"event_types"` // comma-separated
 	}
 	if err := decodeBody(r, &req); err != nil {
 		writeError(w, "invalid request body")
 		return
 	}
-	if req.ChannelID == "" {
+	channelID := firstNonEmpty(req.ChannelID, req.ChannelIDSnake)
+	eventTypesRaw := firstNonEmpty(req.EventTypes, req.EventTypesSnake)
+	if channelID == "" {
 		writeError(w, "channel_id is required")
 		return
 	}
-	if req.EventTypes == "" {
+	if eventTypesRaw == "" {
 		writeError(w, "event_types is required")
 		return
 	}
 
-	eventTypes := splitTrimmed(req.EventTypes, ",")
+	eventTypes := splitTrimmed(eventTypesRaw, ",")
 	for _, et := range eventTypes {
 		if _, ok := eventTypeToUpdateType[et]; !ok {
 			writeError(w, fmt.Sprintf("unknown event type: %s", et))
@@ -207,11 +217,11 @@ func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Resolve and normalize channelId via Telegram API (validates it exists)
-	resolvedChannelID, err := s.manager.ResolveChannelID(r.Context(), req.ChannelID)
+	resolvedChannelID, err := s.manager.ResolveChannelID(r.Context(), channelID)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status": "error",
-			"error":  fmt.Sprintf("channel not found: %s", req.ChannelID),
+			"error":  fmt.Sprintf("channel not found: %s", channelID),
 		})
 		return
 	}
@@ -223,9 +233,13 @@ func (s *Server) handleSubscribeChannel(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var id int64
-	if req.SubscriptionID != nil {
+	subscriptionID := req.SubscriptionID
+	if subscriptionID == nil {
+		subscriptionID = req.SubscriptionIDSnake
+	}
+	if subscriptionID != nil {
 		// Atomic edit: remove old + add new in one lock
-		id, err = s.manager.store.EditSubscription(*req.SubscriptionID, sub)
+		id, err = s.manager.store.EditSubscription(*subscriptionID, sub)
 	} else {
 		id, err = s.manager.store.AddSubscription(sub)
 	}
@@ -254,13 +268,22 @@ func (s *Server) handleSubscriptionsList(w http.ResponseWriter, _ *http.Request)
 
 func (s *Server) handleUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		SubscriptionID int64 `json:"subscriptionId"`
+		SubscriptionID      int64 `json:"subscriptionId"`
+		SubscriptionIDSnake int64 `json:"subscription_id"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		writeError(w, "invalid request body")
 		return
 	}
-	if err := s.manager.store.RemoveSubscription(req.SubscriptionID); err != nil {
+	subscriptionID := req.SubscriptionID
+	if subscriptionID == 0 {
+		subscriptionID = req.SubscriptionIDSnake
+	}
+	if subscriptionID == 0 {
+		writeError(w, "subscription_id is required")
+		return
+	}
+	if err := s.manager.store.RemoveSubscription(subscriptionID); err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status": "error",
 			"error":  "subscription not found",
@@ -324,6 +347,15 @@ func writeError(w http.ResponseWriter, msg string) {
 		"status": "error",
 		"error":  msg,
 	})
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func splitTrimmed(s, sep string) []string {

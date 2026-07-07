@@ -16,8 +16,9 @@ const (
 
 // WaitForReply polls get_messages until a reply appears after afterMsgID, or timeout.
 // Returns the first incoming message (not sent by us) with ID > afterMsgID.
-func WaitForReply(runner *cliutil.Runner, peer string, afterMsgID int64, timeout time.Duration) (any, error) {
+func WaitForReply(runner *cliutil.Runner, peer string, afterMsgID int64, timeout time.Duration) (any, int, error) {
 	deadline := time.Now().Add(timeout)
+	polls := 0
 
 	for time.Now().Before(deadline) {
 		params := map[string]any{
@@ -25,10 +26,11 @@ func WaitForReply(runner *cliutil.Runner, peer string, afterMsgID int64, timeout
 			"limit":    waitPollLimit,
 		}
 
-		result := runner.Call("get_messages", params)
+		polls++
+		result := runner.CallInternal("get_messages", params)
 
 		if reply := findReply(result, afterMsgID); reply != nil {
-			return reply, nil
+			return reply, polls, nil
 		}
 
 		remaining := time.Until(deadline)
@@ -39,7 +41,7 @@ func WaitForReply(runner *cliutil.Runner, peer string, afterMsgID int64, timeout
 		}
 	}
 
-	return nil, fmt.Errorf("no reply within %s", timeout)
+	return nil, polls, fmt.Errorf("no reply within %s", timeout)
 }
 
 // findReply searches messages for an incoming message with ID > afterMsgID.
@@ -82,16 +84,29 @@ func HandleWaitReply(runner *cliutil.Runner, peer string, sendResult any, timeou
 	if sentID == 0 {
 		fmt.Fprintln(os.Stderr, "Warning: could not extract sent message ID, waiting for any new message")
 	}
+	HandleWaitReplyAfter(runner, peer, sentID, sendResult, timeout)
+}
 
+// HandleWaitReplyAfter waits for a reply after a known message ID and prints a
+// combined result with both the triggering action and the reply.
+func HandleWaitReplyAfter(runner *cliutil.Runner, peer string, afterMsgID int64, actionResult any, timeout time.Duration) {
 	fmt.Fprintf(os.Stderr, "Waiting for reply (timeout: %s)...\n", timeout)
 
-	reply, err := WaitForReply(runner, peer, sentID, timeout)
+	reply, polls, err := WaitForReply(runner, peer, afterMsgID, timeout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	runner.PrintResult(reply, nil)
+	runner.PrintResult(map[string]any{
+		"action": actionResult,
+		"reply":  reply,
+		"wait": map[string]any{
+			"afterMessageId": afterMsgID,
+			"polls":          polls,
+			"timeout":        timeout.String(),
+		},
+	}, nil)
 }
 
 // extractSentID extracts the message ID from a send result.

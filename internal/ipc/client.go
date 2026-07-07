@@ -22,17 +22,37 @@ func NewClient(path string) *Client {
 	}
 	return &Client{
 		path:    path,
-		timeout: 5 * time.Second,
+		timeout: ClientTimeout(),
+	}
+}
+
+// NewClientWithTimeout creates a JSON-RPC client with an explicit deadline.
+func NewClientWithTimeout(path string, timeout time.Duration) *Client {
+	if path == "" {
+		path = defaultSocketPath
+	}
+	if timeout <= 0 {
+		timeout = ClientTimeout()
+	}
+	return &Client{
+		path:    path,
+		timeout: timeout,
 	}
 }
 
 // Call calls a JSON-RPC method.
 func (c *Client) Call(method string, params interface{}) (interface{}, *ErrorObject) {
+	return c.CallWithTrace(method, params, "")
+}
+
+// CallWithTrace calls a JSON-RPC method with a caller-supplied trace ID.
+func (c *Client) CallWithTrace(method string, params interface{}, traceID string) (interface{}, *ErrorObject) {
 	// Create request
 	req := Request{
 		JSONRPC: "2.0",
 		Method:  method,
 		ID:      1,
+		TraceID: traceID,
 	}
 	if params != nil {
 		data, err := json.Marshal(params)

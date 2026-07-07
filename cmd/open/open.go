@@ -2,9 +2,7 @@
 package open
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -173,11 +171,5 @@ func runOpen(username string) {
 		"offset":   offset,
 	})
 
-	// Output as JSON
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println(string(data))
+	runner.PrintJSON(result)
 }

@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"agent-telegram/cmd/auth"
+	"agent-telegram/cmd/bot"
 	"agent-telegram/cmd/chat"
 	"agent-telegram/cmd/contact"
 	"agent-telegram/cmd/folders"
@@ -22,6 +23,7 @@ import (
 
 func init() {
 	// Auth commands
+	auth.AddAuthCommand(RootCmd)
 	auth.AddLoginCommand(RootCmd)
 	auth.AddLogoutCommand(RootCmd)
 	get.AddMyInfoCommand(RootCmd)
@@ -37,6 +39,7 @@ func init() {
 
 	// Message commands
 	message.AddMsgCommand(RootCmd)
+	bot.AddBotCommand(RootCmd)
 
 	// User commands
 	user.AddUserCommand(RootCmd)
@@ -64,7 +67,10 @@ func init() {
 
 	// System commands
 	sys.AddStatusCommand(RootCmd)
+	sys.AddManifestCommand(RootCmd)
 	sys.AddLLMsTxtCommand(RootCmd)
+	sys.AddObservabilityCommands(RootCmd)
+	sys.AddServerCommand(RootCmd)
 
 	// Register schema methods for commands not using helper constructors.
 	// Commands using NewSimpleCommand/NewToggleCommand/NewListCommand auto-register.

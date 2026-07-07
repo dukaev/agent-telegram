@@ -23,7 +23,7 @@ agent-telegram uses a **two-process architecture**:
 ```
 CLI Command
     ↓
-cliutil.Runner (auto-starts server if needed)
+cliutil.Runner (requires an explicit running server)
     ↓
 internal/ipc.Client (connects to socket)
     ↓
@@ -45,7 +45,7 @@ JSON-RPC Response ← Unix Socket ← Result
 ```
 agent-telegram/
 ├── cmd/                           # CLI commands
-│   ├── auth/                      # login, logout
+│   ├── auth/                      # headless auth, login alias, logout
 │   ├── chat/                      # 26+ chat subcommands
 │   ├── contact/                   # add, list, delete
 │   ├── folders/                   # folder management
@@ -79,7 +79,7 @@ agent-telegram/
 │   │   └── *.go                   # Specific handlers
 │   │
 │   ├── cliutil/                   # CLI utilities
-│   │   ├── runner.go              # Command runner with auto-start
+│   │   ├── runner.go              # Command runner and output/audit handling
 │   │   ├── recipient.go           # @user/ID normalization
 │   │   ├── pagination.go          # Limit/offset helper
 │   │   ├── listcmd.go             # List command pattern
@@ -90,8 +90,9 @@ agent-telegram/
 │   ├── paths/                     # File path management
 │   │   └── paths.go               # Config dir, logs, PID, lock
 │   │
+│   ├── observability/             # Trace IDs, redaction, audit journal
 │   ├── config/                    # Configuration loading
-│   ├── auth/                      # Auth service
+│   ├── authflow/                  # Headless auth state/backend
 │   ├── tgauth/                    # Telegram auth flow
 │   └── types/                     # Shared types
 │
@@ -111,11 +112,6 @@ agent-telegram/
 │   ├── types/                     # Domain types
 │   └── helpers/                   # Utilities
 │
-├── cli/                           # Interactive UI
-│   ├── ui/                        # Login UI
-│   ├── steps/                     # Auth steps (phone, code, password)
-│   └── components/                # UI components
-│
 ├── main.go                        # Entry point
 ├── go.mod
 ├── install.sh                     # curl installer
@@ -125,6 +121,19 @@ agent-telegram/
 ---
 
 ## Key Components
+
+### 0. Operation Registry (`internal/operations/`)
+
+`internal/operations` is the machine-readable contract for agentic tooling. It
+maps every RPC method to:
+
+- input and output JSON schemas
+- safety level: `read`, `write`, `destructive`, `paid`
+- idempotency and retry hints
+- confirmation requirements and examples
+
+CLI `--schema`, REST `GET /manifest`, and REST `GET /openapi.json` all use this
+registry.
 
 ### 1. IPC Layer (`internal/ipc/`)
 
@@ -159,16 +168,27 @@ agent-telegram/
 | -32001 | Server not running |
 | -32002 | Not authorized |
 | -32003 | Not initialized |
+| -32004 | Request timed out |
+| -32010 | Peer not found |
+| -32011 | Forbidden / insufficient rights |
+| -32012 | Telegram flood wait |
+
+REST responses preserve typed error metadata under `error.data.type`; flood wait
+errors include `error.data.retryAfter` when it can be parsed.
 
 ### 2. CLI Utilities (`internal/cliutil/`)
 
-**Runner** - Command execution with auto-start:
+**Runner** - Command execution against an explicit server:
 
 ```go
 runner := cliutil.NewRunnerFromCmd(cmd, jsonFlag)
-result := runner.Call("method", params)  // Auto-starts server
+result := runner.Call("method", params)  // Requires agent-telegram serve
 runner.PrintResult(result, formatter)
 ```
+
+Agents should prefer `agent-telegram server ensure` before RPC-backed commands.
+Bot flows should prefer the high-level `bot step`, `bot press`, and `msg wait`
+commands over manually stitching lower-level button/message primitives.
 
 **Recipient** - Peer identifier normalization:
 
@@ -495,6 +515,10 @@ Commands automatically start the server:
 | PID | `~/.agent-telegram/server.pid` | Running server PID |
 | Lock | `~/.agent-telegram/server.lock` | Instance lock (flock) |
 
+For custom `--socket` values, log/PID/lock files use a stable hash suffix
+(`server-<hash>.log`, `server-<hash>.pid`, `server-<hash>.lock`) so multiple
+instances do not share lifecycle state.
+
 ---
 
 ## Environment Variables
@@ -503,8 +527,13 @@ Commands automatically start the server:
 |----------|-------------|
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
-| `TELEGRAM_PHONE` | Phone number for auth |
+| `AGENT_TELEGRAM_PHONE` | Phone number for auth |
 | `AGENT_TELEGRAM_SESSION_PATH` | Custom session path |
+| `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |
+| `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api` |
+
+`AGENT_TELEGRAM_RPC_TIMEOUT` also controls the HTTP API write timeout with a
+small client-side grace period.
 
 ---
 
@@ -548,8 +577,6 @@ go test ./telegram/...
 |---------|---------|
 | `github.com/gotd/td` | Telegram MTProto client |
 | `github.com/spf13/cobra` | CLI framework |
-| `github.com/charmbracelet/bubbletea` | Interactive TUI |
-| `github.com/charmbracelet/bubbles` | TUI components |
 | `github.com/knadh/koanf/v2` | Configuration |
 | `github.com/joho/godotenv` | .env loading |
 

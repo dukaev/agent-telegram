@@ -2,8 +2,8 @@
 package message
 
 import (
-	"github.com/spf13/cobra"
 	"agent-telegram/cmd/send"
+	"github.com/spf13/cobra"
 )
 
 // MsgCmd represents the msg command group.
@@ -29,6 +29,7 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	AddReactionCommand(MsgCmd)
 	AddInspectKeyboardCommand(MsgCmd)
 	AddPressKeyboardCommand(MsgCmd)
+	AddWaitCommand(MsgCmd)
 	AddReadCommand(MsgCmd)
 	AddTypingCommand(MsgCmd)
 	AddScheduledCommand(MsgCmd)
@@ -45,6 +46,7 @@ func AddMsgCommand(rootCmd *cobra.Command) {
 	ReactionCmd.Use = "reaction <message_id> <emoji>"
 	InspectKeyboardCmd.Use = "inspect-keyboard [peer]"
 	PressKeyboardCmd.Use = "press-keyboard [peer] <button_text_or_index>"
+	WaitCmd.Use = "wait [peer]"
 
 	// Add send command as a top-level command (in "Manage Messages" group)
 	send.AddSendCommand(rootCmd)

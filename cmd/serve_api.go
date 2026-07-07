@@ -20,6 +20,7 @@ var (
 	serveAPISecret  string
 	serveAPISession string
 	serveAPICORS    string
+	serveAPIUnsafe  bool
 )
 
 var serveAPICmd = &cobra.Command{
@@ -48,7 +49,8 @@ func init() {
 	serveAPICmd.Flags().StringVar(&serveAPISecret, "secret", "",
 		"Bearer token for auth (or AGENT_TELEGRAM_API_SECRET env)")
 	serveAPICmd.Flags().StringVar(&serveAPISession, "session", "", "Path to Telegram session file")
-	serveAPICmd.Flags().StringVar(&serveAPICORS, "cors", "*", "CORS allowed origins")
+	serveAPICmd.Flags().StringVar(&serveAPICORS, "cors", "", "CORS allowed origins (comma-separated, empty disables CORS)")
+	serveAPICmd.Flags().BoolVar(&serveAPIUnsafe, "unsafe-no-auth", false, "Allow HTTP API without auth")
 }
 
 func runServeAPI(_ *cobra.Command, _ []string) {
@@ -64,6 +66,11 @@ func runServeAPI(_ *cobra.Command, _ []string) {
 	secret := serveAPISecret
 	if secret == "" {
 		secret = os.Getenv("AGENT_TELEGRAM_API_SECRET")
+	}
+	if secret == "" && !serveAPIUnsafe {
+		fmt.Fprintln(os.Stderr, "Error: --secret or AGENT_TELEGRAM_API_SECRET is required")
+		fmt.Fprintln(os.Stderr, "Use --unsafe-no-auth only for trusted local development.")
+		os.Exit(1)
 	}
 
 	sessionPath := serveAPISession
@@ -104,14 +111,15 @@ func createHTTPAPIServer(
 		sessionPath, _ := tgClient.GetSessionPath()
 
 		return map[string]any{
-			"status":       "running",
-			"pid":          os.Getpid(),
-			"session_path": sessionPath,
-			"initialized":  tgStatus.Initialized,
-			"authorized":   tgStatus.Authorized,
-			"username":     tgStatus.Username,
-			"first_name":   tgStatus.FirstName,
-			"user_id":      tgStatus.UserID,
+			"status":         "running",
+			"pid":            os.Getpid(),
+			"session_path":   sessionPath,
+			"initialized":    tgStatus.Initialized,
+			"authorized":     tgStatus.Authorized,
+			"telegram_state": tgStatus.State,
+			"username":       tgStatus.Username,
+			"first_name":     tgStatus.FirstName,
+			"user_id":        tgStatus.UserID,
 		}, nil
 	})
 

@@ -26,7 +26,8 @@ go build -o agent-telegram .
 ## Quick Start
 
 ```bash
-agent-telegram login                      # Interactive login
+AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web  # Local browser login
+agent-telegram server ensure              # Start IPC server explicitly
 agent-telegram my-info                    # Get your profile
 agent-telegram chat list                  # List all chats
 agent-telegram chat open @username        # View messages from chat
@@ -39,7 +40,12 @@ agent-telegram stop                       # Stop server
 ### Authentication
 
 ```bash
-agent-telegram login                      # Interactive login
+AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web    # Local browser login
+AGENT_TELEGRAM_PHONE=+123 agent-telegram auth begin  # Send login code, output JSON stateId
+echo "12345" | agent-telegram auth verify --state-id <id> --code-stdin
+echo "$PASSWORD" | agent-telegram auth password --state-id <id> --password-stdin
+agent-telegram auth status                # Local session/config status as JSON
+AGENT_TELEGRAM_PHONE=+123 agent-telegram login       # Alias for auth begin
 agent-telegram logout                     # Logout and clear session
 agent-telegram my-info                    # Get your profile information
 agent-telegram llms-txt                   # Generate full CLI documentation for LLMs
@@ -201,8 +207,22 @@ agent-telegram updates --follow | jq '.type'         # Pipe to jq
 
 ```bash
 agent-telegram serve                      # Start IPC server (background)
+agent-telegram serve-api --secret "$TOKEN"      # Start HTTP REST API server
+agent-telegram serve-callback --secret "$TOKEN" # Start callback management API
+agent-telegram manifest                  # Output machine-readable tool manifest
 agent-telegram status                     # Check server status
 agent-telegram stop                       # Stop server
+```
+
+Agent-friendly REST metadata:
+
+```bash
+curl http://localhost:8080/manifest -H "Authorization: Bearer $TOKEN"
+curl http://localhost:8080/openapi.json -H "Authorization: Bearer $TOKEN"
+curl -X POST 'http://localhost:8080/rpc/send_message?dryRun=true' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"peer":"@user","message":"hello"}'
 ```
 
 ### Other
@@ -217,11 +237,17 @@ agent-telegram open @user                 # Quick open chat (alias)
 |--------|-------------|
 | `-s, --socket <path>` | Path to Unix socket (default: `/tmp/agent-telegram.sock`) |
 | `-q, --quiet` | Suppress status messages (data still goes to stdout) |
-| `-T, --text` | Output human-readable text instead of JSON |
-| `--output <format>` | Output format: `text`, `json`, `ids` |
-| `--fields <list>` | Select output fields (comma-separated) |
+| `--output <format>` | Output format: `json`, `ids` |
 | `--filter <expr>` | Filter results (e.g., `type=channel`, `stars>1000`) |
+| `--verbosity <mode>` | JSON detail: `minimal`, `compact`, `full`, `raw` |
+| `--max-items <n>` | Limit array items in JSON output |
+| `--max-text-chars <n>` | Truncate text fields in JSON output |
+| `--include <fields>` | Include output fields (supports dot paths) |
+| `--omit <fields>` | Omit output fields (supports dot paths) |
+| `--summary` | Output compact result summary |
+| `--receipt` | Wrap JSON output with trace/action receipt metadata |
 | `--dry-run` | Preview action without executing |
+| `--schema` | Output operation input/output schema without executing |
 | `-l, --limit <n>` | Limit results (per command) |
 | `-o, --offset <n>` | Offset for pagination (per command) |
 
@@ -231,8 +257,10 @@ agent-telegram open @user                 # Quick open chat (alias)
 |----------|-------------|
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
-| `TELEGRAM_PHONE` | Phone number for auth (optional) |
+| `AGENT_TELEGRAM_PHONE` | Phone number for auth (optional; safer than passing phone in argv) |
 | `AGENT_TELEGRAM_SESSION_PATH` | Custom session file path |
+| `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |
+| `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api` |
 
 Default API credentials are built-in, so you can start using agent-telegram immediately. To use your own credentials, get them at https://my.telegram.org and set via environment variables or `.env` file.
 
@@ -245,7 +273,7 @@ All commands output JSON to stdout by default. Status/logs go to stderr.
 agent-telegram msg list @user --output ids | head -5
 
 # Filter and select fields
-agent-telegram chat list --fields peer,title,type --filter type=channel
+agent-telegram chat list --include peer,title,type --filter type=channel
 
 # Continuous monitoring with jq
 agent-telegram updates --follow --type new_message | jq '{from: .data.message.from_name, text: .data.message.text}'
@@ -322,6 +350,58 @@ echo '{"method":"send_message","params":{"peer":"@user","message":"Hi"}}' | nc -
 
 **System:** `status`, `shutdown`, `ping`
 
+### Agentic Tooling
+
+Authentication is headless. Prefer `AGENT_TELEGRAM_PHONE=... agent-telegram auth web` for a
+local one-time browser form; it prints a localhost URL on stderr and final JSON
+on stdout. Supplying the phone through the environment avoids exposing it in
+the process list. For pure terminal flows, use `auth begin`, pipe the
+Telegram code into `auth verify --code-stdin`, and pipe the 2FA password into
+`auth password --password-stdin` if needed. Temporary auth state is stored
+locally with owner-only permissions and a TTL.
+
+Use `agent-telegram <command> --schema` for per-command input/output schemas,
+safety metadata (`read`, `write`, `destructive`, `paid`), idempotency, retry
+hints, and confirmation requirements. Use `agent-telegram manifest` for the
+full catalog, or `agent-telegram manifest --openapi` for an OpenAPI document.
+
+The REST API provides `GET /manifest` and `GET /openapi.json`. RPC calls support
+`?dryRun=true`, `?validateOnly=true`, or an envelope body:
+
+```json
+{"dryRun": true, "params": {"peer": "@user", "message": "hello"}}
+```
+
+REST error responses preserve typed error metadata in `error.data.type`, such as
+`PEER_NOT_FOUND`, `FLOOD_WAIT`, `TIMEOUT`, and `VALIDATION`.
+
+For token-efficient reads, use output budgets:
+
+```bash
+agent-telegram msg list @user --verbosity compact --max-items 5 --max-text-chars 120
+agent-telegram msg list @user --summary
+agent-telegram msg list @user --omit entities,media
+agent-telegram send --to @user "hi" --dry-run --receipt
+agent-telegram msg press-button 123 0 --to @bot --wait-reply --receipt
+agent-telegram msg wait @bot --after-id 123 --timeout 20s
+agent-telegram bot step @bot --send "/start" --receipt
+agent-telegram bot press @bot 123 0 --receipt
+```
+
+For analysis and debugging, use redacted audit/log commands:
+
+```bash
+agent-telegram audit --last 20
+agent-telegram audit --trace-id <traceId>
+agent-telegram logs --kind cli --last 50
+agent-telegram logs --kind server --follow
+```
+
+Audit/log commands default to `--redaction safe`, which hides free-form message
+text, location-like fields, and personal fields in display output. Use
+`--redaction redacted` for classic secret redaction with truncated text.
+New audit entries are written with safe redaction as well.
+
 ## Architecture
 
 agent-telegram uses a client-daemon architecture:
@@ -337,7 +417,9 @@ agent-telegram uses a client-daemon architecture:
 - **IPC Server** - Background daemon managing Telegram connection
 - **Telegram Client** - MTProto client using [gotd/td](https://github.com/gotd/td) library
 
-The daemon starts automatically on first command and persists between commands for fast subsequent operations.
+The daemon is explicit: start or verify it with `agent-telegram server ensure`
+before RPC-backed commands, and stop it with `agent-telegram stop` when
+finished.
 
 ### File Locations
 
@@ -348,6 +430,10 @@ The daemon starts automatically on first command and persists between commands f
 | Logs | `~/.agent-telegram/server.log` |
 | PID file | `~/.agent-telegram/server.pid` |
 | Lock file | `~/.agent-telegram/server.lock` |
+
+Custom `--socket` values get isolated state files with a stable hash suffix
+(`server-<hash>.pid`, `server-<hash>.lock`, `server-<hash>.log`) so multiple
+instances can run side by side.
 
 ## Sessions
 
@@ -367,6 +453,9 @@ agent-telegram --socket /tmp/agent2.sock serve
 # Use specific session
 agent-telegram --socket /tmp/agent1.sock chat list
 ```
+
+`serve-api` and `serve-callback` require an auth secret by default. For trusted
+local experiments only, pass `--unsafe-no-auth` explicitly.
 
 ## Development
 

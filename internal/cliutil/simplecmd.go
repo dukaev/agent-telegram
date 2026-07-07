@@ -65,10 +65,10 @@ func NewSimpleCommand(def SimpleCommandDef) *cobra.Command {
 			// Handle --schema before required flag validation
 			if s, _ := cmd.Flags().GetBool("schema"); s {
 				if printSchema(def.Method) {
-					os.Exit(0)
+					Exit(0)
 				}
 				fmt.Fprintf(os.Stderr, "Error: no schema for method %q\n", def.Method)
-				os.Exit(1)
+				Exit(1)
 			}
 
 			// Validate required flags manually
@@ -153,7 +153,7 @@ func validateRequiredFlags(cmd *cobra.Command, flags []Flag, vals *flagValues) {
 		if missing {
 			fmt.Fprintf(os.Stderr, "Error: required flag \"--%s\" not set\n", f.Name)
 			_ = cmd.Usage()
-			os.Exit(1)
+			Exit(1)
 		}
 	}
 }
@@ -201,10 +201,10 @@ var (
 	// ToFlag is the standard recipient flag (--to, -t). Maps to "peer" in API.
 	ToFlag = Flag{Name: "to", Short: "t", Usage: "Chat/channel (@username or username)", Required: true, ParamName: "peer"}
 	// PeerFlag is deprecated, use ToFlag instead. Kept for backwards compatibility.
-	PeerFlag        = ToFlag
-	UserFlag        = Flag{Name: "user", Short: "u", Usage: "User (@username or username)", Required: true}
-	FileFlag        = Flag{Name: "file", Short: "f", Usage: "File path", Required: true}
-	TitleFlag       = Flag{Name: "title", Short: "T", Usage: "Title", Required: true}
+	PeerFlag    = ToFlag
+	UserFlag    = Flag{Name: "user", Short: "u", Usage: "User (@username or username)", Required: true}
+	FileFlag    = Flag{Name: "file", Short: "f", Usage: "File path", Required: true}
+	TitleFlag   = Flag{Name: "title", Short: "T", Usage: "Title", Required: true}
 	MembersFlag = Flag{
 		Name: "members", Short: "m", Usage: "Members (can specify multiple)",
 		Required: true, Type: FlagStringSlice,

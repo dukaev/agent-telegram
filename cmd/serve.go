@@ -61,15 +61,18 @@ func runServe(_ *cobra.Command, _ []string) {
 	}
 	appID, appHash := storedCfg.AppID, storedCfg.AppHash
 
+	socketPath := getSocketPath()
+	sessionPath := getSessionPath()
+
 	if !serveForeground {
-		if err := daemonize(); err != nil {
+		if err := daemonize(socketPath); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to daemonize: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
 	// Acquire lock to prevent multiple instances
-	lockPath, err := paths.LockFilePath()
+	lockPath, err := paths.LockFilePathForSocket(socketPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get lock path: %v\n", err)
 		os.Exit(1)
@@ -87,7 +90,7 @@ func runServe(_ *cobra.Command, _ []string) {
 	defer func() { _ = lock.Unlock() }()
 
 	// Write PID file (defer cleanup is set up after all early exits)
-	pidPath, err := paths.PIDFilePath()
+	pidPath, err := paths.PIDFilePathForSocket(socketPath)
 	if err != nil {
 		_ = lock.Unlock()
 		fmt.Fprintf(os.Stderr, "Failed to get PID path: %v\n", err)
@@ -101,11 +104,9 @@ func runServe(_ *cobra.Command, _ []string) {
 	defer func() { _ = paths.RemovePID(pidPath) }()
 
 	// Setup slog after daemonize (when in foreground mode or in child process)
-	setupLogger()
+	setupLoggerForSocket(socketPath)
 
 	ctx, cancel := setupContext()
-	socketPath := getSocketPath()
-	sessionPath := getSessionPath()
 
 	tgClient := createTelegramClient(appID, appHash, sessionPath)
 	startTelegramClient(ctx, tgClient)
@@ -124,7 +125,12 @@ func runServe(_ *cobra.Command, _ []string) {
 
 // setupLogger configures structured logging to file in ~/.agent-telegram/.
 func setupLogger() {
-	logPath, err := paths.LogFilePath()
+	setupLoggerForSocket("")
+}
+
+// setupLoggerForSocket configures structured logging for one socket instance.
+func setupLoggerForSocket(socketPath string) {
+	logPath, err := paths.LogFilePathForSocket(socketPath)
 	if err != nil {
 		// Fallback to stderr if path cannot be determined
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
@@ -183,7 +189,6 @@ func getSessionPath() string {
 	}
 	return sessionPath
 }
-
 
 // createTelegramClient creates and configures the Telegram client.
 // If TELEGRAM_SESSION env is set (base64-encoded session), uses in-memory storage.
@@ -297,14 +302,15 @@ func createIPCServer(socketPath string, tgClient *telegram.Client, cancel contex
 		sessionPath, _ := tgClient.GetSessionPath()
 
 		return map[string]any{
-			"status":       "running",
-			"pid":          os.Getpid(),
-			"session_path": sessionPath,
-			"initialized":  tgStatus.Initialized,
-			"authorized":   tgStatus.Authorized,
-			"username":     tgStatus.Username,
-			"first_name":   tgStatus.FirstName,
-			"user_id":      tgStatus.UserID,
+			"status":         "running",
+			"pid":            os.Getpid(),
+			"session_path":   sessionPath,
+			"initialized":    tgStatus.Initialized,
+			"authorized":     tgStatus.Authorized,
+			"telegram_state": tgStatus.State,
+			"username":       tgStatus.Username,
+			"first_name":     tgStatus.FirstName,
+			"user_id":        tgStatus.UserID,
 		}, nil
 	})
 
@@ -338,7 +344,7 @@ func isDaemonChild() bool {
 }
 
 // daemonize forks the process to run in background.
-func daemonize() error {
+func daemonize(socketPath string) error {
 	// If we're already a daemon child, don't fork again
 	if isDaemonChild() {
 		return nil
@@ -351,7 +357,7 @@ func daemonize() error {
 	}
 
 	// Get log file path
-	logPath, err := paths.LogFilePath()
+	logPath, err := paths.LogFilePathForSocket(socketPath)
 	if err != nil {
 		return fmt.Errorf("failed to get log path: %w", err)
 	}

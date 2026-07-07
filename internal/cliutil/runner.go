@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/observability"
+	"agent-telegram/internal/operations"
 	"agent-telegram/internal/paths"
 )
 
@@ -21,30 +22,43 @@ type RPCClient interface {
 	Call(method string, params any) (any, *ipc.ErrorObject)
 }
 
+type traceRPCClient interface {
+	CallWithTrace(method string, params any, traceID string) (any, *ipc.ErrorObject)
+}
+
 var (
-	cliLogger     *slog.Logger
-	cliLoggerOnce sync.Once
+	cliLoggerMu sync.Mutex
+	cliLoggers  = map[string]*slog.Logger{}
 )
 
-// getCLILogger returns a logger that writes to ~/.agent-telegram/cli.log.
-func getCLILogger() *slog.Logger {
-	cliLoggerOnce.Do(func() {
-		logPath, err := paths.CLILogFilePath()
-		if err != nil {
-			cliLogger = slog.New(slog.NewTextHandler(os.Stderr, nil))
-			return
-		}
-		//nolint:gosec // logPath is from trusted CLILogFilePath()
-		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-		if err != nil {
-			cliLogger = slog.New(slog.NewTextHandler(os.Stderr, nil))
-			return
-		}
-		cliLogger = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		}))
-	})
-	return cliLogger
+// getCLILogger returns a logger that writes to the instance-scoped CLI log.
+func getCLILogger(socketPath string) *slog.Logger {
+	cliLoggerMu.Lock()
+	defer cliLoggerMu.Unlock()
+
+	if logger, ok := cliLoggers[socketPath]; ok {
+		return logger
+	}
+
+	var logger *slog.Logger
+	logPath, err := paths.CLILogFilePathForSocket(socketPath)
+	if err != nil {
+		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
+		cliLoggers[socketPath] = logger
+		return logger
+	}
+	//nolint:gosec // logPath is from trusted CLILogFilePathForSocket()
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
+		cliLoggers[socketPath] = logger
+		return logger
+	}
+	logger = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	cliLoggers[socketPath] = logger
+	return logger
 }
 
 // Runner handles common command execution logic.
@@ -58,6 +72,11 @@ type Runner struct {
 	fieldSelector *FieldSelector
 	filterExprs   FilterExpressions
 	dryRun        bool
+	traceID       string
+	outputBudget  OutputBudgetOptions
+	receipt       bool
+	lastMethod    string
+	lastSafety    string
 }
 
 // NewRunner creates a new command runner with the given socket flag and JSON output setting.
@@ -65,11 +84,15 @@ func NewRunner(socketFlag string, jsonOutput bool) *Runner {
 	return &Runner{
 		socketFlag: socketFlag,
 		jsonOutput: jsonOutput,
+		traceID:    observability.NewTraceID(),
+		outputBudget: OutputBudgetOptions{
+			Verbosity: VerbosityFull,
+		},
 	}
 }
 
 // NewRunnerFromCmd creates a runner from a cobra command.
-// It extracts the socket, quiet, text, output, fields, filter, and dry-run flags.
+// It extracts the socket, quiet, output, filter, and dry-run flags.
 // The jsonOutput parameter is deprecated (JSON is now the default) and ignored.
 func NewRunnerFromCmd(cmd *cobra.Command, _ bool) *Runner {
 	socketPath, _ := cmd.Flags().GetString("socket")
@@ -78,6 +101,13 @@ func NewRunnerFromCmd(cmd *cobra.Command, _ bool) *Runner {
 	outputFlag, _ := cmd.Flags().GetString("output")
 	fieldsFlag, _ := cmd.Flags().GetStringSlice("fields")
 	filterFlag, _ := cmd.Flags().GetStringSlice("filter")
+	verbosityFlag, _ := cmd.Flags().GetString("verbosity")
+	maxItems, _ := cmd.Flags().GetInt("max-items")
+	maxTextChars, _ := cmd.Flags().GetInt("max-text-chars")
+	includeFields, _ := cmd.Flags().GetStringSlice("include")
+	omitFields, _ := cmd.Flags().GetStringSlice("omit")
+	summary, _ := cmd.Flags().GetBool("summary")
+	receipt, _ := cmd.Flags().GetBool("receipt")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	format := ParseOutputFormat(outputFlag, globalText)
@@ -88,7 +118,7 @@ func NewRunnerFromCmd(cmd *cobra.Command, _ bool) *Runner {
 		filterExprs, err = ParseFilterExpressions(filterFlag)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			Exit(1)
 		}
 	}
 
@@ -100,6 +130,16 @@ func NewRunnerFromCmd(cmd *cobra.Command, _ bool) *Runner {
 		fieldSelector: NewFieldSelector(fieldsFlag),
 		filterExprs:   filterExprs,
 		dryRun:        dryRun,
+		traceID:       observability.NewTraceID(),
+		outputBudget: OutputBudgetOptions{
+			Verbosity:    ParseVerbosity(verbosityFlag),
+			MaxItems:     maxItems,
+			MaxTextChars: maxTextChars,
+			Include:      includeFields,
+			Omit:         omitFields,
+			Summary:      summary,
+		},
+		receipt: receipt,
 	}
 }
 
@@ -114,6 +154,10 @@ func NewRunnerFromRoot(rootCmd *cobra.Command, jsonOutput bool) *Runner {
 	return &Runner{
 		socketFlag: socketPath,
 		jsonOutput: jsonOutput,
+		traceID:    observability.NewTraceID(),
+		outputBudget: OutputBudgetOptions{
+			Verbosity: VerbosityFull,
+		},
 	}
 }
 
@@ -122,35 +166,13 @@ func (r *Runner) Client() RPCClient {
 	return ipc.NewClient(r.socketFlag)
 }
 
-// startServer attempts to start the serve command in the background.
-func (r *Runner) startServer() error {
-	execPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to get executable path: %w", err)
-	}
-
-	// Build args for serve command
-	args := []string{"serve"}
-	if r.socketFlag != "" {
-		args = append(args, "--socket", r.socketFlag)
-	}
-
-	//nolint:gosec,noctx // execPath from os.Executable() is safe; background server needs no context
-	cmd := exec.Command(execPath, args...)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-
-	return nil
-}
-
 // waitForServer waits for the server to become available.
 func (r *Runner) waitForServer(maxWait time.Duration) bool {
 	deadline := time.Now().Add(maxWait)
 	for time.Now().Before(deadline) {
 		client := r.Client()
-		_, err := client.Call("status", nil)
-		if err == nil {
+		status, err := client.Call("status", nil)
+		if err == nil && serverReady(status) {
 			return true
 		}
 		time.Sleep(200 * time.Millisecond)
@@ -158,83 +180,36 @@ func (r *Runner) waitForServer(maxWait time.Duration) bool {
 	return false
 }
 
-// ensureServer ensures the server is running, starting it if necessary.
-// Uses a lock file to prevent race conditions when multiple CLI processes
-// try to start the server simultaneously.
+// ensureServer ensures the server is running.
 func (r *Runner) ensureServer() error {
 	// Check if server is already running
 	client := r.Client()
-	_, err := client.Call("status", nil)
+	status, err := client.Call("status", nil)
 	if err == nil {
-		return nil // Server is running
+		if serverReady(status) {
+			return nil // Server is running and Telegram is ready
+		}
+		r.Log("Server is running, waiting for Telegram client...")
+		if !r.waitForServer(30 * time.Second) {
+			return fmt.Errorf("telegram client is not ready within timeout")
+		}
+		return nil
 	}
 
 	// Server not running, try to start it
 	if err.Code != ipc.ErrCodeServerNotRunning {
 		return fmt.Errorf("failed to connect to server: %s", err.Message)
 	}
-
-	// Acquire lock to prevent multiple processes from starting server simultaneously
-	lockPath, lockErr := paths.LockFilePath()
-	if lockErr != nil {
-		// If we can't get lock path, try to start anyway
-		return r.startServerWithWait()
-	}
-
-	lock := paths.NewLockFile(lockPath)
-	acquired, lockErr := lock.TryLock()
-	if lockErr != nil {
-		// If lock fails, try to start anyway
-		return r.startServerWithWait()
-	}
-
-	if !acquired {
-		// Another process is starting the server, just wait for it
-		r.Log("Another process is starting the server, waiting...")
-		if !r.waitForServer(15 * time.Second) {
-			return fmt.Errorf("server failed to start within timeout")
-		}
-		return nil
-	}
-
-	// We have the lock, check again if server started while we were acquiring lock
-	_, err = client.Call("status", nil)
-	if err == nil {
-		_ = lock.Unlock()
-		return nil // Server started by another process
-	}
-
-	// Start the server - release lock immediately so serve can acquire it
-	r.Log("Server not running, starting...")
-	if startErr := r.startServer(); startErr != nil {
-		_ = lock.Unlock()
-		return startErr
-	}
-
-	// Release lock immediately so serve can acquire it
-	_ = lock.Unlock()
-
-	// Wait for server to be ready (Telegram auth can take time)
-	if !r.waitForServer(30 * time.Second) {
-		return fmt.Errorf("server failed to start within timeout")
-	}
-
-	r.Log("Server started successfully")
-	return nil
+	return fmt.Errorf("server is not running; run: agent-telegram serve")
 }
 
-// startServerWithWait starts the server and waits for it to be ready.
-func (r *Runner) startServerWithWait() error {
-	r.Log("Server not running, starting...")
-	if startErr := r.startServer(); startErr != nil {
-		return startErr
+func serverReady(status any) bool {
+	m, ok := status.(map[string]any)
+	if !ok {
+		return false
 	}
-
-	if !r.waitForServer(30 * time.Second) {
-		return fmt.Errorf("server failed to start within timeout")
-	}
-	r.Log("Server started successfully")
-	return nil
+	initialized, _ := m["initialized"].(bool)
+	return initialized
 }
 
 // CallDirect executes an RPC call without auto-starting the server.
@@ -249,39 +224,70 @@ func (r *Runner) CallDirect(method string, params any) any {
 }
 
 // Call executes an RPC call and returns the result or exits on error.
-// Automatically starts the server if it's not running.
 func (r *Runner) Call(method string, params any) any {
-	// Ensure server is running (auto-start if needed)
+	return r.call(method, params, true)
+}
+
+// CallInternal executes an RPC call without changing user-facing receipt metadata
+// and without writing CLI audit/log events. It is intended for polling steps that
+// belong to a higher-level command such as --wait-reply.
+func (r *Runner) CallInternal(method string, params any) any {
+	return r.call(method, params, false)
+}
+
+func (r *Runner) call(method string, params any, userVisible bool) any {
+	// Ensure server is running.
 	if err := r.ensureServer(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		Exit(1)
 	}
 
-	log := getCLILogger()
+	log := getCLILogger(r.socketFlag)
 	start := time.Now()
+	if userVisible {
+		r.lastMethod = method
+		r.lastSafety = operationSafety(method)
+	}
 
 	client := r.Client()
-	result, err := client.Call(method, params)
+	var result any
+	var err *ipc.ErrorObject
+	if traced, ok := client.(traceRPCClient); ok {
+		result, err = traced.CallWithTrace(method, params, r.traceID)
+	} else {
+		result, err = client.Call(method, params)
+	}
 
 	duration := time.Since(start)
-	r.lastDuration = duration
+	if userVisible {
+		r.lastDuration = duration
+	}
 	if err != nil {
-		log.Info("cli: call",
-			"method", method,
-			"params", truncateAny(params),
-			"duration_ms", duration.Milliseconds(),
-			"error_code", err.Code,
-			"error", err.Message,
-		)
+		if userVisible {
+			log.Info("cli: call",
+				"trace_id", r.traceID,
+				"method", method,
+				"params", truncateAny(params),
+				"duration_ms", duration.Milliseconds(),
+				"error_code", err.Code,
+				"error_type", errorType(err),
+				"error", err.Message,
+			)
+			r.writeAudit(method, params, nil, err, duration)
+		}
 		r.handleError(err)
 	}
 
-	log.Info("cli: call",
-		"method", method,
-		"params", truncateAny(params),
-		"duration_ms", duration.Milliseconds(),
-		"status", "ok",
-	)
+	if userVisible {
+		log.Info("cli: call",
+			"trace_id", r.traceID,
+			"method", method,
+			"params", truncateAny(params),
+			"duration_ms", duration.Milliseconds(),
+			"status", "ok",
+		)
+		r.writeAudit(method, params, result, nil, duration)
+	}
 
 	// Apply --filter expressions (early: modifies data for all formatters)
 	if len(r.filterExprs) > 0 {
@@ -306,7 +312,51 @@ func (r *Runner) handleError(err *ipc.ErrorObject) {
 	default:
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Message)
 	}
-	os.Exit(1)
+	Exit(1)
+}
+
+func (r *Runner) writeAudit(method string, params, result any, rpcErr *ipc.ErrorObject, duration time.Duration) {
+	event := observability.AuditEvent{
+		Time:       time.Now().UTC(),
+		TraceID:    r.traceID,
+		Surface:    "cli",
+		Method:     method,
+		Safety:     operationSafety(method),
+		DryRun:     r.dryRun,
+		Status:     "ok",
+		DurationMs: duration.Milliseconds(),
+		Params:     params,
+	}
+	if rpcErr != nil {
+		event.Status = "error"
+		event.ErrorCode = rpcErr.Code
+		event.ErrorType = errorType(rpcErr)
+		event.Error = rpcErr.Message
+	} else {
+		event.ResultSummary = observability.SummarizeResult(result)
+	}
+	if err := observability.WriteAudit(r.socketFlag, event); err != nil {
+		getCLILogger(r.socketFlag).Warn("cli: audit write failed", "error", err)
+	}
+}
+
+func operationSafety(method string) string {
+	if op, ok := operations.Get(method); ok {
+		return op.Safety
+	}
+	return ""
+}
+
+func errorType(err *ipc.ErrorObject) string {
+	if err == nil || err.Data == nil {
+		return ""
+	}
+	if m, ok := err.Data.(map[string]any); ok {
+		if value, ok := m["type"].(string); ok {
+			return value
+		}
+	}
+	return ""
 }
 
 // CallWithParams executes an RPC call with parameters.
@@ -314,18 +364,22 @@ func (r *Runner) handleError(err *ipc.ErrorObject) {
 func (r *Runner) CallWithParams(method string, params map[string]any) any {
 	if r.dryRun {
 		r.printDryRun(method, params)
-		os.Exit(0)
+		Exit(0)
 	}
 	return r.Call(method, params)
 }
 
 // printDryRun prints a dry-run summary of the action that would be performed.
 func (r *Runner) printDryRun(method string, params map[string]any) {
+	r.lastMethod = method
+	r.lastSafety = operationSafety(method)
+	r.writeAudit(method, params, map[string]any{"dryRun": true}, nil, 0)
 	if r.outputFormat == OutputJSON {
 		summary := map[string]any{
 			"dry_run": true,
 			"method":  method,
-			"params":  params,
+			"params":  observability.RedactAny(params),
+			"traceId": r.traceID,
 		}
 		r.PrintJSON(summary)
 		return
@@ -335,7 +389,8 @@ func (r *Runner) printDryRun(method string, params map[string]any) {
 	fmt.Fprintf(os.Stderr, "  Method: %s\n", method)
 	if len(params) > 0 {
 		fmt.Fprintln(os.Stderr, "  Params:")
-		for k, v := range params {
+		redactedParams, _ := observability.RedactAny(params).(map[string]any)
+		for k, v := range redactedParams {
 			fmt.Fprintf(os.Stderr, "    %s: %v\n", k, v)
 		}
 	}
@@ -344,7 +399,7 @@ func (r *Runner) printDryRun(method string, params map[string]any) {
 
 // PrintResult prints the result in the configured output format.
 // JSON and IDs output goes to stdout. Human-readable output uses the formatter.
-// --fields is applied before JSON/IDs formatting (not text).
+// The legacy field selector is applied before JSON/IDs formatting.
 func (r *Runner) PrintResult(result any, formatter func(any)) {
 	switch r.outputFormat {
 	case OutputJSON:
@@ -371,10 +426,21 @@ func (r *Runner) PrintResult(result any, formatter func(any)) {
 
 // PrintJSON prints the result as JSON.
 func (r *Runner) PrintJSON(result any) {
+	result = ApplyOutputBudget(result, r.outputBudget)
+	if r.receipt {
+		result = map[string]any{
+			"ok":       true,
+			"traceId":  r.traceID,
+			"method":   r.lastMethod,
+			"safety":   r.lastSafety,
+			"duration": r.lastDuration.String(),
+			"result":   result,
+		}
+	}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		Exit(1)
 	}
 	fmt.Println(string(data))
 }
@@ -385,7 +451,7 @@ func (r *Runner) MustParseInt64(s string) int64 {
 	_, err := fmt.Sscanf(s, "%d", &value)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: invalid number: %v\n", err)
-		os.Exit(1)
+		Exit(1)
 	}
 	return value
 }
@@ -396,7 +462,7 @@ func (r *Runner) MustParseInt(s string) int {
 	_, err := fmt.Sscanf(s, "%d", &value)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: invalid number: %v\n", err)
-		os.Exit(1)
+		Exit(1)
 	}
 	return value
 }
@@ -422,7 +488,7 @@ func FormatSuccess(result any, action string) {
 // Fatal prints an error message to stderr and exits with code 1.
 func (r *Runner) Fatal(msg string) {
 	fmt.Fprintf(os.Stderr, "Error: %s\n", msg)
-	os.Exit(1)
+	Exit(1)
 }
 
 // LastDuration returns the duration of the last Call().
@@ -453,7 +519,7 @@ const maxLogSize = 1024
 
 // truncateAny returns a truncated JSON string representation of a value.
 func truncateAny(v any) string {
-	data, err := json.Marshal(v)
+	data, err := json.Marshal(observability.RedactAny(v))
 	if err != nil {
 		return fmt.Sprintf("%v", v)
 	}

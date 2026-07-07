@@ -18,8 +18,9 @@ const (
 	OutputIDs OutputFormat = "ids"
 )
 
-// ParseOutputFormat resolves the output format from --output and --text flags.
-// Default is JSON. Use --output text or --text for human-readable output.
+// ParseOutputFormat resolves the output format from --output.
+// Default is JSON. Text output is retained internally for legacy paths, but is
+// no longer part of the agentic CLI contract.
 func ParseOutputFormat(outputFlag string, textFlag bool) OutputFormat {
 	if outputFlag != "" {
 		switch strings.ToLower(outputFlag) {
@@ -28,7 +29,8 @@ func ParseOutputFormat(outputFlag string, textFlag bool) OutputFormat {
 		case "ids":
 			return OutputIDs
 		case "text":
-			return OutputText
+			fmt.Fprintln(os.Stderr, "Warning: text output is deprecated, using json")
+			return OutputJSON
 		default:
 			fmt.Fprintf(os.Stderr, "Warning: unknown output format %q, using json\n", outputFlag)
 			return OutputJSON

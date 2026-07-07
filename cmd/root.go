@@ -10,6 +10,7 @@ import (
 
 	// Import subpackages to trigger their init() registration
 	_ "agent-telegram/cmd/auth"
+	_ "agent-telegram/cmd/bot"
 	_ "agent-telegram/cmd/chat"
 	_ "agent-telegram/cmd/contact"
 	_ "agent-telegram/cmd/get"
@@ -44,7 +45,7 @@ var RootCmd = &cobra.Command{
 
 It provides commands to:
   - Start an IPC server with Telegram client
-  - Interactively login to Telegram
+  - Authenticate to Telegram with headless JSON commands
   - Query chats, messages, and user info
   - Send and receive Telegram messages`,
 	Version: version,
@@ -90,11 +91,15 @@ func init() {
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
 	RootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress status messages (data still goes to stdout)")
-	RootCmd.PersistentFlags().BoolP("text", "T", false, "Output human-readable text instead of JSON")
-	RootCmd.PersistentFlags().String("output", "", "Output format: text, json, ids")
-	RootCmd.PersistentFlags().StringSlice("fields", nil, "Select output fields (comma-separated)")
+	RootCmd.PersistentFlags().String("output", "", "Output format: json or ids")
 	RootCmd.PersistentFlags().StringSlice("filter", nil, "Filter results (e.g., 'stars>1000', 'type=channel')")
+	RootCmd.PersistentFlags().String("verbosity", "full", "Output detail: minimal, compact, full, raw")
+	RootCmd.PersistentFlags().Int("max-items", 0, "Maximum array items in JSON output (0 uses verbosity default)")
+	RootCmd.PersistentFlags().Int("max-text-chars", 0, "Maximum text field characters in JSON output (0 uses verbosity default)")
+	RootCmd.PersistentFlags().StringSlice("include", nil, "Include output fields (comma-separated, supports dot paths)")
+	RootCmd.PersistentFlags().StringSlice("omit", nil, "Omit output fields (comma-separated, supports dot paths)")
+	RootCmd.PersistentFlags().Bool("summary", false, "Output a compact result summary")
+	RootCmd.PersistentFlags().Bool("receipt", false, "Wrap JSON output with trace/action receipt metadata")
 	RootCmd.PersistentFlags().Bool("dry-run", false, "Preview action without executing")
-	RootCmd.PersistentFlags().Bool("schema", false, "Output result schema without executing")
+	RootCmd.PersistentFlags().Bool("schema", false, "Output operation schema without executing")
 }
-

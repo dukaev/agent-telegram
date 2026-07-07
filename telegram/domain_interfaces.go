@@ -7,10 +7,18 @@ import (
 	"agent-telegram/telegram/types"
 )
 
-// ChatClient defines the interface for chat operations.
-type ChatClient interface {
+// ChatReadClient defines read-only chat operations.
+type ChatReadClient interface {
 	GetChats(ctx context.Context, params *types.GetChatsParams) (*types.GetChatsResult, error)
 	GetTopics(ctx context.Context, params types.GetTopicsParams) (*types.GetTopicsResult, error)
+	GetParticipants(ctx context.Context, params types.GetParticipantsParams) (*types.GetParticipantsResult, error)
+	GetAdmins(ctx context.Context, params types.GetAdminsParams) (*types.GetAdminsResult, error)
+	GetBanned(ctx context.Context, params types.GetBannedParams) (*types.GetBannedResult, error)
+	GetInviteLink(ctx context.Context, params types.GetInviteLinkParams) (*types.GetInviteLinkResult, error)
+}
+
+// ChatMutationClient defines chat lifecycle and metadata mutations.
+type ChatMutationClient interface {
 	CreateGroup(ctx context.Context, params types.CreateGroupParams) (*types.CreateGroupResult, error)
 	CreateChannel(ctx context.Context, params types.CreateChannelParams) (*types.CreateChannelResult, error)
 	EditTitle(ctx context.Context, params types.EditTitleParams) (*types.EditTitleResult, error)
@@ -18,57 +26,76 @@ type ChatClient interface {
 	DeletePhoto(ctx context.Context, params types.DeletePhotoParams) (*types.DeletePhotoResult, error)
 	Leave(ctx context.Context, params types.LeaveParams) (*types.LeaveResult, error)
 	Invite(ctx context.Context, params types.InviteParams) (*types.InviteResult, error)
-	GetParticipants(ctx context.Context, params types.GetParticipantsParams) (*types.GetParticipantsResult, error)
-	GetAdmins(ctx context.Context, params types.GetAdminsParams) (*types.GetAdminsResult, error)
-	GetBanned(ctx context.Context, params types.GetBannedParams) (*types.GetBannedResult, error)
-	PromoteAdmin(ctx context.Context, params types.PromoteAdminParams) (*types.PromoteAdminResult, error)
-	DemoteAdmin(ctx context.Context, params types.DemoteAdminParams) (*types.DemoteAdminResult, error)
-	GetInviteLink(ctx context.Context, params types.GetInviteLinkParams) (*types.GetInviteLinkResult, error)
 	ClearMessages(ctx context.Context, params types.ClearMessagesParams) (*types.ClearMessagesResult, error)
 	ClearHistory(ctx context.Context, params types.ClearHistoryParams) (*types.ClearHistoryResult, error)
 	PinChat(ctx context.Context, params types.PinChatParams) (*types.PinChatResult, error)
 	JoinChat(ctx context.Context, params types.JoinChatParams) (*types.JoinChatResult, error)
 	SubscribeChannel(ctx context.Context, params types.SubscribeChannelParams) (*types.SubscribeChannelResult, error)
-	// New features
-	SetSlowMode(ctx context.Context, params types.SetSlowModeParams) (*types.SetSlowModeResult, error)
-	SetChatPermissions(ctx context.Context, params types.SetChatPermissionsParams) (*types.SetChatPermissionsResult, error)
-	GetFolders(ctx context.Context, params types.GetFoldersParams) (*types.GetFoldersResult, error)
-	CreateFolder(ctx context.Context, params types.CreateFolderParams) (*types.CreateFolderResult, error)
-	DeleteFolder(ctx context.Context, params types.DeleteFolderParams) (*types.DeleteFolderResult, error)
-	// Archive and mute
 	Archive(ctx context.Context, params types.ArchiveParams) (*types.ArchiveResult, error)
 	Unarchive(ctx context.Context, params types.UnarchiveParams) (*types.UnarchiveResult, error)
 	Mute(ctx context.Context, params types.MuteParams) (*types.MuteResult, error)
 	Unmute(ctx context.Context, params types.UnmuteParams) (*types.UnmuteResult, error)
 }
 
-//nolint:dupl // Domain interfaces intentionally share similar signatures
-// MessageClient defines the interface for message operations.
-type MessageClient interface {
+// ChatModerationClient defines admin and permissions operations.
+type ChatModerationClient interface {
+	PromoteAdmin(ctx context.Context, params types.PromoteAdminParams) (*types.PromoteAdminResult, error)
+	DemoteAdmin(ctx context.Context, params types.DemoteAdminParams) (*types.DemoteAdminResult, error)
+	SetSlowMode(ctx context.Context, params types.SetSlowModeParams) (*types.SetSlowModeResult, error)
+	SetChatPermissions(ctx context.Context, params types.SetChatPermissionsParams) (*types.SetChatPermissionsResult, error)
+}
+
+// ChatFolderClient defines chat folder operations.
+type ChatFolderClient interface {
+	GetFolders(ctx context.Context, params types.GetFoldersParams) (*types.GetFoldersResult, error)
+	CreateFolder(ctx context.Context, params types.CreateFolderParams) (*types.CreateFolderResult, error)
+	DeleteFolder(ctx context.Context, params types.DeleteFolderParams) (*types.DeleteFolderResult, error)
+}
+
+// ChatClient defines the full chat operation surface.
+type ChatClient interface {
+	ChatReadClient
+	ChatMutationClient
+	ChatModerationClient
+	ChatFolderClient
+}
+
+// MessageReadClient defines message read/query operations.
+type MessageReadClient interface {
 	GetMessage(ctx context.Context, params types.GetMessageParams) (*types.GetMessageResult, error)
 	GetMessages(ctx context.Context, params types.GetMessagesParams) (*types.GetMessagesResult, error)
+	InspectInlineButtons(
+		ctx context.Context, params types.InspectInlineButtonsParams,
+	) (*types.InspectInlineButtonsResult, error)
+	InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error)
+	GetScheduledMessages(
+		ctx context.Context, params types.GetScheduledMessagesParams,
+	) (*types.GetScheduledMessagesResult, error)
+	GetReplies(ctx context.Context, params types.GetRepliesParams) (*types.GetRepliesResult, error)
+}
+
+// MessageWriteClient defines message mutation operations.
+type MessageWriteClient interface {
 	SendMessage(ctx context.Context, params types.SendMessageParams) (*types.SendMessageResult, error)
 	SendReply(ctx context.Context, params types.SendReplyParams) (*types.SendReplyResult, error)
 	UpdateMessage(ctx context.Context, params types.UpdateMessageParams) (*types.UpdateMessageResult, error)
 	DeleteMessage(ctx context.Context, params types.DeleteMessageParams) (*types.DeleteMessageResult, error)
 	ForwardMessage(ctx context.Context, params types.ForwardMessageParams) (*types.ForwardMessageResult, error)
-	InspectInlineButtons(
-		ctx context.Context, params types.InspectInlineButtonsParams,
-	) (*types.InspectInlineButtonsResult, error)
 	PressInlineButton(ctx context.Context, params types.PressInlineButtonParams) (*types.PressInlineButtonResult, error)
-	InspectReplyKeyboard(ctx context.Context, params types.PeerInfo) (*types.ReplyKeyboardResult, error)
-	// New features
 	ReadMessages(ctx context.Context, params types.ReadMessagesParams) (*types.ReadMessagesResult, error)
 	SetTyping(ctx context.Context, params types.SetTypingParams) (*types.SetTypingResult, error)
-	GetScheduledMessages(
-		ctx context.Context, params types.GetScheduledMessagesParams,
-	) (*types.GetScheduledMessagesResult, error)
-	GetReplies(ctx context.Context, params types.GetRepliesParams) (*types.GetRepliesResult, error)
 	ReplyToComment(ctx context.Context, params types.ReplyToCommentParams) (*types.ReplyToCommentResult, error)
 }
 
-//nolint:dupl // Domain interfaces intentionally share similar signatures
+// MessageClient defines the full message operation surface.
+type MessageClient interface {
+	MessageReadClient
+	MessageWriteClient
+}
+
 // MediaClient defines the interface for media operations.
+//
+//nolint:dupl // Domain interfaces intentionally share similar signatures
 type MediaClient interface {
 	SendPhoto(ctx context.Context, params types.SendPhotoParams) (*types.SendPhotoResult, error)
 	SendVideo(ctx context.Context, params types.SendVideoParams) (*types.SendVideoResult, error)
@@ -119,21 +146,36 @@ type SearchClient interface {
 	SearchInChat(ctx context.Context, params types.SearchInChatParams) (*types.SearchInChatResult, error)
 }
 
-// GiftClient defines the interface for gift operations.
-type GiftClient interface {
+// GiftCatalogClient defines gift catalog and metadata operations.
+type GiftCatalogClient interface {
 	GetStarGifts(ctx context.Context, params types.GetStarGiftsParams) (*types.GetStarGiftsResult, error)
+	GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams) (*types.GetGiftInfoResult, error)
+	GetGiftValue(ctx context.Context, params types.GetGiftValueParams) (*types.GetGiftValueResult, error)
+	GetGiftAttrs(ctx context.Context, params types.GetGiftAttrsParams) (*types.GetGiftAttrsResult, error)
+}
+
+// GiftOwnershipClient defines operations on owned or incoming gifts.
+type GiftOwnershipClient interface {
 	SendStarGift(ctx context.Context, params types.SendStarGiftParams) (*types.SendStarGiftResult, error)
 	GetSavedGifts(ctx context.Context, params types.GetSavedGiftsParams) (*types.GetSavedGiftsResult, error)
 	TransferStarGift(ctx context.Context, params types.TransferStarGiftParams) (*types.TransferStarGiftResult, error)
 	ConvertStarGift(ctx context.Context, params types.ConvertStarGiftParams) (*types.ConvertStarGiftResult, error)
 	UpdateGiftPrice(ctx context.Context, params types.UpdateGiftPriceParams) (*types.UpdateGiftPriceResult, error)
 	GetBalance(ctx context.Context, params types.GetBalanceParams) (*types.GetBalanceResult, error)
+}
+
+// GiftMarketClient defines resale and offer operations.
+type GiftMarketClient interface {
 	OfferGift(ctx context.Context, params types.OfferGiftParams) (*types.OfferGiftResult, error)
-	GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams) (*types.GetGiftInfoResult, error)
-	GetGiftValue(ctx context.Context, params types.GetGiftValueParams) (*types.GetGiftValueResult, error)
 	GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error)
 	BuyResaleGift(ctx context.Context, params types.BuyResaleGiftParams) (*types.BuyResaleGiftResult, error)
-	GetGiftAttrs(ctx context.Context, params types.GetGiftAttrsParams) (*types.GetGiftAttrsResult, error)
 	AcceptGiftOffer(ctx context.Context, params types.AcceptGiftOfferParams) (*types.AcceptGiftOfferResult, error)
 	DeclineGiftOffer(ctx context.Context, params types.DeclineGiftOfferParams) (*types.DeclineGiftOfferResult, error)
+}
+
+// GiftClient defines the full gift operation surface.
+type GiftClient interface {
+	GiftCatalogClient
+	GiftOwnershipClient
+	GiftMarketClient
 }

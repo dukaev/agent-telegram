@@ -9,6 +9,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"agent-telegram/internal/observability"
 )
 
 // Error codes for JSON-RPC errors.
@@ -32,21 +34,33 @@ var (
 	// ErrInvalidRequest is returned when the request is invalid.
 	ErrInvalidRequest = &ErrorObject{Code: ErrCodeInvalidRequest, Message: "Invalid Request"}
 	// ErrMethodNotFound is returned when the method is not found.
-	ErrMethodNotFound = &ErrorObject{Code: ErrCodeMethodNotFound, Message: "Method not found"}
+	ErrMethodNotFound = NewTypedError(ErrCodeMethodNotFound, ErrorTypeMethodNotFound, "Method not found", nil)
 	// ErrInvalidParams is returned when the parameters are invalid.
 	ErrInvalidParams = &ErrorObject{Code: ErrCodeInvalidParams, Message: "Invalid params"}
 	// ErrInternalError is returned when an internal error occurs.
 	ErrInternalError = &ErrorObject{Code: ErrCodeInternalError, Message: "Internal error"}
 
 	// ErrServerNotRunning is returned when the server is not running.
-	ErrServerNotRunning = &ErrorObject{Code: ErrCodeServerNotRunning, Message: "Server is not running"}
+	ErrServerNotRunning = NewTypedError(
+		ErrCodeServerNotRunning,
+		ErrorTypeServerNotRunning,
+		"Server is not running",
+		nil,
+	)
 	// ErrNotAuthorized is returned when the user is not authorized.
-	ErrNotAuthorized = &ErrorObject{Code: ErrCodeNotAuthorized, Message: "Not authorized. Run: agent-telegram login"}
+	ErrNotAuthorized = NewTypedError(
+		ErrCodeNotAuthorized,
+		ErrorTypeNotAuthorized,
+		"Not authorized. Run: agent-telegram login",
+		nil,
+	)
 	// ErrNotInitialized is returned when the client is not initialized.
-	ErrNotInitialized = &ErrorObject{
-		Code:    ErrCodeNotInitialized,
-		Message: "Client not initialized (server may still be starting)",
-	}
+	ErrNotInitialized = NewTypedError(
+		ErrCodeNotInitialized,
+		ErrorTypeNotInitialized,
+		"Client not initialized (server may still be starting)",
+		nil,
+	)
 )
 
 // Server represents a JSON-RPC server.
@@ -115,7 +129,8 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 					Code:    -32603,
 					Message: fmt.Sprintf("Handler panic: %v", r),
 				},
-				ID: req.ID,
+				ID:      req.ID,
+				TraceID: req.TraceID,
 			}
 		}
 		s.logRequest(req, resp, time.Since(start))
@@ -130,6 +145,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 			JSONRPC: "2.0",
 			Error:   ErrMethodNotFound,
 			ID:      req.ID,
+			TraceID: req.TraceID,
 		}
 	}
 
@@ -139,6 +155,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 			JSONRPC: "2.0",
 			Error:   err,
 			ID:      req.ID,
+			TraceID: req.TraceID,
 		}
 	}
 
@@ -146,6 +163,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 		JSONRPC: "2.0",
 		Result:  result,
 		ID:      req.ID,
+		TraceID: req.TraceID,
 	}
 }
 
@@ -154,6 +172,7 @@ func (s *Server) logRequest(req *Request, resp *Response, duration time.Duration
 	params := truncateJSON(req.Params, maxLogSize)
 	if resp.Error != nil {
 		slog.Info("ipc: request",
+			"trace_id", req.TraceID,
 			"method", req.Method,
 			"params", params,
 			"duration_ms", duration.Milliseconds(),
@@ -163,6 +182,7 @@ func (s *Server) logRequest(req *Request, resp *Response, duration time.Duration
 	} else {
 		resultJSON, _ := json.Marshal(resp.Result)
 		slog.Info("ipc: request",
+			"trace_id", req.TraceID,
 			"method", req.Method,
 			"params", params,
 			"duration_ms", duration.Milliseconds(),
@@ -177,6 +197,12 @@ const maxLogSize = 1024
 func truncateJSON(data json.RawMessage, maxLen int) string {
 	if len(data) == 0 {
 		return "{}"
+	}
+	var value any
+	if err := json.Unmarshal(data, &value); err == nil {
+		if redacted, err := json.Marshal(observability.RedactAny(value)); err == nil {
+			data = redacted
+		}
 	}
 	s := string(data)
 	if len(s) > maxLen {

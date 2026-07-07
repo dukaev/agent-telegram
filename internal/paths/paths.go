@@ -2,6 +2,8 @@
 package paths
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,38 +40,85 @@ func EnsureConfigDir() (string, error) {
 
 // LogFilePath returns the path to the log file.
 func LogFilePath() (string, error) {
+	return LogFilePathForSocket("")
+}
+
+// LogFilePathForSocket returns the server log path for a socket instance.
+func LogFilePathForSocket(socketPath string) (string, error) {
 	dir, err := EnsureConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "server.log"), nil
+	return filepath.Join(dir, instanceFileName("server", socketPath, "log")), nil
 }
 
 // CLILogFilePath returns the path to the CLI log file.
 func CLILogFilePath() (string, error) {
+	return CLILogFilePathForSocket("")
+}
+
+// CLILogFilePathForSocket returns the CLI log path for a socket instance.
+func CLILogFilePathForSocket(socketPath string) (string, error) {
 	dir, err := EnsureConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "cli.log"), nil
+	return filepath.Join(dir, instanceFileName("cli", socketPath, "log")), nil
+}
+
+// AuditFilePath returns the path to the audit journal.
+func AuditFilePath() (string, error) {
+	return AuditFilePathForSocket("")
+}
+
+// AuditFilePathForSocket returns the audit journal path for a socket instance.
+func AuditFilePathForSocket(socketPath string) (string, error) {
+	dir, err := EnsureConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, instanceFileName("audit", socketPath, "jsonl")), nil
 }
 
 // PIDFilePath returns the path to the PID file.
 func PIDFilePath() (string, error) {
+	return PIDFilePathForSocket("")
+}
+
+// PIDFilePathForSocket returns the PID file path for a socket instance.
+func PIDFilePathForSocket(socketPath string) (string, error) {
 	dir, err := EnsureConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "server.pid"), nil
+	return filepath.Join(dir, instanceFileName("server", socketPath, "pid")), nil
 }
 
 // LockFilePath returns the path to the lock file.
 func LockFilePath() (string, error) {
+	return LockFilePathForSocket("")
+}
+
+// LockFilePathForSocket returns the lock file path for a socket instance.
+func LockFilePathForSocket(socketPath string) (string, error) {
 	dir, err := EnsureConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "server.lock"), nil
+	return filepath.Join(dir, instanceFileName("server", socketPath, "lock")), nil
+}
+
+func instanceFileName(prefix, socketPath, ext string) string {
+	if isDefaultSocket(socketPath) {
+		return fmt.Sprintf("%s.%s", prefix, ext)
+	}
+	sum := sha256.Sum256([]byte(socketPath))
+	key := hex.EncodeToString(sum[:])[:12]
+	return fmt.Sprintf("%s-%s.%s", prefix, key, ext)
+}
+
+func isDefaultSocket(socketPath string) bool {
+	return socketPath == "" || socketPath == DefaultSocketPath
 }
 
 // LockFile represents a file-based lock.

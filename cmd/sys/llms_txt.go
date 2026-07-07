@@ -7,12 +7,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"agent-telegram/internal/operations"
 )
 
 // LLMsTxtCmd represents the llms-txt command.
 var LLMsTxtCmd = &cobra.Command{
-	Use:     "llms-txt",
-	Short:   "Generate full CLI documentation for LLMs",
+	Use:   "llms-txt",
+	Short: "Generate full CLI documentation for LLMs",
 	Long: `Generate comprehensive documentation of all commands, subcommands,
 flags, and arguments in a format suitable for LLMs.
 
@@ -41,6 +43,25 @@ func printLLMsDocumentation(rootCmd *cobra.Command) {
 	fmt.Println("# agent-telegram CLI Documentation")
 	fmt.Println()
 	fmt.Println("Telegram IPC agent CLI - A command-line tool for interacting with Telegram via IPC server.")
+	fmt.Println()
+	fmt.Println("## Agentic Tool Contract")
+	fmt.Println()
+	fmt.Println("- Authentication is headless: prefer `AGENT_TELEGRAM_PHONE=... auth web` for a local one-time browser form, or use `auth begin`, `auth verify --code-stdin`, and `auth password --password-stdin` for pure terminal flows.")
+	fmt.Println("- Auth secrets must be supplied through stdin flags, never as command arguments.")
+	fmt.Println("- Use `agent-telegram <command> --schema` to inspect input/output schemas, safety, idempotency, and retry hints.")
+	fmt.Println("- Use `agent-telegram manifest` to inspect the full machine-readable tool catalog without starting HTTP.")
+	fmt.Println("- Use `agent-telegram serve-api --secret <token>` then `GET /manifest` for a machine-readable tool manifest.")
+	fmt.Println("- Use `GET /openapi.json` for an OpenAPI 3.1 document.")
+	fmt.Println("- Use `POST /rpc/{method}?dryRun=true` or body `{ \"dryRun\": true, \"params\": {...} }` to validate without executing.")
+	fmt.Println("- Use `--verbosity minimal|compact|full|raw`, `--max-items`, `--max-text-chars`, `--summary`, `--include`, and `--omit` to control token usage.")
+	fmt.Println("- Use `--receipt` to wrap JSON output with trace/action metadata.")
+	fmt.Println("- Use `audit --trace-id ...` and `logs --trace-id ...` to analyze recent actions. Audit/log output defaults to `--redaction safe`; `full` redaction mode is intentionally not exposed.")
+	fmt.Println("- Use `server ensure` before RPC-backed commands; commands do not auto-start the daemon implicitly.")
+	fmt.Println("- Use `bot step`, `bot press`, and `msg wait` for bot flows; polling is internal and not written as separate CLI audit events.")
+	fmt.Println("- Check `safety`: read, write, destructive, or paid. Destructive and paid operations should be confirmed by the caller.")
+	fmt.Println("- Check typed error `data.type` for retry decisions, especially `FLOOD_WAIT`, `TIMEOUT`, and `NOT_INITIALIZED`.")
+	fmt.Println()
+	fmt.Printf("Registered operations: %d\n", len(operations.Methods()))
 	fmt.Println()
 	fmt.Println("## Global Flags")
 	fmt.Println()

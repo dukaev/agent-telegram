@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 
 	"agent-telegram/internal/ipc"
 	"agent-telegram/telegram/client"
@@ -16,11 +18,11 @@ import (
 //nolint:funlen // Declarative handler registry — all entries are one-liners.
 var methodHandlers = map[string]func(Client) HandlerFunc{
 	// Basic
-	"get_me":       GetMeHandler,
-	"get_updates":  GetUpdatesHandler,
-	"get_chats":    func(c Client) HandlerFunc { return Handler(c.Chat().GetChats, "get chats") },
-	"get_message":  func(c Client) HandlerFunc { return Handler(c.Message().GetMessage, "get message") },
-	"get_messages": func(c Client) HandlerFunc { return Handler(c.Message().GetMessages, "get messages") },
+	"get_me":        GetMeHandler,
+	"get_updates":   GetUpdatesHandler,
+	"get_chats":     func(c Client) HandlerFunc { return Handler(c.Chat().GetChats, "get chats") },
+	"get_message":   func(c Client) HandlerFunc { return Handler(c.Message().GetMessage, "get message") },
+	"get_messages":  func(c Client) HandlerFunc { return Handler(c.Message().GetMessages, "get messages") },
 	"get_user_info": func(c Client) HandlerFunc { return Handler(c.User().GetUserInfo, "get user info") },
 
 	// Messages
@@ -48,9 +50,9 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"send_audio": func(c Client) HandlerFunc { // alias for send_file
 		return FileHandler(func(p types.SendFileParams) string { return p.File }, c.Media().SendFile, "send file")
 	},
-	"send_location": func(c Client) HandlerFunc { return Handler(c.Media().SendLocation, "send location") },
-	"send_contact":  func(c Client) HandlerFunc { return Handler(c.Media().SendContact, "send contact") },
-	"send_poll":     SendPollHandler,
+	"send_location":  func(c Client) HandlerFunc { return Handler(c.Media().SendLocation, "send location") },
+	"send_contact":   func(c Client) HandlerFunc { return Handler(c.Media().SendContact, "send contact") },
+	"send_poll":      SendPollHandler,
 	"send_checklist": SendChecklistHandler,
 	"send_voice": func(c Client) HandlerFunc {
 		return FileHandler(func(p types.SendVoiceParams) string { return p.File }, c.Media().SendVoice, "send voice")
@@ -58,7 +60,7 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"send_video_note": func(c Client) HandlerFunc {
 		return FileHandler(func(p types.SendVideoNoteParams) string { return p.File }, c.Media().SendVideoNote, "send video note")
 	},
-	"send_sticker":    func(c Client) HandlerFunc { return Handler(c.Media().SendSticker, "send sticker") },
+	"send_sticker":      func(c Client) HandlerFunc { return Handler(c.Media().SendSticker, "send sticker") },
 	"get_sticker_packs": func(c Client) HandlerFunc { return Handler(c.Media().GetStickerPacks, "get sticker packs") },
 	"send_gif": func(c Client) HandlerFunc {
 		return FileHandler(func(p types.SendGIFParams) string { return p.File }, c.Media().SendGIF, "send gif")
@@ -136,8 +138,8 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 	"get_scheduled_messages": func(c Client) HandlerFunc {
 		return Handler(c.Message().GetScheduledMessages, "get scheduled messages")
 	},
-	"get_replies":       func(c Client) HandlerFunc { return Handler(c.Message().GetReplies, "get replies") },
-	"reply_to_comment":  func(c Client) HandlerFunc { return Handler(c.Message().ReplyToComment, "reply to comment") },
+	"get_replies":      func(c Client) HandlerFunc { return Handler(c.Message().GetReplies, "get replies") },
+	"reply_to_comment": func(c Client) HandlerFunc { return Handler(c.Message().ReplyToComment, "reply to comment") },
 
 	// Gift operations
 	"get_star_gifts":     func(c Client) HandlerFunc { return Handler(c.Gift().GetStarGifts, "get star gifts") },
@@ -164,22 +166,87 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 	}
 }
 
+// RegisteredMethods returns the Telegram IPC method names exposed by this package.
+func RegisteredMethods() []string {
+	methods := make([]string, 0, len(methodHandlers))
+	for method := range methodHandlers {
+		methods = append(methods, method)
+	}
+	return methods
+}
+
 // registerHandler registers a single handler with error wrapping and request timeout.
 func registerHandler(srv ipc.MethodRegistrar, method string, handler HandlerFunc) {
 	srv.Register(method, func(params json.RawMessage) (result interface{}, rpcErr *ipc.ErrorObject) {
-		ctx, cancel := context.WithTimeout(context.Background(), DefaultRequestTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), ipc.RequestTimeout())
 		defer cancel()
 
 		res, err := handler(ctx, params)
 		if err != nil {
-			if errors.Is(err, client.ErrNotInitialized) {
-				return nil, ipc.ErrNotInitialized
-			}
-			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, &ipc.ErrorObject{Code: -32000, Message: "request timed out"}
-			}
-			return nil, &ipc.ErrorObject{Code: -32000, Message: err.Error()}
+			return nil, classifyRPCError(err)
 		}
 		return res, nil
 	})
+}
+
+func classifyRPCError(err error) *ipc.ErrorObject {
+	if errors.Is(err, client.ErrNotInitialized) {
+		return ipc.ErrNotInitialized
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return ipc.NewTypedError(ipc.ErrCodeTimeout, ipc.ErrorTypeTimeout, "request timed out", nil)
+	}
+
+	msg := err.Error()
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "flood_wait") || strings.Contains(lower, "flood wait"):
+		data := map[string]any{}
+		if retryAfter := parseRetryAfter(lower); retryAfter > 0 {
+			data["retryAfter"] = retryAfter
+		}
+		return ipc.NewTypedError(ipc.ErrCodeFloodWait, ipc.ErrorTypeFloodWait, msg, data)
+	case strings.Contains(lower, "peer") &&
+		(strings.Contains(lower, "not found") || strings.Contains(lower, "invalid")):
+		return ipc.NewTypedError(ipc.ErrCodePeerNotFound, ipc.ErrorTypePeerNotFound, msg, nil)
+	case strings.Contains(lower, "username_invalid") ||
+		strings.Contains(lower, "channel_invalid") ||
+		strings.Contains(lower, "user_id_invalid"):
+		return ipc.NewTypedError(ipc.ErrCodePeerNotFound, ipc.ErrorTypePeerNotFound, msg, nil)
+	case strings.Contains(lower, "forbidden") ||
+		strings.Contains(lower, "chat_admin_required") ||
+		strings.Contains(lower, "not enough rights"):
+		return ipc.NewTypedError(ipc.ErrCodeForbidden, ipc.ErrorTypeForbidden, msg, nil)
+	case strings.Contains(lower, "invalid params") ||
+		strings.Contains(lower, "validation") ||
+		strings.Contains(lower, "required"):
+		return ipc.NewTypedError(ipc.ErrCodeInvalidParams, ipc.ErrorTypeValidation, msg, nil)
+	default:
+		return ipc.NewTypedError(-32000, ipc.ErrorTypeInternal, msg, nil)
+	}
+}
+
+func parseRetryAfter(msg string) int {
+	for _, marker := range []string{"flood_wait_", "flood wait "} {
+		idx := strings.Index(msg, marker)
+		if idx == -1 {
+			continue
+		}
+		rest := msg[idx+len(marker):]
+		digits := strings.Builder{}
+		for _, r := range rest {
+			if r < '0' || r > '9' {
+				break
+			}
+			digits.WriteRune(r)
+		}
+		if digits.Len() == 0 {
+			continue
+		}
+		value, err := strconv.Atoi(digits.String())
+		if err == nil {
+			return value
+		}
+	}
+	return 0
 }

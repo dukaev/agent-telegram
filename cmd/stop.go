@@ -41,7 +41,7 @@ func runStop(_ *cobra.Command, _ []string) {
 	client := ipc.NewClient(socketPath)
 
 	// Try to get PID from file first, then from RPC
-	pid := getPIDFromFile()
+	pid := getPIDFromFile(socketPath)
 	if pid == 0 {
 		pid = getPIDFromRPC(client)
 	}
@@ -52,7 +52,7 @@ func runStop(_ *cobra.Command, _ []string) {
 			if err == nil {
 				_ = process.Kill()
 				fmt.Printf("Force killed server (PID %d)\n", pid)
-				cleanupPIDFile()
+				cleanupPIDFile(socketPath)
 				return
 			}
 		}
@@ -93,9 +93,9 @@ func runStop(_ *cobra.Command, _ []string) {
 	waitForShutdown(client, 5*time.Second)
 }
 
-// getPIDFromFile reads PID from the PID file.
-func getPIDFromFile() int {
-	pidPath, err := paths.PIDFilePath()
+// getPIDFromFile reads PID from the PID file for the selected socket.
+func getPIDFromFile(socketPath string) int {
+	pidPath, err := paths.PIDFilePathForSocket(socketPath)
 	if err != nil {
 		return 0
 	}
@@ -121,8 +121,8 @@ func getPIDFromRPC(client *ipc.Client) int {
 }
 
 // cleanupPIDFile removes the PID file after force kill.
-func cleanupPIDFile() {
-	pidPath, err := paths.PIDFilePath()
+func cleanupPIDFile(socketPath string) {
+	pidPath, err := paths.PIDFilePathForSocket(socketPath)
 	if err != nil {
 		return
 	}

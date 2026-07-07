@@ -41,16 +41,16 @@ func NewListCommand(cfg ListCommandConfig) *cobra.Command {
 			// Handle --schema before required flag validation
 			if s, _ := cmd.Flags().GetBool("schema"); s {
 				if printSchema(cfg.Method) {
-					os.Exit(0)
+					Exit(0)
 				}
 				fmt.Fprintf(os.Stderr, "Error: no schema for method %q\n", cfg.Method)
-				os.Exit(1)
+				Exit(1)
 			}
 
 			if to.Peer() == "" {
 				fmt.Fprintln(os.Stderr, "Error: required flag \"--to\" not set")
 				_ = cmd.Usage()
-				os.Exit(1)
+				Exit(1)
 			}
 
 			pag := NewPagination(limit, offset, PaginationConfig{

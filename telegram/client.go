@@ -32,12 +32,12 @@ type Client struct {
 	sessionPath    string
 	sessionStorage session.Storage // optional: in-memory session (e.g. from env)
 	updateStore    *UpdateStore
-	peerCache      sync.Map             // username → InputPeerClass cache
-	peerFlight     singleflight.Group   // deduplicates concurrent peer resolutions
-	ready          chan struct{}         // closed when client is fully initialized
-	reloadCh       chan struct{}         // signals session reload request
-	cancelFn       context.CancelFunc   // cancels current client context
-	mu             sync.Mutex           // protects cancelFn and ready
+	peerCache      sync.Map           // username → InputPeerClass cache
+	peerFlight     singleflight.Group // deduplicates concurrent peer resolutions
+	ready          chan struct{}      // closed when client is fully initialized
+	reloadCh       chan struct{}      // signals session reload request
+	cancelFn       context.CancelFunc // cancels current client context
+	mu             sync.Mutex         // protects cancelFn and ready
 	// Domain clients
 	message  *message.Client
 	media    *media.Client
@@ -166,7 +166,6 @@ func (c *Client) runClient(ctx context.Context) error {
 	return nil
 }
 
-
 // setDomainAPIs sets the API client for all domain clients.
 func (c *Client) setDomainAPIs() {
 	api := c.client.API()
@@ -184,6 +183,7 @@ func (c *Client) setDomainAPIs() {
 type ClientStatus struct {
 	Initialized bool   `json:"initialized"`
 	Authorized  bool   `json:"authorized"`
+	State       string `json:"state"`
 	Username    string `json:"username,omitempty"`
 	FirstName   string `json:"firstName,omitempty"`
 	UserID      int64  `json:"userId,omitempty"`
@@ -214,6 +214,7 @@ func (c *Client) IsInitialized() bool {
 func (c *Client) GetStatus(ctx context.Context) ClientStatus {
 	status := ClientStatus{
 		Initialized: c.IsInitialized(),
+		State:       "connecting",
 	}
 
 	if !status.Initialized || c.client == nil {
@@ -224,9 +225,12 @@ func (c *Client) GetStatus(ctx context.Context) ClientStatus {
 	userInfo, err := c.client.Self(ctx)
 	if err == nil {
 		status.Authorized = true
+		status.State = "ready"
 		status.Username = userInfo.Username
 		status.FirstName = userInfo.FirstName
 		status.UserID = userInfo.ID
+	} else {
+		status.State = "unauthorized"
 	}
 
 	return status

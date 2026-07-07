@@ -54,16 +54,16 @@ func NewToggleCommand(cfg ToggleCommandConfig) *cobra.Command {
 			if s, _ := cmd.Flags().GetBool("schema"); s {
 				method, _ := resolveToggleMethod(cfg, disable)
 				if printSchema(method) {
-					os.Exit(0)
+					Exit(0)
 				}
 				fmt.Fprintf(os.Stderr, "Error: no schema for method %q\n", method)
-				os.Exit(1)
+				Exit(1)
 			}
 
 			if to.Peer() == "" {
 				fmt.Fprintln(os.Stderr, "Error: required flag \"--to\" not set")
 				_ = cmd.Usage()
-				os.Exit(1)
+				Exit(1)
 			}
 
 			runner := NewRunnerFromCmd(cmd, false)

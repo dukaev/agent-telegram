@@ -6,13 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"agent-telegram/telegram/types"
 )
-
-// DefaultRequestTimeout is the default timeout for IPC request handlers.
-const DefaultRequestTimeout = 30 * time.Second
 
 // HandlerFunc is the type for IPC handler functions.
 // Accepts a context for cancellation and timeout propagation.

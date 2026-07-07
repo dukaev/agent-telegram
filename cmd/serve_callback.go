@@ -17,6 +17,7 @@ var (
 	serveCallbackPort    int
 	serveCallbackSession string
 	serveCallbackSecret  string
+	serveCallbackUnsafe  bool
 )
 
 var serveCallbackCmd = &cobra.Command{
@@ -26,13 +27,13 @@ var serveCallbackCmd = &cobra.Command{
 
 Use the API to set your callback URL and subscribe to channel events:
 
-  POST /callback/set-callback-url    {"callback_url": "https://example.com/hook"}
+  POST /callback/set-callback-url    {"callbackUrl": "https://example.com/hook"}
   GET  /callback/get-callback-info
-  POST /callback/subscribe-channel   {"channel_id": "@mychannel", "event_types": "new_post,edit_post"}
+  POST /callback/subscribe-channel   {"channelId": "@mychannel", "eventTypes": "new_post,edit_post"}
   GET  /callback/subscriptions-list
-  POST /callback/unsubscribe         {"subscription_id": 1}
+  POST /callback/unsubscribe         {"subscriptionId": 1}
 
-The callback URL is verified before activation: a POST with {"verify_code": "..."}
+The callback URL is verified before activation: a POST with {"verifyCode": "..."}
 is sent and the response must contain that code.`,
 	GroupID: GroupIDServer,
 	Run:     runServeCallback,
@@ -43,7 +44,8 @@ func init() {
 
 	serveCallbackCmd.Flags().IntVar(&serveCallbackPort, "port", 3000, "HTTP API server port")
 	serveCallbackCmd.Flags().StringVar(&serveCallbackSession, "session", "", "Path to Telegram session file")
-	serveCallbackCmd.Flags().StringVar(&serveCallbackSecret, "secret", "", "X-Secret auth token (optional)")
+	serveCallbackCmd.Flags().StringVar(&serveCallbackSecret, "secret", "", "X-Secret auth token")
+	serveCallbackCmd.Flags().BoolVar(&serveCallbackUnsafe, "unsafe-no-auth", false, "Allow callback API without auth")
 }
 
 func runServeCallback(_ *cobra.Command, _ []string) {
@@ -53,6 +55,11 @@ func runServeCallback(_ *cobra.Command, _ []string) {
 	storedCfg, err := config.LoadStoredConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if serveCallbackSecret == "" && !serveCallbackUnsafe {
+		fmt.Fprintln(os.Stderr, "Error: --secret is required")
+		fmt.Fprintln(os.Stderr, "Use --unsafe-no-auth only for trusted local development.")
 		os.Exit(1)
 	}
 

@@ -2,6 +2,7 @@ package ipc
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"agent-telegram/internal/observability"
+	"agent-telegram/internal/operations"
 )
 
 const (
@@ -40,10 +44,14 @@ func NewHTTPServer(port int, secret, cors string) *HTTPServer {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
 	mux.HandleFunc("GET /methods", s.handleMethods)
+	mux.HandleFunc("GET /manifest", s.handleManifest)
+	mux.HandleFunc("GET /openapi.json", s.handleOpenAPI)
 	mux.HandleFunc("POST /rpc/{method}", s.handleRPC)
 
 	var handler http.Handler = mux
-	handler = s.corsMiddleware(handler)
+	if cors != "" {
+		handler = s.corsMiddleware(handler)
+	}
 	if secret != "" {
 		handler = s.authMiddleware(handler)
 	}
@@ -53,7 +61,7 @@ func NewHTTPServer(port int, secret, cors string) *HTTPServer {
 		Addr:         fmt.Sprintf(":%d", port),
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: ClientTimeout(),
 	}
 	return s
 }
@@ -112,47 +120,122 @@ func (s *HTTPServer) handleMethods(w http.ResponseWriter, _ *http.Request) {
 	writeJSONResponse(w, http.StatusOK, map[string]any{"ok": true, "methods": names})
 }
 
+func (s *HTTPServer) handleManifest(w http.ResponseWriter, _ *http.Request) {
+	writeJSONResponse(w, http.StatusOK, map[string]any{
+		"ok":         true,
+		"operations": operations.Manifest(),
+		"errorTypes": ErrorTypesManifest(),
+	})
+}
+
+func (s *HTTPServer) handleOpenAPI(w http.ResponseWriter, _ *http.Request) {
+	writeJSONResponse(w, http.StatusOK, operations.OpenAPI("agent-telegram API", "dev"))
+}
+
 func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	method := r.PathValue("method")
+	traceID := strings.TrimSpace(r.Header.Get("X-Trace-Id"))
+	if traceID == "" {
+		traceID = observability.NewTraceID()
+	}
+	r.Header.Set("X-Trace-Id", traceID)
+	w.Header().Set("X-Trace-Id", traceID)
 
 	s.mu.RLock()
 	handler, ok := s.methods[method]
 	s.mu.RUnlock()
 
 	if !ok {
+		rpcErr := NewTypedError(ErrCodeMethodNotFound, ErrorTypeMethodNotFound, "method not found", nil)
+		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, http.StatusNotFound, map[string]any{
-			"ok":    false,
-			"error": map[string]any{"code": ErrCodeMethodNotFound, "message": "method not found"},
+			"ok":      false,
+			"traceId": traceID,
+			"error":   errorResponse(rpcErr),
 		})
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxAPIBodySize))
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxAPIBodySize+1))
 	if err != nil {
+		rpcErr := NewTypedError(ErrCodeParseError, ErrorTypeValidation, "failed to read request body", nil)
+		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, http.StatusBadRequest, map[string]any{
-			"ok":    false,
-			"error": map[string]any{"code": ErrCodeParseError, "message": "failed to read request body"},
+			"ok":      false,
+			"traceId": traceID,
+			"error":   errorResponse(rpcErr),
+		})
+		return
+	}
+	if len(body) > maxAPIBodySize {
+		rpcErr := NewTypedError(ErrCodeInvalidRequest, ErrorTypeValidation, "request body too large", nil)
+		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
+		writeJSONResponse(w, http.StatusRequestEntityTooLarge, map[string]any{
+			"ok":      false,
+			"traceId": traceID,
+			"error":   errorResponse(rpcErr),
 		})
 		return
 	}
 
-	// Default to empty object if no body
-	params := json.RawMessage(body)
-	if len(params) == 0 {
-		params = json.RawMessage(`{}`)
+	params, dryRun, validateOnly, err := parseRPCBody(body)
+	if err != nil {
+		rpcErr := NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, err.Error(), nil)
+		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
+		writeJSONResponse(w, errorToHTTPStatus(rpcErr), map[string]any{
+			"ok":      false,
+			"traceId": traceID,
+			"error":   errorResponse(rpcErr),
+		})
+		return
+	}
+	if isTruthy(r.URL.Query().Get("dryRun")) {
+		dryRun = true
+	}
+	if isTruthy(r.URL.Query().Get("validateOnly")) {
+		validateOnly = true
+	}
+	if dryRun || validateOnly {
+		if err := operations.ValidateParams(method, params); err != nil {
+			rpcErr := NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, err.Error(), nil)
+			s.writeHTTPAudit(traceID, method, params, nil, rpcErr, time.Since(start), true)
+			writeJSONResponse(w, errorToHTTPStatus(rpcErr), map[string]any{
+				"ok":      false,
+				"traceId": traceID,
+				"error":   errorResponse(rpcErr),
+			})
+			return
+		}
+		op, _ := operations.Get(method)
+		s.writeHTTPAudit(traceID, method, params, map[string]any{"dryRun": dryRun, "validateOnly": validateOnly}, nil, time.Since(start), true)
+		writeJSONResponse(w, http.StatusOK, map[string]any{
+			"ok":           true,
+			"traceId":      traceID,
+			"dryRun":       dryRun,
+			"validateOnly": validateOnly,
+			"method":       method,
+			"params":       json.RawMessage(params),
+			"safety":       op.Safety,
+			"idempotent":   op.Idempotent,
+		})
+		return
 	}
 
 	result, rpcErr := handler(params)
 	if rpcErr != nil {
 		status := errorToHTTPStatus(rpcErr)
+		s.writeHTTPAudit(traceID, method, params, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, status, map[string]any{
-			"ok":    false,
-			"error": map[string]any{"code": rpcErr.Code, "message": rpcErr.Message},
+			"ok":      false,
+			"traceId": traceID,
+			"error":   errorResponse(rpcErr),
 		})
 		return
 	}
 
-	writeJSONResponse(w, http.StatusOK, map[string]any{"ok": true, "result": result})
+	s.writeHTTPAudit(traceID, method, params, result, nil, time.Since(start), false)
+	writeJSONResponse(w, http.StatusOK, map[string]any{"ok": true, "traceId": traceID, "result": result})
 }
 
 // --- Middleware ---
@@ -165,8 +248,8 @@ func (s *HTTPServer) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if token == "" || token != s.secret {
+		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if !ok || token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(s.secret)) != 1 {
 			writeJSONResponse(w, http.StatusUnauthorized, map[string]any{
 				"ok":    false,
 				"error": map[string]any{"code": ErrCodeNotAuthorized, "message": "unauthorized"},
@@ -179,13 +262,13 @@ func (s *HTTPServer) authMiddleware(next http.Handler) http.Handler {
 
 func (s *HTTPServer) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := s.cors
-		if origin == "" {
-			origin = "*"
+		origin := allowedCORSOrigin(s.cors, r.Header.Get("Origin"))
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -195,12 +278,28 @@ func (s *HTTPServer) corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func allowedCORSOrigin(allowed, requestOrigin string) string {
+	if allowed == "*" {
+		return "*"
+	}
+	if requestOrigin == "" {
+		return ""
+	}
+	for _, item := range strings.Split(allowed, ",") {
+		if strings.TrimSpace(item) == requestOrigin {
+			return requestOrigin
+		}
+	}
+	return ""
+}
+
 func (s *HTTPServer) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sw, r)
 		slog.Info("http request",
+			"trace_id", r.Header.Get("X-Trace-Id"),
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", sw.status,
@@ -221,8 +320,121 @@ func errorToHTTPStatus(err *ErrorObject) int {
 		return http.StatusForbidden
 	case ErrCodeNotInitialized:
 		return http.StatusServiceUnavailable
+	case ErrCodeTimeout:
+		return http.StatusGatewayTimeout
+	case ErrCodePeerNotFound:
+		return http.StatusNotFound
+	case ErrCodeForbidden:
+		return http.StatusForbidden
+	case ErrCodeFloodWait:
+		return http.StatusTooManyRequests
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+func errorResponse(err *ErrorObject) map[string]any {
+	out := map[string]any{
+		"code":    err.Code,
+		"message": err.Message,
+	}
+	if err.Data != nil {
+		out["data"] = err.Data
+	}
+	return out
+}
+
+func (s *HTTPServer) writeHTTPAudit(
+	traceID, method string,
+	params, result any,
+	rpcErr *ErrorObject,
+	duration time.Duration,
+	dryRun bool,
+) {
+	event := observability.AuditEvent{
+		Time:       time.Now().UTC(),
+		TraceID:    traceID,
+		Surface:    "http",
+		Method:     method,
+		Safety:     operationSafety(method),
+		DryRun:     dryRun,
+		Status:     "ok",
+		DurationMs: duration.Milliseconds(),
+		Params:     params,
+	}
+	if rpcErr != nil {
+		event.Status = "error"
+		event.ErrorCode = rpcErr.Code
+		event.ErrorType = errorType(rpcErr)
+		event.Error = rpcErr.Message
+	} else {
+		event.ResultSummary = observability.SummarizeResult(result)
+	}
+	if err := observability.WriteAudit("", event); err != nil {
+		slog.Warn("http audit write failed", "trace_id", traceID, "error", err)
+	}
+}
+
+func operationSafety(method string) string {
+	if op, ok := operations.Get(method); ok {
+		return op.Safety
+	}
+	return ""
+}
+
+func errorType(err *ErrorObject) string {
+	if err == nil || err.Data == nil {
+		return ""
+	}
+	if m, ok := err.Data.(map[string]any); ok {
+		if value, ok := m["type"].(string); ok {
+			return value
+		}
+	}
+	return ""
+}
+
+func parseRPCBody(body []byte) (params json.RawMessage, dryRun, validateOnly bool, err error) {
+	if len(body) == 0 {
+		return json.RawMessage(`{}`), false, false, nil
+	}
+
+	var envelope struct {
+		Params       json.RawMessage `json:"params"`
+		DryRun       bool            `json:"dryRun"`
+		ValidateOnly bool            `json:"validateOnly"`
+	}
+	if json.Unmarshal(body, &envelope) == nil && len(envelope.Params) > 0 {
+		return envelope.Params, envelope.DryRun, envelope.ValidateOnly, nil
+	}
+	if !json.Valid(body) {
+		return nil, false, false, fmt.Errorf("invalid JSON body")
+	}
+	return json.RawMessage(body), false, false, nil
+}
+
+func isTruthy(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "t", "true", "yes", "y":
+		return true
+	default:
+		return false
+	}
+}
+
+// ErrorTypesManifest returns stable machine-readable error metadata for agents.
+func ErrorTypesManifest() []map[string]any {
+	return []map[string]any{
+		{"type": ErrorTypeServerNotRunning, "code": ErrCodeServerNotRunning, "retryable": true},
+		{"type": ErrorTypeMethodNotFound, "code": ErrCodeMethodNotFound, "retryable": false},
+		{"type": ErrorTypeNotAuthorized, "code": ErrCodeNotAuthorized, "retryable": false},
+		{"type": ErrorTypeNotInitialized, "code": ErrCodeNotInitialized, "retryable": true},
+		{"type": ErrorTypeTimeout, "code": ErrCodeTimeout, "retryable": true},
+		{"type": ErrorTypePeerNotFound, "code": ErrCodePeerNotFound, "retryable": false},
+		{"type": ErrorTypeForbidden, "code": ErrCodeForbidden, "retryable": false},
+		{"type": ErrorTypeFloodWait, "code": ErrCodeFloodWait, "retryable": true},
+		{"type": ErrorTypeValidation, "code": ErrCodeInvalidParams, "retryable": false},
+		{"type": ErrorTypeInternal, "code": -32000, "retryable": false},
 	}
 }
 
