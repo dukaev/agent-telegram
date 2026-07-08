@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Telegram"
+  short_description: "Telegram CLI workflows for agents"
+  default_prompt: "Use $agent-telegram to inspect chats, send messages, and debug Telegram bot flows."

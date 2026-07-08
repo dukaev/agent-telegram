@@ -43,6 +43,6 @@ build-errors.log
 # Environment files
 .env
 .env.local
-agent-telegram
+/agent-telegram
 ipc-client
 *.log
