@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/knadh/koanf/v2"
 	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/v2"
 )
 
 const (
@@ -41,7 +41,7 @@ func LoadFromEnvWithOptionalPhone() (*Config, error) {
 // loadFromEnv loads configuration from environment variables into a koanf instance.
 func loadFromEnv(k *koanf.Koanf) error {
 	return k.Load(env.Provider(prefix, delim, func(s string) string {
-		return strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(s, prefix)), "_", ".")
+		return strings.ToLower(strings.TrimPrefix(s, prefix))
 	}), nil)
 }
 
