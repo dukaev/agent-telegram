@@ -98,23 +98,25 @@ func (s *SocketServer) Start(ctx context.Context) error {
 	fmt.Printf("IPC server listening on %s\n", s.path)
 
 	// Accept connections
+	serverCtx := s.ctx
 	s.wg.Add(1)
-	go s.acceptLoop()
+	//nolint:contextcheck // serverCtx is derived from Start(ctx) and stored for shutdown coordination.
+	go s.acceptLoop(serverCtx)
 
 	// Wait for context cancellation
-	<-s.ctx.Done()
+	<-serverCtx.Done()
 	return s.Shutdown()
 }
 
 // acceptLoop accepts incoming connections.
-func (s *SocketServer) acceptLoop() {
+func (s *SocketServer) acceptLoop(ctx context.Context) {
 	defer s.wg.Done()
 
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
 			select {
-			case <-s.ctx.Done():
+			case <-ctx.Done():
 				return
 			default:
 				fmt.Printf("Accept error: %v\n", err)
@@ -123,16 +125,16 @@ func (s *SocketServer) acceptLoop() {
 		}
 
 		s.wg.Add(1)
-		go s.handleConnection(conn)
+		go s.handleConnection(ctx, conn)
 	}
 }
 
 // handleConnection handles a single connection.
-func (s *SocketServer) handleConnection(conn net.Conn) {
+func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 	defer s.wg.Done()
 	defer func() { _ = conn.Close() }()
 
-	if err := s.server.Serve(conn); err != nil {
+	if err := s.server.Serve(ctx, conn); err != nil {
 		slog.Debug("connection error", "error", err)
 	}
 }

@@ -5,13 +5,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // GetScheduledMessages retrieves scheduled messages for a chat.
-//
-//nolint:funlen // Function requires handling multiple message types
 func (c *Client) GetScheduledMessages(
 	ctx context.Context,
 	params types.GetScheduledMessagesParams,

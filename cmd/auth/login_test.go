@@ -25,7 +25,6 @@ type fakeAuthBackend struct {
 	passResult      *types.SignInResult
 	sentPhone       string
 	signedCode      string
-	qrTokenURL      string
 	password        string
 }
 
@@ -117,7 +116,7 @@ func TestAuthBeginWritesStateAndJSON(t *testing.T) {
 func TestAuthVerifyCompletesSuccessfulLogin(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	authStateID = state.ID
 	authCodeStdin = true
 	authReload = false
@@ -162,7 +161,7 @@ func TestAuthVerifyCompletesSuccessfulLogin(t *testing.T) {
 func TestAuthVerifyReports2FAWithoutDeletingState(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	authStateID = state.ID
 	authCodeStdin = true
 
@@ -209,7 +208,7 @@ func TestAuthVerifyReports2FAWithoutDeletingState(t *testing.T) {
 func TestAuthPasswordCompletes2FA(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	authStateID = state.ID
 	authPassStdin = true
 	authReload = false
@@ -292,7 +291,7 @@ func resetAuthGlobals(t *testing.T, home string) {
 	authStatusPhone = ""
 }
 
-func createTestState(t *testing.T, home string) *authflow.State {
+func createTestState(t *testing.T) *authflow.State {
 	t.Helper()
 	store := authflow.NewStateStore(authStateDir)
 	state, err := store.Create(

@@ -389,12 +389,12 @@ func (r *Runner) handleError(err *ipc.ErrorObject) {
 
 func (r *Runner) ensureErrorToRPC(err error, method string) *ipc.ErrorObject {
 	msg := err.Error()
-	switch {
-	case msg == "server is not running; run: agent-telegram server ensure":
+	switch msg {
+	case "server is not running; run: agent-telegram server ensure":
 		return ipc.NewTypedError(ipc.ErrCodeServerNotRunning, ipc.ErrorTypeServerNotRunning, msg, map[string]any{
 			"nextCommand": agentCommand(r.runID, "server", "ensure"),
 		})
-	case msg == "telegram client is not ready within timeout":
+	case "telegram client is not ready within timeout":
 		return ipc.NewTypedError(ipc.ErrCodeNotInitialized, ipc.ErrorTypeNotInitialized, msg, map[string]any{
 			"nextCommand": agentCommand(r.runID, "server", "wait-ready"),
 		})

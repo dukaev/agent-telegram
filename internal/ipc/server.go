@@ -93,7 +93,7 @@ func (s *Server) SetPolicyChecker(policy PolicyChecker) {
 }
 
 // Serve starts the JSON-RPC server on the given io.ReadWriteCloser.
-func (s *Server) Serve(rwc io.ReadWriteCloser) error {
+func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
 	defer func() { _ = rwc.Close() }()
 	decoder := json.NewDecoder(rwc)
 	encoder := json.NewEncoder(rwc)
@@ -109,7 +109,7 @@ func (s *Server) Serve(rwc io.ReadWriteCloser) error {
 			continue
 		}
 
-		resp := s.handleRequest(&req)
+		resp := s.handleRequest(ctx, &req)
 
 		if err := encoder.Encode(resp); err != nil {
 			return fmt.Errorf("encode response: %w", err)
@@ -118,15 +118,15 @@ func (s *Server) Serve(rwc io.ReadWriteCloser) error {
 }
 
 // ServeStdinStdout serves JSON-RPC over stdin/stdout.
-func (s *Server) ServeStdinStdout() error {
-	return s.Serve(&readWriteCloser{
+func (s *Server) ServeStdinStdout(ctx context.Context) error {
+	return s.Serve(ctx, &readWriteCloser{
 		Reader:    os.Stdin,
 		Writer:    os.Stdout,
 		CloseFunc: func() error { return nil },
 	})
 }
 
-func (s *Server) handleRequest(req *Request) (resp *Response) {
+func (s *Server) handleRequest(ctx context.Context, req *Request) (resp *Response) {
 	start := time.Now()
 
 	defer func() {
@@ -162,7 +162,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 	}
 
 	if policyChecker != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout())
+		ctx, cancel := context.WithTimeout(ctx, RequestTimeout())
 		defer cancel()
 		if err := policyChecker.Check(ctx, req.Method, req.Params); err != nil {
 			rpcErr := ErrorObjectFromError(err)
@@ -213,7 +213,10 @@ func (s *Server) logRequest(req *Request, resp *Response, duration time.Duration
 			"error", resp.Error.Message,
 		)
 	} else {
-		resultJSON, _ := json.Marshal(resp.Result)
+		resultJSON, err := json.Marshal(resp.Result)
+		if err != nil {
+			slog.Debug("ipc: failed to marshal result for logging", "error", err)
+		}
 		slog.Info("ipc: request",
 			"run_id", req.RunID,
 			"trace_id", req.TraceID,

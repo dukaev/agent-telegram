@@ -14,8 +14,6 @@ import (
 )
 
 // methodHandlers maps method names to handler factory functions.
-//
-//nolint:funlen // Declarative handler registry — all entries are one-liners.
 var methodHandlers = map[string]func(Client) HandlerFunc{
 	// Basic
 	"get_me":        GetMeHandler,

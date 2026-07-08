@@ -3,6 +3,7 @@ package sys
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -49,6 +50,7 @@ func runDocsGenerate(cmd *cobra.Command, _ []string) {
 	runner := cliutil.NewRunnerFromCmd(cmd, true)
 	runner.SetAction("docs_generate")
 
+	//nolint:gosec // docsTarget is an explicit local CLI target path.
 	current, err := os.ReadFile(docsTarget)
 	if err != nil {
 		runner.Fatal(err.Error())
@@ -59,7 +61,7 @@ func runDocsGenerate(cmd *cobra.Command, _ []string) {
 	}
 	changed := !bytes.Equal(current, updated)
 	if changed {
-		if err := os.WriteFile(docsTarget, updated, 0o644); err != nil {
+		if err := os.WriteFile(docsTarget, updated, docsFileMode(docsTarget)); err != nil {
 			runner.Fatal(err.Error())
 		}
 	}
@@ -70,10 +72,19 @@ func runDocsGenerate(cmd *cobra.Command, _ []string) {
 	})
 }
 
+func docsFileMode(path string) fs.FileMode {
+	info, err := os.Stat(path)
+	if err == nil {
+		return info.Mode().Perm()
+	}
+	return 0o600
+}
+
 func runDocsCheck(cmd *cobra.Command, _ []string) {
 	runner := cliutil.NewRunnerFromCmd(cmd, true)
 	runner.SetAction("docs_check")
 
+	//nolint:gosec // docsTarget is an explicit local CLI target path.
 	current, err := os.ReadFile(docsTarget)
 	if err != nil {
 		runner.Fatal(err.Error())

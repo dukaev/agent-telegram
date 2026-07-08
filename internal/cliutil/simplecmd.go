@@ -149,6 +149,10 @@ func validateRequiredFlags(cmd *cobra.Command, flags []Flag, vals *flagValues) {
 			if ptr := vals.ints[f.Name]; ptr == nil || *ptr == 0 {
 				missing = true
 			}
+		case FlagBool:
+			if ptr := vals.bools[f.Name]; ptr == nil || !*ptr {
+				missing = true
+			}
 		}
 		if missing {
 			fmt.Fprintf(os.Stderr, "Error: required flag \"--%s\" not set\n", f.Name)

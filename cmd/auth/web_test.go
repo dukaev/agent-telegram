@@ -22,10 +22,14 @@ import (
 	"agent-telegram/internal/types"
 )
 
+const testAllowUserPolicyBody = `{"policy":{"version":1,` +
+	`"safeties":{"read":true,"write":true},` +
+	`"peerTypes":{"users":true},"allowPeers":["user:1"]}}`
+
 func TestWebAuthVerifyCompletesLogin(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	backend := &fakeAuthBackend{
 		sessionData: []byte("web-session"),
 		signResult:  &types.SignInResult{Success: true},
@@ -61,7 +65,7 @@ func TestWebAuthVerifyCompletesLogin(t *testing.T) {
 func TestWebAuthVerifyThenPasswordCompletes2FA(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	backend := &fakeAuthBackend{
 		sessionData: []byte("web-2fa-session"),
 		signResult:  &types.SignInResult{Requires2FA: true, TwoFactorHint: "pet"},
@@ -114,7 +118,7 @@ func TestWebAuthVerifyThenPasswordCompletes2FA(t *testing.T) {
 func TestWebAuthRejectsBadToken(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 
 	req := httptest.NewRequest(http.MethodGet, "/auth?t=bad-token", nil)
@@ -129,7 +133,7 @@ func TestWebAuthRejectsBadToken(t *testing.T) {
 func TestWebAuthPolicyFormSavesPolicy(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 
 	form := url.Values{
@@ -167,20 +171,31 @@ func TestWebAuthPolicyFormSavesPolicy(t *testing.T) {
 func TestWebAuthServerEndToEnd(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	backend := &fakeAuthBackend{
 		sessionData: []byte("web-end-session"),
 		signResult:  &types.SignInResult{Success: true},
 	}
 	session := newTestWebAuthSession(state, backend)
 
-	server, link, err := startWebAuthServer(session, 0)
+	server, link, err := startWebAuthServer(context.Background(), session, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer shutdownWebAuthServer(server)
 
-	resp, err := http.PostForm(strings.Replace(link, "/auth?", "/auth/verify?", 1), url.Values{"code": {"12345"}})
+	form := url.Values{"code": {"12345"}}
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		strings.Replace(link, "/auth?", "/auth/verify?", 1),
+		strings.NewReader(form.Encode()),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +216,7 @@ func TestWebAuthServerEndToEnd(t *testing.T) {
 func TestWebAuthStateReturnsPolicy(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 	session.policy = policy.Policy{
 		Safeties: policy.Safeties{Read: true},
@@ -235,7 +250,7 @@ func TestWebAuthStateReturnsPolicy(t *testing.T) {
 func TestWebAuthStateContractForQR(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 	session.qrMode = true
 	session.qrImage = "data:image/png;base64,AA=="
@@ -250,7 +265,11 @@ func TestWebAuthStateContractForQR(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	raw := decodeRawObject(t, rec)
-	requireJSONFields(t, raw, "title", "message", "mode", "completed", "qrImage", "qrLink", "expires", "refresh", "api", "policy")
+	requireJSONFields(
+		t,
+		raw,
+		"title", "message", "mode", "completed", "qrImage", "qrLink", "expires", "refresh", "api", "policy",
+	)
 	authState := decodeAuthState(t, rec)
 	if authState.Mode != "qr" || authState.Completed {
 		t.Fatalf("unexpected QR state: %+v", authState)
@@ -263,7 +282,7 @@ func TestWebAuthStateContractForQR(t *testing.T) {
 func TestWebAuthStateContractForSetup(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 	session.qrMode = true
 	session.completed = true
@@ -289,7 +308,7 @@ func TestWebAuthStateContractForSetup(t *testing.T) {
 func TestWebAuthPeersContract(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 	session.completed = true
 	session.peersLoaded = true
@@ -314,14 +333,14 @@ func TestWebAuthPeersContract(t *testing.T) {
 func TestWebAuthQRCompletionWaitsForFilterSetup(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{sessionData: []byte("qr-session")})
 	session.qrMode = true
 	session.peerLoader = func(context.Context, *authflow.State, []byte) ([]authPeer, error) {
 		return []authPeer{{Peer: "user:1", Title: "Ada", Type: "user"}}, nil
 	}
 
-	session.completeForSetup(map[string]any{"ok": true, "next": "done"})
+	session.completeForSetup(context.Background(), map[string]any{"ok": true, "next": "done"})
 
 	select {
 	case result := <-session.done:
@@ -349,8 +368,7 @@ func TestWebAuthQRCompletionWaitsForFilterSetup(t *testing.T) {
 		t.Fatalf("unexpected peers payload: %+v", peers)
 	}
 
-	body := `{"policy":{"version":1,"safeties":{"read":true,"write":true},"peerTypes":{"users":true},"allowPeers":["user:1"]}}`
-	req = httptest.NewRequest(http.MethodPost, "/auth/finish?t=test-token", strings.NewReader(body))
+	req = httptest.NewRequest(http.MethodPost, "/auth/finish?t=test-token", strings.NewReader(testAllowUserPolicyBody))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	session.handleFinish(rec, req)
@@ -377,14 +395,14 @@ func TestWebAuthQRCompletionWaitsForFilterSetup(t *testing.T) {
 func TestWebAuthQRCompletionFinishesAfterFilterSetup(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{sessionData: []byte("qr-session")})
 	session.qrMode = true
 	session.peerLoader = func(context.Context, *authflow.State, []byte) ([]authPeer, error) {
 		return []authPeer{{Peer: "user:1", Title: "Ada", Type: "user"}}, nil
 	}
 
-	session.completeAsync()
+	session.completeAsync(context.Background())
 
 	select {
 	case result := <-session.done:
@@ -396,8 +414,11 @@ func TestWebAuthQRCompletionFinishesAfterFilterSetup(t *testing.T) {
 	}
 
 	waitForPeers(t, session)
-	body := `{"policy":{"version":1,"safeties":{"read":true,"write":true},"peerTypes":{"users":true},"allowPeers":["user:1"]}}`
-	req := httptest.NewRequest(http.MethodPost, "/auth/finish?t=test-token", strings.NewReader(body))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/finish?t=test-token",
+		strings.NewReader(testAllowUserPolicyBody),
+	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	session.handleFinish(rec, req)
@@ -420,7 +441,7 @@ func TestWebAuthQRCompletionFinishesAfterFilterSetup(t *testing.T) {
 func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
-	state := createTestState(t, tmp)
+	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 	session.qrMode = true
 
@@ -435,7 +456,11 @@ func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 		}
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/auth/api?t=test-token", strings.NewReader(`{"appId":"456","appHash":"custom-hash"}`))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/api?t=test-token",
+		strings.NewReader(`{"appId":"456","appHash":"custom-hash"}`),
+	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	session.handleAPISettings(rec, req)

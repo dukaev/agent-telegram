@@ -116,7 +116,6 @@ func TestUploadFileOpenError(t *testing.T) {
 	if err == nil {
 		t.Fatal("missing file should fail")
 	}
-
 }
 
 func TestSimpleSendMediaMethodsWithFakeAPI(t *testing.T) {

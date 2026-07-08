@@ -2,8 +2,6 @@ package cliutil
 
 import (
 	"encoding/json"
-	"io"
-	"os"
 	"testing"
 )
 
@@ -58,37 +56,4 @@ func TestPrintSchemaUnknownMethod(t *testing.T) {
 	if ok := printSchema("does_not_exist"); ok {
 		t.Fatal("printSchema should return false for an unknown method")
 	}
-}
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	old := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stdout = w
-	defer func() { os.Stdout = old }()
-
-	type readResult struct {
-		data []byte
-		err  error
-	}
-	readDone := make(chan readResult, 1)
-	go func() {
-		data, err := io.ReadAll(r)
-		readDone <- readResult{data: data, err: err}
-	}()
-
-	fn()
-
-	if err := w.Close(); err != nil {
-		t.Fatal(err)
-	}
-	result := <-readDone
-	if result.err != nil {
-		t.Fatal(result.err)
-	}
-	return string(result.data)
 }

@@ -162,12 +162,6 @@ func setupLoggerForSocket(socketPath string) {
 	slog.SetDefault(logger)
 }
 
-// setupContext creates a context with signal handling.
-// Returns both the context and cancel function for use in shutdown handler.
-func setupContext() (context.Context, context.CancelFunc) {
-	return setupContextWithShutdown(nil)
-}
-
 func setupContextWithShutdown(beforeCancel func()) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 

@@ -46,9 +46,15 @@ func schemaForType(t reflect.Type, input bool) any {
 		return JSONSchema{"type": "integer"}
 	case reflect.Int64:
 		return JSONSchema{"type": "integer", "format": "int64"}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
+		return JSONSchema{"type": "integer", "minimum": 0}
+	case reflect.Uint64, reflect.Uintptr:
+		return JSONSchema{"type": "integer", "format": "uint64", "minimum": 0}
 	case reflect.Float32, reflect.Float64:
 		return JSONSchema{"type": "number"}
 	case reflect.Slice:
+		return JSONSchema{"type": "array", "items": schemaForType(t.Elem(), input)}
+	case reflect.Array:
 		return JSONSchema{"type": "array", "items": schemaForType(t.Elem(), input)}
 	case reflect.Map:
 		return JSONSchema{"type": "object", "additionalProperties": true}
@@ -57,6 +63,16 @@ func schemaForType(t reflect.Type, input bool) any {
 			return JSONSchema{"type": "string", "format": "date-time"}
 		}
 		return structSchema(t, input)
+	case reflect.Interface:
+		return JSONSchema{}
+	case reflect.Invalid,
+		reflect.Chan,
+		reflect.Complex64,
+		reflect.Complex128,
+		reflect.Func,
+		reflect.Pointer,
+		reflect.UnsafePointer:
+		return JSONSchema{}
 	default:
 		return JSONSchema{}
 	}

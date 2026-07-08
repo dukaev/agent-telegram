@@ -1,3 +1,4 @@
+// Package docs generates CLI documentation from the Cobra command tree.
 package docs
 
 import (
@@ -58,12 +59,12 @@ func GenerateReadmeCommands(rootCmd *cobra.Command) string {
 
 	for _, cmd := range groupedCommands(rootCmd) {
 		method, safety := commandMethodSafety(cmd)
-		b.WriteString(fmt.Sprintf("| `%s` | %s | %s | %s |\n",
+		fmt.Fprintf(&b, "| `%s` | %s | %s | %s |\n",
 			escapeMarkdown(cmd.CommandPath()),
 			escapeMarkdown(commandSummary(cmd)),
 			formatCell(method),
 			formatCell(safety),
-		))
+		)
 	}
 	return strings.TrimRight(b.String(), "\n") + "\n"
 }
@@ -75,7 +76,7 @@ func GenerateReadmeGlobalOptions(rootCmd *cobra.Command) string {
 	b.WriteString("| Option | Description |\n")
 	b.WriteString("|--------|-------------|\n")
 	rootCmd.PersistentFlags().VisitAll(func(f *pflag.Flag) {
-		b.WriteString(fmt.Sprintf("| `%s` | %s |\n", escapeMarkdown(flagUsage(f)), escapeMarkdown(flagDescription(f))))
+		fmt.Fprintf(&b, "| `%s` | %s |\n", escapeMarkdown(flagUsage(f)), escapeMarkdown(flagDescription(f)))
 	})
 	return strings.TrimRight(b.String(), "\n") + "\n"
 }
@@ -101,7 +102,7 @@ func writeLLMDocumentation(b *strings.Builder, rootCmd *cobra.Command) {
 	b.WriteString("- Use `bot step`, `bot press`, and `msg wait` for bot flows; bot state includes structured `nextActions`.\n")
 	b.WriteString("- Check `safety`: read, write, destructive, or paid. Destructive and paid operations should be confirmed by the caller.\n")
 	b.WriteString("- Check typed error `data.type` for retry decisions, especially `FLOOD_WAIT`, `TIMEOUT`, and `NOT_INITIALIZED`.\n\n")
-	b.WriteString(fmt.Sprintf("Registered operations: %d\n\n", len(operations.Methods())))
+	fmt.Fprintf(b, "Registered operations: %d\n\n", len(operations.Methods()))
 	b.WriteString("## Global Flags\n\n")
 	writeFlags(b, rootCmd.PersistentFlags(), "")
 	b.WriteString("\n---\n\n## Commands\n\n")
@@ -112,7 +113,7 @@ func writeLLMDocumentation(b *strings.Builder, rootCmd *cobra.Command) {
 		if len(cmds) == 0 {
 			continue
 		}
-		b.WriteString(fmt.Sprintf("### %s\n\n", groupTitle(groupID)))
+		fmt.Fprintf(b, "### %s\n\n", groupTitle(groupID))
 		for _, cmd := range cmds {
 			writeCommandDoc(b, cmd, 0)
 		}
@@ -126,43 +127,43 @@ func writeCommandDoc(b *strings.Builder, cmd *cobra.Command, depth int) {
 		headerLevel = "######"
 	}
 
-	b.WriteString(fmt.Sprintf("%s%s `%s`\n\n", indent, headerLevel, cmd.CommandPath()))
+	fmt.Fprintf(b, "%s%s `%s`\n\n", indent, headerLevel, cmd.CommandPath())
 	if cmd.Short != "" {
-		b.WriteString(fmt.Sprintf("%s%s\n\n", indent, cmd.Short))
+		fmt.Fprintf(b, "%s%s\n\n", indent, cmd.Short)
 	}
 	if cmd.Long != "" && cmd.Long != cmd.Short {
-		b.WriteString(fmt.Sprintf("%s**Description:**\n\n", indent))
+		fmt.Fprintf(b, "%s**Description:**\n\n", indent)
 		for _, line := range strings.Split(cmd.Long, "\n") {
-			b.WriteString(fmt.Sprintf("%s%s\n", indent, line))
+			fmt.Fprintf(b, "%s%s\n", indent, line)
 		}
 		b.WriteString("\n")
 	}
 
-	b.WriteString(fmt.Sprintf("%s**Usage:**\n\n", indent))
-	b.WriteString(fmt.Sprintf("%s```\n%s%s\n%s```\n\n", indent, indent, cmd.UseLine(), indent))
+	fmt.Fprintf(b, "%s**Usage:**\n\n", indent)
+	fmt.Fprintf(b, "%s```\n%s%s\n%s```\n\n", indent, indent, cmd.UseLine(), indent)
 	if len(cmd.Aliases) > 0 {
-		b.WriteString(fmt.Sprintf("%s**Aliases:** %s\n\n", indent, strings.Join(cmd.Aliases, ", ")))
+		fmt.Fprintf(b, "%s**Aliases:** %s\n\n", indent, strings.Join(cmd.Aliases, ", "))
 	}
 	if argsDesc := argsDescription(cmd); argsDesc != "" {
-		b.WriteString(fmt.Sprintf("%s**Arguments:** %s\n\n", indent, argsDesc))
+		fmt.Fprintf(b, "%s**Arguments:** %s\n\n", indent, argsDesc)
 	}
 	if method, safety := commandMethodSafety(cmd); method != "" {
-		b.WriteString(fmt.Sprintf("%s**Operation:** `%s` (safety: `%s`)\n\n", indent, method, safety))
+		fmt.Fprintf(b, "%s**Operation:** `%s` (safety: `%s`)\n\n", indent, method, safety)
 	}
 	if flags := cmd.Flags(); flags.HasFlags() {
-		b.WriteString(fmt.Sprintf("%s**Flags:**\n\n", indent))
+		fmt.Fprintf(b, "%s**Flags:**\n\n", indent)
 		writeFlags(b, flags, indent)
 		b.WriteString("\n")
 	}
 	if cmd.Example != "" {
-		b.WriteString(fmt.Sprintf("%s**Example:**\n\n", indent))
-		b.WriteString(fmt.Sprintf("%s```\n", indent))
+		fmt.Fprintf(b, "%s**Example:**\n\n", indent)
+		fmt.Fprintf(b, "%s```\n", indent)
 		for _, line := range strings.Split(cmd.Example, "\n") {
-			b.WriteString(fmt.Sprintf("%s%s\n", indent, line))
+			fmt.Fprintf(b, "%s%s\n", indent, line)
 		}
-		b.WriteString(fmt.Sprintf("%s```\n\n", indent))
+		fmt.Fprintf(b, "%s```\n\n", indent)
 	}
-	b.WriteString(fmt.Sprintf("%s---\n\n", indent))
+	fmt.Fprintf(b, "%s---\n\n", indent)
 
 	for _, subcmd := range sortedCommands(cmd.Commands()) {
 		if includeCommand(subcmd) {
@@ -173,19 +174,19 @@ func writeCommandDoc(b *strings.Builder, cmd *cobra.Command, depth int) {
 
 func writeFlags(b *strings.Builder, flags *pflag.FlagSet, indent string) {
 	flags.VisitAll(func(f *pflag.Flag) {
-		b.WriteString(fmt.Sprintf("%s- `%s`", indent, flagUsage(f)))
+		fmt.Fprintf(b, "%s- `%s`", indent, flagUsage(f))
 		if def := flagDefault(f); def != "" {
 			b.WriteString(def)
 		}
 		b.WriteString("\n")
 		if f.Usage != "" {
-			b.WriteString(fmt.Sprintf("%s  %s\n", indent, f.Usage))
+			fmt.Fprintf(b, "%s  %s\n", indent, f.Usage)
 		}
 	})
 }
 
 func groupedCommands(rootCmd *cobra.Command) []*cobra.Command {
-	var out []*cobra.Command
+	out := make([]*cobra.Command, 0, len(rootCmd.Commands()))
 	for _, groupID := range groupOrder {
 		for _, top := range topLevelGroups(rootCmd)[groupID] {
 			out = append(out, flattenCommand(top)...)
@@ -220,10 +221,7 @@ func topLevelGroups(rootCmd *cobra.Command) map[string][]*cobra.Command {
 }
 
 func sortedCommands(cmds []*cobra.Command) []*cobra.Command {
-	out := make([]*cobra.Command, 0, len(cmds))
-	for _, cmd := range cmds {
-		out = append(out, cmd)
-	}
+	out := append([]*cobra.Command(nil), cmds...)
 	sort.SliceStable(out, func(i, j int) bool {
 		return out[i].Name() < out[j].Name()
 	})

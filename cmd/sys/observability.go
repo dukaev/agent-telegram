@@ -325,6 +325,7 @@ func logPathForKind(kind, socketPath string) (string, error) {
 }
 
 func readLogLines(path string, last int, traceID, runID string) ([]string, error) {
+	//nolint:gosec // path is resolved from the local instance socket path.
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {

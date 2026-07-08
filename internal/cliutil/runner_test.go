@@ -2,8 +2,6 @@ package cliutil
 
 import (
 	"encoding/json"
-	"io"
-	"os"
 	"testing"
 
 	"agent-telegram/internal/ipc"
@@ -18,7 +16,7 @@ func TestPrintDryRunReceiptIncludesActionMetadata(t *testing.T) {
 	runner.dryRun = true
 	runner.traceID = "trace-test"
 
-	output := captureRunnerStdout(t, func() {
+	output := captureStdout(t, func() {
 		runner.printDryRun("send_message", map[string]any{
 			"peer":    "@example",
 			"message": "hello",
@@ -57,7 +55,7 @@ func TestAgentErrorEnvelopeIncludesDiagnosisAndNextActions(t *testing.T) {
 	runner.lastMethod = "send_message"
 	runner.lastSafety = "write"
 
-	output := captureRunnerStdout(t, func() {
+	output := captureStdout(t, func() {
 		runner.printErrorEnvelope(ipc.ErrServerNotRunning)
 	})
 
@@ -93,37 +91,4 @@ func TestAgentErrorEnvelopeIncludesDiagnosisAndNextActions(t *testing.T) {
 	if len(body.NextActions) == 0 || body.NextActions[0].Kind != "start_server" || body.NextActions[0].Command == "" {
 		t.Fatalf("nextActions = %+v", body.NextActions)
 	}
-}
-
-func captureRunnerStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	old := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Stdout = w
-	defer func() { os.Stdout = old }()
-
-	type readResult struct {
-		data []byte
-		err  error
-	}
-	readDone := make(chan readResult, 1)
-	go func() {
-		data, err := io.ReadAll(r)
-		readDone <- readResult{data: data, err: err}
-	}()
-
-	fn()
-
-	if err := w.Close(); err != nil {
-		t.Fatal(err)
-	}
-	result := <-readDone
-	if result.err != nil {
-		t.Fatal(result.err)
-	}
-	return string(result.data)
 }

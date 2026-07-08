@@ -94,8 +94,6 @@ type MessageClient interface {
 }
 
 // MediaClient defines the interface for media operations.
-//
-//nolint:dupl // Domain interfaces intentionally share similar signatures
 type MediaClient interface {
 	SendPhoto(ctx context.Context, params types.SendPhotoParams) (*types.SendPhotoResult, error)
 	SendVideo(ctx context.Context, params types.SendVideoParams) (*types.SendVideoResult, error)

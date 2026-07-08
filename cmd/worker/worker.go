@@ -44,7 +44,7 @@ func Run(args []string) {
 
 	// Start IPC server in a goroutine
 	go func() {
-		if err := srv.ServeStdinStdout(); err != nil {
+		if err := srv.ServeStdinStdout(ctx); err != nil {
 			log.Printf("IPC server error: %v", err)
 			cancel()
 		}

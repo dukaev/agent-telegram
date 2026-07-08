@@ -60,6 +60,6 @@ func TestParseReloadSessionData(t *testing.T) {
 	}
 }
 
-func TestLogoutTelegramClientAllowsNilClient(t *testing.T) {
+func TestLogoutTelegramClientAllowsNilClient(_ *testing.T) {
 	logoutTelegramClient(nil, true)
 }

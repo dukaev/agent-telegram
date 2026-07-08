@@ -1,8 +1,10 @@
-.PHONY: lint lint-fix build run test test-contracts validate-fixtures clean release-local release release-minor release-major npm-pack npm-publish setup-hooks
+.PHONY: lint lint-fix lint-new lint-new-ci lint-web-auth pre-commit build run test test-contracts validate-fixtures clean release-local release release-minor release-major npm-pack npm-publish setup-hooks
 
 REVIVE = $(shell go env GOPATH)/bin/revive
 AIR = $(shell go env GOPATH)/bin/air
 GCL_CUSTOM = ./bin/custom-gcl
+LINT_NEW_BASE ?= HEAD
+LINT_NEW_LINTERS = govet,staticcheck,errcheck,bodyclose,copyloopvar,noctx,contextcheck,exhaustive,gosec,unused,ineffassign,unconvert,prealloc,errchkjson,durationcheck,misspell,whitespace,nolintlint
 
 lint:
 	golangci-lint run ./...
@@ -11,6 +13,22 @@ lint:
 
 lint-fix:
 	golangci-lint run --fix ./...
+
+lint-new:
+	@if git diff --cached --name-only --diff-filter=ACMR -- '*.go' | grep -q .; then \
+		golangci-lint run --new-from-rev=$(LINT_NEW_BASE) --enable-only=$(LINT_NEW_LINTERS) ./...; \
+	else \
+		echo "No staged Go files, skipping golangci-lint."; \
+	fi
+
+lint-new-ci:
+	golangci-lint run --new-from-rev=$(LINT_NEW_BASE) --enable-only=$(LINT_NEW_LINTERS) ./...
+
+lint-web-auth:
+	npm run check:web:auth
+
+pre-commit:
+	npx lefthook run pre-commit
 
 build:
 	go build -o agent-telegram .
@@ -88,5 +106,5 @@ npm-pack: ## Pack npm package
 npm-publish: ## Publish to npm (requires npm login)
 	npm publish
 
-setup-hooks: ## Configure git to use .githooks/ for hooks
-	git config core.hooksPath .githooks
+setup-hooks: ## Install lefthook git hooks
+	npx lefthook install

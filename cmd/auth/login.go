@@ -84,7 +84,12 @@ func (r authRuntimeConfig) stateStore() *authflow.StateStore {
 
 func (r authRuntimeConfig) authConfig(phone string) (*config.Config, error) {
 	appIDStr := firstNonEmpty(r.AppID, os.Getenv("TELEGRAM_APP_ID"), os.Getenv("AGENT_TELEGRAM_APP_ID"), defaultAppID)
-	appHash := firstNonEmpty(r.AppHash, os.Getenv("TELEGRAM_APP_HASH"), os.Getenv("AGENT_TELEGRAM_APP_HASH"), defaultAppHash)
+	appHash := firstNonEmpty(
+		r.AppHash,
+		os.Getenv("TELEGRAM_APP_HASH"),
+		os.Getenv("AGENT_TELEGRAM_APP_HASH"),
+		defaultAppHash,
+	)
 	phone = firstNonEmpty(phone, os.Getenv("AGENT_TELEGRAM_PHONE"))
 
 	appID, err := strconv.Atoi(appIDStr)
@@ -226,7 +231,12 @@ func runAuthVerifyWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 		failJSON("code is empty")
 	}
 
-	cfg := config.LoadFromArgs(state.AppID, state.AppHash, state.Phone, filepath.Join(defaultConfigDir(), ".agent-telegram"))
+	cfg := config.LoadFromArgs(
+		state.AppID,
+		state.AppHash,
+		state.Phone,
+		filepath.Join(defaultConfigDir(), ".agent-telegram"),
+	)
 	backend := newAuthBackend(cfg)
 	ctx := context.Background()
 	if err := importStateSession(ctx, backend, state); err != nil {
@@ -279,7 +289,12 @@ func runAuthPasswordWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 		failJSON("password is empty")
 	}
 
-	cfg := config.LoadFromArgs(state.AppID, state.AppHash, state.Phone, filepath.Join(defaultConfigDir(), ".agent-telegram"))
+	cfg := config.LoadFromArgs(
+		state.AppID,
+		state.AppHash,
+		state.Phone,
+		filepath.Join(defaultConfigDir(), ".agent-telegram"),
+	)
 	backend := newAuthBackend(cfg)
 	ctx := context.Background()
 	if err := importStateSession(ctx, backend, state); err != nil {
@@ -427,7 +442,12 @@ func importStateSession(ctx context.Context, backend authflow.Backend, state *au
 	return backend.ImportSession(ctx, sessionData)
 }
 
-func persistBackendSession(ctx context.Context, backend authflow.Backend, state *authflow.State, store *authflow.StateStore) error {
+func persistBackendSession(
+	ctx context.Context,
+	backend authflow.Backend,
+	state *authflow.State,
+	store *authflow.StateStore,
+) error {
 	sessionData, err := backend.ExportSession(ctx)
 	if err != nil {
 		return fmt.Errorf("export auth session: %w", err)

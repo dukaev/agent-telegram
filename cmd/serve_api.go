@@ -100,15 +100,6 @@ func runServeAPI(_ *cobra.Command, _ []string) {
 	fmt.Fprintln(os.Stderr, "serve-api stopped.")
 }
 
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func createHTTPAPIServer(
 	port int, secret, cors string,
 	tgClient *telegram.Client, cancel context.CancelFunc,

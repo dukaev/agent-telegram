@@ -100,6 +100,7 @@ func LoadDefault() (Policy, error) {
 // Load reads a policy from path.
 func Load(path string) (Policy, error) {
 	p := Default()
+	//nolint:gosec // path is a caller-selected local policy file path.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {

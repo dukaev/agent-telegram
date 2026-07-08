@@ -108,7 +108,7 @@ func budgetArray(key string, arr []any, opts OutputBudgetOptions) []any {
 		switch opts.Verbosity {
 		case VerbosityMinimal, VerbosityCompact:
 			limit = 20
-		default:
+		case VerbosityFull, VerbosityRaw:
 			limit = len(arr)
 		}
 	}
@@ -177,6 +177,8 @@ func budgetString(key, value string, opts OutputBudgetOptions) string {
 			maxChars = 80
 		case VerbosityCompact:
 			maxChars = 200
+		case VerbosityFull, VerbosityRaw:
+			maxChars = 0
 		}
 	}
 	if maxChars <= 0 {

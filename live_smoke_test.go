@@ -19,6 +19,7 @@ func TestLiveSmokeReadOnly(t *testing.T) {
 		{"run", ".", "my-info", "--summary"},
 	} {
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		//nolint:gosec // args are fixed test cases declared above.
 		cmd := exec.CommandContext(ctx, "go", args...)
 		out, err := cmd.CombinedOutput()
 		cancel()

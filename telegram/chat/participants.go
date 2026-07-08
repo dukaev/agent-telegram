@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // GetParticipants retrieves participants from a chat or channel.
-//
-//nolint:funlen // Function requires handling multiple peer types
 func (c *Client) GetParticipants(
 	ctx context.Context,
 	params types.GetParticipantsParams,

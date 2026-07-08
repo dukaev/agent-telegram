@@ -22,7 +22,7 @@ func TestServerPropagatesTraceID(t *testing.T) {
 		return map[string]any{"ok": true}, nil
 	})
 
-	resp := srv.handleRequest(&Request{
+	resp := srv.handleRequest(context.Background(), &Request{
 		JSONRPC: "2.0",
 		Method:  "ok",
 		ID:      1,
@@ -42,7 +42,7 @@ func TestServerPropagatesTraceID(t *testing.T) {
 }
 
 func TestServerMethodNotFoundIsTyped(t *testing.T) {
-	resp := NewServer().handleRequest(&Request{
+	resp := NewServer().handleRequest(context.Background(), &Request{
 		JSONRPC: "2.0",
 		Method:  "missing",
 		ID:      1,
@@ -76,7 +76,7 @@ func TestServerPolicyCheckerBlocksBeforeHandler(t *testing.T) {
 		return map[string]any{"ok": true}, nil
 	})
 
-	resp := srv.handleRequest(&Request{
+	resp := srv.handleRequest(context.Background(), &Request{
 		JSONRPC: "2.0",
 		Method:  "send_message",
 		Params:  json.RawMessage(`{"peer":"@ada","message":"hi"}`),

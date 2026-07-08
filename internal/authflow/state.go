@@ -80,7 +80,13 @@ func DefaultStateDir() string {
 }
 
 // Create saves a new state and returns it.
-func (s *StateStore) Create(phone, codeHash string, appID int, appHash string, sessionData []byte, ttl time.Duration) (*State, error) {
+func (s *StateStore) Create(
+	phone, codeHash string,
+	appID int,
+	appHash string,
+	sessionData []byte,
+	ttl time.Duration,
+) (*State, error) {
 	if ttl <= 0 {
 		ttl = DefaultStateTTL
 	}

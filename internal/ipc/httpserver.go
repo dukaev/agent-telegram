@@ -250,7 +250,16 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		op, _ := operations.Get(method)
-		s.writeHTTPAudit(runID, traceID, method, params, map[string]any{"dryRun": dryRun, "validateOnly": validateOnly}, nil, time.Since(start), true)
+		s.writeHTTPAudit(
+			runID,
+			traceID,
+			method,
+			params,
+			map[string]any{"dryRun": dryRun, "validateOnly": validateOnly},
+			nil,
+			time.Since(start),
+			true,
+		)
 		writeJSONResponse(w, http.StatusOK, map[string]any{
 			"ok":           true,
 			"runId":        runID,
@@ -258,7 +267,7 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 			"dryRun":       dryRun,
 			"validateOnly": validateOnly,
 			"method":       method,
-			"params":       json.RawMessage(params),
+			"params":       params,
 			"safety":       op.Safety,
 			"idempotent":   op.Idempotent,
 		})

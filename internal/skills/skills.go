@@ -99,7 +99,7 @@ func Install(name, targetDir string, force bool) (string, error) {
 			return "", err
 		}
 	}
-	if err := os.MkdirAll(destinationRoot, 0o755); err != nil {
+	if err := os.MkdirAll(destinationRoot, 0o750); err != nil {
 		return "", err
 	}
 	if err := fs.WalkDir(bundledFS, sourceRoot, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -115,13 +115,13 @@ func Install(name, targetDir string, force bool) (string, error) {
 		}
 		dst := filepath.Join(destinationRoot, rel)
 		if entry.IsDir() {
-			return os.MkdirAll(dst, 0o755)
+			return os.MkdirAll(dst, 0o750)
 		}
 		data, err := bundledFS.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(dst, data, 0o644)
+		return os.WriteFile(dst, data, 0o600)
 	}); err != nil {
 		return "", err
 	}

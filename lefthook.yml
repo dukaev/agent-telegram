@@ -1,0 +1,35 @@
+pre-commit:
+  commands:
+    gofmt:
+      run: |
+        files="$(git diff --cached --name-only --diff-filter=ACMR -- '*.go')"
+        if [ -z "$files" ]; then
+          echo "No staged Go files, skipping gofmt."
+          exit 0
+        fi
+
+        unformatted="$(gofmt -l $files)"
+        if [ -n "$unformatted" ]; then
+          echo "Go files need gofmt:"
+          echo "$unformatted"
+          echo "Run: gofmt -w $unformatted"
+          exit 1
+        fi
+
+    go-lint:
+      run: make lint-new
+
+    web-auth:
+      run: |
+        files="$(git diff --cached --name-only --diff-filter=ACMR)"
+        if ! echo "$files" | grep -Eq '^(package(-lock)?\.json|vite\.auth\.config\.ts|web/auth/|cmd/auth/web_dist/)'; then
+          echo "No staged web auth files, skipping web auth checks."
+          exit 0
+        fi
+
+        npm run check:web:auth
+
+        if ! git diff --quiet -- cmd/auth/web_dist; then
+          echo "cmd/auth/web_dist changed after build. Stage generated assets before committing."
+          exit 1
+        fi

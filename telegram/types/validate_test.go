@@ -24,7 +24,7 @@ func TestValidateStructRequiredFields(t *testing.T) {
 		FloatValue  float64        `validate:"required"`
 		BoolValue   bool           `validate:"required"`
 		PtrValue    *int           `validate:"required"`
-		unexported  string         `validate:"required"`
+		_           string         `validate:"required"`
 	}
 
 	if err := ValidateStruct(42); err != nil {

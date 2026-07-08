@@ -66,6 +66,7 @@ func LoadStoredConfig() (*StoredConfig, error) {
 		return nil, err
 	}
 
+	//nolint:gosec // configPath is the fixed per-user config path returned by ConfigPath.
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {

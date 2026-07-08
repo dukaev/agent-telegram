@@ -14,6 +14,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -153,7 +154,10 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 		done:        make(chan webAuthResult, 1),
 	}
 
-	server, link, err := startWebAuthServer(session, runtime.WebPort)
+	authCtx, authCancel := context.WithCancel(context.Background())
+	defer authCancel()
+
+	server, link, err := startWebAuthServer(authCtx, session, runtime.WebPort)
 	if err != nil {
 		_ = store.Delete(state.ID)
 		failJSON(err.Error())
@@ -163,10 +167,19 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 	if state.Phone != "" {
 		promptSuffix = "for " + maskPhone(state.Phone)
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Open this link:\n%s\n\nWaiting for browser login %s...\n", link, promptSuffix)
+	if _, err := fmt.Fprintf(
+		cmd.ErrOrStderr(),
+		"Open this link:\n%s\n\nWaiting for browser login %s...\n",
+		link,
+		promptSuffix,
+	); err != nil {
+		_ = store.Delete(state.ID)
+		shutdownWebAuthServer(server)
+		failJSON(fmt.Sprintf("failed to write auth link: %v", err))
+	}
 
 	if runtime.WebQR {
-		session.startQRCodeFlow(context.Background())
+		session.startQRCodeFlow(authCtx)
 	}
 
 	select {
@@ -185,7 +198,7 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 	}
 }
 
-func startWebAuthServer(session *webAuthSession, port int) (*http.Server, string, error) {
+func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) (*http.Server, string, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", session.handleRoot)
 	mux.HandleFunc("GET /auth", session.handleAuth)
@@ -198,7 +211,8 @@ func startWebAuthServer(session *webAuthSession, port int) (*http.Server, string
 	mux.HandleFunc("POST /auth/policy", session.handlePolicy)
 	mux.HandleFunc("POST /auth/finish", session.handleFinish)
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	lc := &net.ListenConfig{}
+	ln, err := lc.Listen(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return nil, "", fmt.Errorf("start local auth listener: %w", err)
 	}
@@ -327,7 +341,7 @@ func (s *webAuthSession) handleAPISettings(w http.ResponseWriter, r *http.Reques
 		writeAuthState(w, http.StatusInternalServerError, s.clientState("Failed to update API settings."))
 		return
 	}
-	s.startQRCodeFlow(context.Background())
+	s.startQRCodeFlow(r.Context())
 	writeAuthState(w, http.StatusOK, s.clientState(""))
 }
 
@@ -416,7 +430,7 @@ func (s *webAuthSession) handleVerify(w http.ResponseWriter, r *http.Request) {
 		writeAuthState(w, http.StatusBadRequest, s.clientState(resultError(result.AuthError, "Authentication failed")))
 		return
 	}
-	s.complete(w)
+	s.complete(r.Context(), w)
 }
 
 func (s *webAuthSession) handlePassword(w http.ResponseWriter, r *http.Request) {
@@ -451,11 +465,11 @@ func (s *webAuthSession) handlePassword(w http.ResponseWriter, r *http.Request) 
 		writeAuthState(w, http.StatusBadRequest, s.clientState(resultError(result.AuthError, "2FA authentication failed")))
 		return
 	}
-	s.complete(w)
+	s.complete(r.Context(), w)
 }
 
-func (s *webAuthSession) complete(w http.ResponseWriter) {
-	if err := s.persistCurrentSession(context.Background()); err != nil {
+func (s *webAuthSession) complete(ctx context.Context, w http.ResponseWriter) {
+	if err := s.persistCurrentSession(ctx); err != nil {
 		s.finish(nil, err)
 		writeAuthState(w, http.StatusInternalServerError, s.clientState("Failed to save Telegram session."))
 		return
@@ -470,12 +484,12 @@ func (s *webAuthSession) complete(w http.ResponseWriter) {
 	writeAuthState(w, http.StatusOK, s.clientState(""))
 }
 
-func (s *webAuthSession) completeAsync() {
-	if err := s.persistCurrentSession(context.Background()); err != nil {
+func (s *webAuthSession) completeAsync(ctx context.Context) {
+	if err := s.persistCurrentSession(ctx); err != nil {
 		s.finish(nil, err)
 		return
 	}
-	s.completeForSetup(nil)
+	s.completeForSetup(ctx, nil)
 }
 
 func (s *webAuthSession) startQRCodeFlow(ctx context.Context) {
@@ -528,7 +542,7 @@ func (s *webAuthSession) startQRCodeFlow(ctx context.Context) {
 			s.finish(nil, fmt.Errorf("QR authentication failed"))
 			return
 		}
-		s.completeAsync()
+		s.completeAsync(context.WithoutCancel(flowCtx))
 	}()
 }
 
@@ -597,7 +611,7 @@ func (s *webAuthSession) finish(body map[string]any, err error) {
 	s.done <- webAuthResult{body: body, err: err}
 }
 
-func (s *webAuthSession) completeForSetup(body map[string]any) {
+func (s *webAuthSession) completeForSetup(ctx context.Context, body map[string]any) {
 	s.mu.Lock()
 	if s.doneSent || s.completed {
 		s.mu.Unlock()
@@ -610,10 +624,10 @@ func (s *webAuthSession) completeForSetup(body map[string]any) {
 	s.peersError = ""
 	s.mu.Unlock()
 
-	go s.loadPeers()
+	go s.loadPeers(ctx)
 }
 
-func (s *webAuthSession) loadPeers() {
+func (s *webAuthSession) loadPeers(ctx context.Context) {
 	loader := s.peerLoader
 	if loader == nil {
 		loader = loadAuthPeers
@@ -623,7 +637,7 @@ func (s *webAuthSession) loadPeers() {
 	sessionData := append([]byte(nil), s.sessionData...)
 	s.mu.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 	defer cancel()
 	peers, err := loader(ctx, &state, sessionData)
 
@@ -845,14 +859,18 @@ func writeAuthState(w http.ResponseWriter, status int, state authClientState) {
 	setAuthHeaders(w)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(state)
+	if err := json.NewEncoder(w).Encode(state); err != nil {
+		slog.Debug("failed to write auth state", "error", err)
+	}
 }
 
 func writeAuthPeers(w http.ResponseWriter, status int, state authPeersState) {
 	setAuthHeaders(w)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(state)
+	if err := json.NewEncoder(w).Encode(state); err != nil {
+		slog.Debug("failed to write auth peers", "error", err)
+	}
 }
 
 func parseAuthField(r *http.Request, name string, trim func(string) string) (string, error) {
@@ -1201,5 +1219,14 @@ func setAuthHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Content-Security-Policy", strings.Join([]string{
+		"default-src 'none'",
+		"img-src data: 'self'",
+		"script-src 'self'",
+		"style-src 'self' 'unsafe-inline'",
+		"connect-src 'self'",
+		"form-action 'self'",
+		"frame-ancestors 'none'",
+		"base-uri 'none'",
+	}, "; "))
 }
