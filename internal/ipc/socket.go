@@ -169,3 +169,8 @@ func (s *SocketServer) Shutdown() error {
 func (s *SocketServer) Register(name string, handler Handler) {
 	s.server.Register(name, handler)
 }
+
+// SetPolicyChecker sets the local policy checker used before method execution.
+func (s *SocketServer) SetPolicyChecker(policy PolicyChecker) {
+	s.server.SetPolicyChecker(policy)
+}

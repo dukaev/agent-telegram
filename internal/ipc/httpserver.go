@@ -32,6 +32,7 @@ type HTTPServer struct {
 	secret  string
 	cors    string
 	srv     *http.Server
+	policy  PolicyChecker
 }
 
 // NewHTTPServer creates a new HTTP API server.
@@ -72,6 +73,13 @@ func (s *HTTPServer) Register(name string, handler Handler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.methods[name] = handler
+}
+
+// SetPolicyChecker sets the local policy checker used for HTTP calls.
+func (s *HTTPServer) SetPolicyChecker(policy PolicyChecker) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.policy = policy
 }
 
 // Start starts the HTTP server. Blocks until ctx is cancelled.
@@ -210,6 +218,25 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 	if isTruthy(r.URL.Query().Get("validateOnly")) {
 		validateOnly = true
 	}
+	s.mu.RLock()
+	policyChecker := s.policy
+	s.mu.RUnlock()
+	if policyChecker != nil {
+		if err := policyChecker.Check(r.Context(), method, params); err != nil {
+			rpcErr := ErrorObjectFromError(err)
+			if rpcErr == nil {
+				rpcErr = NewTypedError(ErrCodeForbidden, ErrorTypeForbidden, err.Error(), nil)
+			}
+			s.writeHTTPAudit(runID, traceID, method, params, nil, rpcErr, time.Since(start), dryRun || validateOnly)
+			writeJSONResponse(w, errorToHTTPStatus(rpcErr), map[string]any{
+				"ok":      false,
+				"runId":   runID,
+				"traceId": traceID,
+				"error":   errorResponse(rpcErr),
+			})
+			return
+		}
+	}
 	if dryRun || validateOnly {
 		if err := operations.ValidateParams(method, params); err != nil {
 			rpcErr := NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, err.Error(), nil)
@@ -346,6 +373,8 @@ func errorToHTTPStatus(err *ErrorObject) int {
 		return http.StatusForbidden
 	case ErrCodeFloodWait:
 		return http.StatusTooManyRequests
+	case ErrCodePolicyDenied:
+		return http.StatusForbidden
 	default:
 		return http.StatusInternalServerError
 	}
@@ -453,6 +482,7 @@ func ErrorTypesManifest() []map[string]any {
 		{"type": ErrorTypePeerNotFound, "code": ErrCodePeerNotFound, "retryable": false},
 		{"type": ErrorTypeForbidden, "code": ErrCodeForbidden, "retryable": false},
 		{"type": ErrorTypeFloodWait, "code": ErrCodeFloodWait, "retryable": true},
+		{"type": ErrorTypePolicyDenied, "code": ErrCodePolicyDenied, "retryable": false},
 		{"type": ErrorTypeValidation, "code": ErrCodeInvalidParams, "retryable": false},
 		{"type": ErrorTypeInternal, "code": -32000, "retryable": false},
 	}

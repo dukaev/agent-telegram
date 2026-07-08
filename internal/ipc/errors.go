@@ -1,11 +1,14 @@
 package ipc
 
+import "errors"
+
 const (
 	// Domain-level errors.
 	ErrCodeTimeout      = -32004
 	ErrCodePeerNotFound = -32010
 	ErrCodeForbidden    = -32011
 	ErrCodeFloodWait    = -32012
+	ErrCodePolicyDenied = -32020
 )
 
 const (
@@ -17,6 +20,7 @@ const (
 	ErrorTypePeerNotFound     = "PEER_NOT_FOUND"
 	ErrorTypeForbidden        = "FORBIDDEN"
 	ErrorTypeFloodWait        = "FLOOD_WAIT"
+	ErrorTypePolicyDenied     = "POLICY_DENIED"
 	ErrorTypeValidation       = "VALIDATION"
 	ErrorTypeInternal         = "INTERNAL"
 )
@@ -32,4 +36,46 @@ func NewTypedError(code int, errType, message string, data map[string]any) *Erro
 		Message: message,
 		Data:    data,
 	}
+}
+
+// RPCError is implemented by errors that can provide a JSON-RPC error object.
+type RPCError interface {
+	RPCError() *ErrorObject
+}
+
+// ErrorObjectFromError returns a JSON-RPC error object embedded in err.
+func ErrorObjectFromError(err error) *ErrorObject {
+	var rpcErr RPCError
+	if errors.As(err, &rpcErr) {
+		return rpcErr.RPCError()
+	}
+	return nil
+}
+
+// PolicyDeniedError reports that a configured local policy blocked an operation.
+type PolicyDeniedError struct {
+	Method string
+	Reason string
+}
+
+// NewPolicyDeniedError creates a policy denial error.
+func NewPolicyDeniedError(method, reason string) *PolicyDeniedError {
+	return &PolicyDeniedError{Method: method, Reason: reason}
+}
+
+// Error implements error.
+func (e *PolicyDeniedError) Error() string {
+	if e.Method == "" {
+		return "operation denied by local policy: " + e.Reason
+	}
+	return "operation " + e.Method + " denied by local policy: " + e.Reason
+}
+
+// RPCError implements RPCError.
+func (e *PolicyDeniedError) RPCError() *ErrorObject {
+	data := map[string]any{
+		"method": e.Method,
+		"reason": e.Reason,
+	}
+	return NewTypedError(ErrCodePolicyDenied, ErrorTypePolicyDenied, e.Error(), data)
 }

@@ -1,7 +1,10 @@
 // Package ipc provides inter-process communication via JSON-RPC.
 package ipc
 
-import "encoding/json"
+import (
+	"context"
+	"encoding/json"
+)
 
 // Request represents a JSON-RPC 2.0 request.
 type Request struct {
@@ -36,4 +39,9 @@ type Handler func(params json.RawMessage) (interface{}, *ErrorObject)
 // MethodRegistrar is an interface for registering RPC methods.
 type MethodRegistrar interface {
 	Register(name string, handler Handler)
+}
+
+// PolicyChecker validates a method call against local permissions.
+type PolicyChecker interface {
+	Check(ctx context.Context, method string, params json.RawMessage) error
 }

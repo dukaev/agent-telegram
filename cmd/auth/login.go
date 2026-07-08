@@ -3,6 +3,7 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -43,6 +44,54 @@ var (
 
 var newAuthBackend = func(cfg *config.Config) authflow.Backend {
 	return authflow.NewTelegramBackend(cfg, silentLogger())
+}
+
+type authRuntimeConfig struct {
+	AppID       string
+	AppHash     string
+	Phone       string
+	StateDir    string
+	StateTTL    time.Duration
+	StateID     string
+	CodeStdin   bool
+	PassStdin   bool
+	Reload      bool
+	StatusPhone string
+	WebQR       bool
+	WebPort     int
+}
+
+func authRuntimeFromGlobals() authRuntimeConfig {
+	return authRuntimeConfig{
+		AppID:       authAppID,
+		AppHash:     authAppHash,
+		Phone:       authPhone,
+		StateDir:    authStateDir,
+		StateTTL:    authStateTTL,
+		StateID:     authStateID,
+		CodeStdin:   authCodeStdin,
+		PassStdin:   authPassStdin,
+		Reload:      authReload,
+		StatusPhone: authStatusPhone,
+		WebQR:       authWebQR,
+		WebPort:     authWebPort,
+	}
+}
+
+func (r authRuntimeConfig) stateStore() *authflow.StateStore {
+	return authflow.NewStateStore(r.StateDir)
+}
+
+func (r authRuntimeConfig) authConfig(phone string) (*config.Config, error) {
+	appIDStr := firstNonEmpty(r.AppID, os.Getenv("TELEGRAM_APP_ID"), os.Getenv("AGENT_TELEGRAM_APP_ID"), defaultAppID)
+	appHash := firstNonEmpty(r.AppHash, os.Getenv("TELEGRAM_APP_HASH"), os.Getenv("AGENT_TELEGRAM_APP_HASH"), defaultAppHash)
+	phone = firstNonEmpty(phone, os.Getenv("AGENT_TELEGRAM_PHONE"))
+
+	appID, err := strconv.Atoi(appIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid app-id: %w", err)
+	}
+	return config.LoadFromArgs(appID, appHash, phone, filepath.Join(defaultConfigDir(), ".agent-telegram")), nil
 }
 
 // AuthCmd groups headless authentication commands.
@@ -102,7 +151,7 @@ func AddAuthCommand(rootCmd *cobra.Command) {
 	AuthVerifyCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
 	AuthPasswordCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
 	AuthWebCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
-	AuthWebCmd.Flags().BoolVar(&authWebQR, "qr", false, "Use QR code authentication flow")
+	AuthWebCmd.Flags().BoolVar(&authWebQR, "qr", true, "Use QR code authentication flow")
 	AuthWebCmd.Flags().IntVar(&authWebPort, "port", 0, "Local web auth port (0 chooses a free port)")
 }
 
@@ -119,9 +168,13 @@ func addStateFlags(cmd *cobra.Command) {
 }
 
 func runAuthBegin(_ *cobra.Command, _ []string) {
+	runAuthBeginWithRuntime(authRuntimeFromGlobals())
+}
+
+func runAuthBeginWithRuntime(runtime authRuntimeConfig) {
 	_ = godotenv.Load()
 
-	cfg, err := authConfig(authPhone)
+	cfg, err := runtime.authConfig(runtime.Phone)
 	if err != nil {
 		failJSON(err.Error())
 	}
@@ -130,13 +183,18 @@ func runAuthBegin(_ *cobra.Command, _ []string) {
 	}
 
 	backend := newAuthBackend(cfg)
-	result, err := backend.SendCode(context.Background(), cfg.Phone)
+	ctx := context.Background()
+	result, err := backend.SendCode(ctx, cfg.Phone)
 	if err != nil {
 		failJSON(fmt.Sprintf("failed to send code: %v", err))
 	}
+	sessionData, err := backend.ExportSession(ctx)
+	if err != nil {
+		failJSON(fmt.Sprintf("failed to export auth session: %v", err))
+	}
 
-	store := authflow.NewStateStore(authStateDir)
-	state, err := store.Create(cfg.Phone, result.PhoneCodeHash, cfg.AppID, cfg.AppHash, backend.SessionPath(), authStateTTL)
+	store := runtime.stateStore()
+	state, err := store.Create(cfg.Phone, result.PhoneCodeHash, cfg.AppID, cfg.AppHash, sessionData, runtime.StateTTL)
 	if err != nil {
 		failJSON(err.Error())
 	}
@@ -152,8 +210,12 @@ func runAuthBegin(_ *cobra.Command, _ []string) {
 }
 
 func runAuthVerify(cmd *cobra.Command, _ []string) {
-	state := loadStateOrExit()
-	if !authCodeStdin {
+	runAuthVerifyWithRuntime(cmd, authRuntimeFromGlobals())
+}
+
+func runAuthVerifyWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
+	state := loadStateOrExit(runtime)
+	if !runtime.CodeStdin {
 		failJSON("--code-stdin is required")
 	}
 	code, err := readSecretFromStdin("code", trimAllSpace)
@@ -164,16 +226,20 @@ func runAuthVerify(cmd *cobra.Command, _ []string) {
 		failJSON("code is empty")
 	}
 
-	cfg := config.LoadFromArgs(state.AppID, state.AppHash, state.Phone, sessionDirFromPath(state.SessionPath))
+	cfg := config.LoadFromArgs(state.AppID, state.AppHash, state.Phone, filepath.Join(defaultConfigDir(), ".agent-telegram"))
 	backend := newAuthBackend(cfg)
-	result, err := backend.SignIn(context.Background(), state.Phone, code, state.PhoneCodeHash)
+	ctx := context.Background()
+	if err := importStateSession(ctx, backend, state); err != nil {
+		failJSON(err.Error())
+	}
+	result, err := backend.SignIn(ctx, state.Phone, code, state.PhoneCodeHash)
 	if err != nil {
 		failJSON(fmt.Sprintf("sign in failed: %v", err))
 	}
 	if result.Requires2FA {
 		state.Requires2FA = true
 		state.TwoFactorHint = result.TwoFactorHint
-		if err := authflow.NewStateStore(authStateDir).Save(state); err != nil {
+		if err := persistBackendSession(ctx, backend, state, runtime.stateStore()); err != nil {
 			failJSON(err.Error())
 		}
 		writeJSON(map[string]any{
@@ -190,12 +256,19 @@ func runAuthVerify(cmd *cobra.Command, _ []string) {
 	if !result.Success {
 		failJSON(resultError(result.AuthError, "authentication failed"))
 	}
-	completeAuth(cmd, state)
+	if err := persistBackendSession(ctx, backend, state, runtime.stateStore()); err != nil {
+		failJSON(err.Error())
+	}
+	completeAuth(cmd, runtime, state)
 }
 
 func runAuthPassword(cmd *cobra.Command, _ []string) {
-	state := loadStateOrExit()
-	if !authPassStdin {
+	runAuthPasswordWithRuntime(cmd, authRuntimeFromGlobals())
+}
+
+func runAuthPasswordWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
+	state := loadStateOrExit(runtime)
+	if !runtime.PassStdin {
 		failJSON("--password-stdin is required")
 	}
 	password, err := readSecretFromStdin("password", trimLineEndings)
@@ -206,88 +279,97 @@ func runAuthPassword(cmd *cobra.Command, _ []string) {
 		failJSON("password is empty")
 	}
 
-	cfg := config.LoadFromArgs(state.AppID, state.AppHash, state.Phone, sessionDirFromPath(state.SessionPath))
+	cfg := config.LoadFromArgs(state.AppID, state.AppHash, state.Phone, filepath.Join(defaultConfigDir(), ".agent-telegram"))
 	backend := newAuthBackend(cfg)
-	result, err := backend.SignInWith2FA(context.Background(), state.Phone, password)
+	ctx := context.Background()
+	if err := importStateSession(ctx, backend, state); err != nil {
+		failJSON(err.Error())
+	}
+	result, err := backend.SignInWith2FA(ctx, state.Phone, password)
 	if err != nil {
 		failJSON(fmt.Sprintf("2FA sign in failed: %v", err))
 	}
 	if !result.Success {
 		failJSON(resultError(result.AuthError, "2FA authentication failed"))
 	}
-	completeAuth(cmd, state)
+	if err := persistBackendSession(ctx, backend, state, runtime.stateStore()); err != nil {
+		failJSON(err.Error())
+	}
+	completeAuth(cmd, runtime, state)
 }
 
 func runAuthStatus(_ *cobra.Command, _ []string) {
-	sessionPath := filepath.Join(defaultConfigDir(), ".agent-telegram", "session.json")
+	runAuthStatusWithRuntime(authRuntimeFromGlobals())
+}
+
+func runAuthStatusWithRuntime(runtime authRuntimeConfig) {
 	configPath, configErr := config.ConfigPath()
-	sessionInfo, sessionErr := os.Stat(sessionPath)
 	configInfo, cfgErr := os.Stat(configPath)
+	serverAuthorized := false
+	if status, err := ipc.NewClient("/tmp/agent-telegram.sock").Status(); err == nil {
+		if authorized, ok := status["authorized"].(bool); ok {
+			serverAuthorized = authorized
+		}
+	}
 
 	writeJSON(map[string]any{
-		"ok":            true,
-		"authenticated": sessionErr == nil && !sessionInfo.IsDir(),
-		"sessionPath":   sessionPath,
-		"sessionExists": sessionErr == nil && !sessionInfo.IsDir(),
-		"configPath":    configPath,
-		"configExists":  configErr == nil && cfgErr == nil && !configInfo.IsDir(),
-		"phone":         maskPhone(firstNonEmpty(authStatusPhone, os.Getenv("AGENT_TELEGRAM_PHONE"))),
+		"ok":             true,
+		"authenticated":  serverAuthorized,
+		"sessionStorage": "memory",
+		"configPath":     configPath,
+		"configExists":   configErr == nil && cfgErr == nil && !configInfo.IsDir(),
+		"phone":          maskPhone(firstNonEmpty(runtime.StatusPhone, os.Getenv("AGENT_TELEGRAM_PHONE"))),
 	})
 }
 
-func completeAuth(cmd *cobra.Command, state *authflow.State) {
-	body, err := finishAuth(cmd, state)
+func completeAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.State) {
+	body, err := finishAuth(cmd, runtime, state)
 	if err != nil {
 		failJSON(err.Error())
 	}
 	writeJSON(body)
 }
 
-func finishAuth(cmd *cobra.Command, state *authflow.State) (map[string]any, error) {
+func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.State) (map[string]any, error) {
 	if err := config.SaveConfig(state.AppID, state.AppHash); err != nil {
 		return nil, fmt.Errorf("failed to save config: %w", err)
 	}
 	serverReloaded := false
-	if authReload {
+	if runtime.Reload {
 		socketPath, _ := cmd.Flags().GetString("socket")
 		if socketPath == "" {
 			socketPath, _ = cmd.Root().PersistentFlags().GetString("socket")
 		}
-		serverReloaded = reloadServerSession(socketPath)
+		sessionData, err := state.SessionData()
+		if err != nil {
+			return nil, err
+		}
+		serverReloaded = reloadServerSession(socketPath, sessionData)
+		if !serverReloaded {
+			return nil, fmt.Errorf("login completed, but the running IPC server did not accept the in-memory session")
+		}
 	}
-	if err := authflow.NewStateStore(authStateDir).Delete(state.ID); err != nil {
+	if err := runtime.stateStore().Delete(state.ID); err != nil {
 		return nil, err
 	}
 	return map[string]any{
 		"ok":             true,
 		"next":           "done",
 		"phone":          maskPhone(state.Phone),
-		"sessionPath":    state.SessionPath,
+		"sessionStorage": "memory",
 		"serverReloaded": serverReloaded,
 	}, nil
 }
 
-func loadStateOrExit() *authflow.State {
-	if authStateID == "" {
+func loadStateOrExit(runtime authRuntimeConfig) *authflow.State {
+	if runtime.StateID == "" {
 		failJSON("--state-id is required")
 	}
-	state, err := authflow.NewStateStore(authStateDir).Load(authStateID)
+	state, err := runtime.stateStore().Load(runtime.StateID)
 	if err != nil {
 		failJSON(err.Error())
 	}
 	return state
-}
-
-func authConfig(phone string) (*config.Config, error) {
-	appIDStr := firstNonEmpty(authAppID, os.Getenv("TELEGRAM_APP_ID"), os.Getenv("AGENT_TELEGRAM_APP_ID"), defaultAppID)
-	appHash := firstNonEmpty(authAppHash, os.Getenv("TELEGRAM_APP_HASH"), os.Getenv("AGENT_TELEGRAM_APP_HASH"), defaultAppHash)
-	phone = firstNonEmpty(phone, os.Getenv("AGENT_TELEGRAM_PHONE"))
-
-	appID, err := strconv.Atoi(appIDStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid app-id: %w", err)
-	}
-	return config.LoadFromArgs(appID, appHash, phone, filepath.Join(defaultConfigDir(), ".agent-telegram")), nil
 }
 
 func readSecret(r io.Reader, trim func(string) string) (string, error) {
@@ -337,7 +419,28 @@ func resultError(actual, fallback string) string {
 	return fallback
 }
 
-func reloadServerSession(socketPath string) bool {
+func importStateSession(ctx context.Context, backend authflow.Backend, state *authflow.State) error {
+	sessionData, err := state.SessionData()
+	if err != nil {
+		return err
+	}
+	return backend.ImportSession(ctx, sessionData)
+}
+
+func persistBackendSession(ctx context.Context, backend authflow.Backend, state *authflow.State, store *authflow.StateStore) error {
+	sessionData, err := backend.ExportSession(ctx)
+	if err != nil {
+		return fmt.Errorf("export auth session: %w", err)
+	}
+	state.SetSessionData(sessionData)
+	return store.Save(state)
+}
+
+func reloadServerSession(socketPath string, sessionData []byte) bool {
+	if len(sessionData) == 0 {
+		fmt.Fprintln(os.Stderr, "warning: no in-memory session data to reload")
+		return false
+	}
 	if socketPath == "" {
 		socketPath = "/tmp/agent-telegram.sock"
 	}
@@ -345,7 +448,10 @@ func reloadServerSession(socketPath string) bool {
 	if _, err := client.Call("status", nil); err != nil {
 		return false
 	}
-	if _, err := client.Call("reload_session", nil); err != nil {
+	payload := map[string]any{
+		"session": base64.StdEncoding.EncodeToString(sessionData),
+	}
+	if _, err := client.Call("reload_session", payload); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to reload server session: %v\n", err)
 		return false
 	}
@@ -358,13 +464,6 @@ func reloadServerSession(socketPath string) bool {
 
 func silentLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
-func sessionDirFromPath(path string) string {
-	if path == "" {
-		return filepath.Join(defaultConfigDir(), ".agent-telegram")
-	}
-	return filepath.Dir(path)
 }
 
 func defaultConfigDir() string {

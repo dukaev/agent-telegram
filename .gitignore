@@ -12,6 +12,7 @@
 *.out
 
 # Dependency directories
+node_modules/
 vendor/
 
 # Go workspace file

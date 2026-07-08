@@ -18,7 +18,7 @@ type Config struct {
 	// User phone number
 	Phone string
 
-	// Session storage path
+	// Session storage directory kept for config compatibility.
 	SessionPath string
 }
 
@@ -38,9 +38,7 @@ func New(appID int, appHash, phone, sessionPath string) *Config {
 
 // SessionStorage returns a session storage.
 func (c *Config) SessionStorage() session.Storage {
-	return &session.FileStorage{
-		Path: filepath.Join(c.SessionPath, "session.json"),
-	}
+	return &session.StorageMemory{}
 }
 
 // Validate validates the configuration.

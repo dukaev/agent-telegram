@@ -47,7 +47,6 @@ func TestLoadersAndEnv(t *testing.T) {
 	t.Setenv("AGENT_TELEGRAM_APP_ID", "123")
 	t.Setenv("AGENT_TELEGRAM_APP_HASH", "hash")
 	t.Setenv("AGENT_TELEGRAM_PHONE", "+1")
-	t.Setenv("AGENT_TELEGRAM_SESSION_PATH", filepath.Join(home, "session"))
 
 	cfg, err := LoadFromEnv()
 	if err != nil {

@@ -533,7 +533,7 @@ Agents start or verify the server explicitly:
 | File | Path | Purpose |
 |------|------|---------|
 | Socket | `/tmp/agent-telegram.sock` | IPC communication |
-| Session | `~/.agent-telegram/session.json` | Telegram auth state |
+| Session | In-memory runtime storage | Telegram auth state |
 | Log | `~/.agent-telegram/server.log` | Server logs (JSON) |
 | PID | `~/.agent-telegram/server.pid` | Running server PID |
 | Lock | `~/.agent-telegram/server.lock` | Instance lock (flock) |
@@ -551,7 +551,6 @@ instances do not share lifecycle state.
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
 | `AGENT_TELEGRAM_PHONE` | Phone number for auth |
-| `AGENT_TELEGRAM_SESSION_PATH` | Custom session path |
 | `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |
 | `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api` |
 | `AGENT_TELEGRAM_RUN_ID` | Optional run ID shared across agent commands |

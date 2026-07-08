@@ -2,6 +2,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,6 +67,7 @@ var (
 // Server represents a JSON-RPC server.
 type Server struct {
 	methods map[string]Handler
+	policy  PolicyChecker
 	mu      sync.RWMutex
 }
 
@@ -81,6 +83,13 @@ func (s *Server) Register(name string, handler Handler) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.methods[name] = handler
+}
+
+// SetPolicyChecker sets the local policy checker used before method execution.
+func (s *Server) SetPolicyChecker(policy PolicyChecker) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.policy = policy
 }
 
 // Serve starts the JSON-RPC server on the given io.ReadWriteCloser.
@@ -139,6 +148,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 
 	s.mu.RLock()
 	handler, ok := s.methods[req.Method]
+	policyChecker := s.policy
 	s.mu.RUnlock()
 
 	if !ok {
@@ -148,6 +158,24 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 			ID:      req.ID,
 			RunID:   req.RunID,
 			TraceID: req.TraceID,
+		}
+	}
+
+	if policyChecker != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout())
+		defer cancel()
+		if err := policyChecker.Check(ctx, req.Method, req.Params); err != nil {
+			rpcErr := ErrorObjectFromError(err)
+			if rpcErr == nil {
+				rpcErr = NewTypedError(ErrCodeForbidden, ErrorTypeForbidden, err.Error(), nil)
+			}
+			return &Response{
+				JSONRPC: "2.0",
+				Error:   rpcErr,
+				ID:      req.ID,
+				RunID:   req.RunID,
+				TraceID: req.TraceID,
+			}
 		}
 	}
 

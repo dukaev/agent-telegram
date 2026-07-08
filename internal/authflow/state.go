@@ -2,6 +2,7 @@ package authflow
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -25,11 +26,32 @@ type State struct {
 	PhoneCodeHash string    `json:"phoneCodeHash"`
 	AppID         int       `json:"appId"`
 	AppHash       string    `json:"appHash"`
-	SessionPath   string    `json:"sessionPath"`
+	Session       string    `json:"session,omitempty"`
 	Requires2FA   bool      `json:"requires2FA,omitempty"`
 	TwoFactorHint string    `json:"twoFactorHint,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 	ExpiresAt     time.Time `json:"expiresAt"`
+}
+
+// SetSessionData stores temporary session bytes as base64 in auth state.
+func (s *State) SetSessionData(data []byte) {
+	if len(data) == 0 {
+		s.Session = ""
+		return
+	}
+	s.Session = base64.StdEncoding.EncodeToString(data)
+}
+
+// SessionData decodes temporary session bytes stored in auth state.
+func (s State) SessionData() ([]byte, error) {
+	if s.Session == "" {
+		return nil, nil
+	}
+	data, err := base64.StdEncoding.DecodeString(s.Session)
+	if err != nil {
+		return nil, fmt.Errorf("decode auth session: %w", err)
+	}
+	return data, nil
 }
 
 // Expired reports whether the state has expired at now.
@@ -58,7 +80,7 @@ func DefaultStateDir() string {
 }
 
 // Create saves a new state and returns it.
-func (s *StateStore) Create(phone, codeHash string, appID int, appHash, sessionPath string, ttl time.Duration) (*State, error) {
+func (s *StateStore) Create(phone, codeHash string, appID int, appHash string, sessionData []byte, ttl time.Duration) (*State, error) {
 	if ttl <= 0 {
 		ttl = DefaultStateTTL
 	}
@@ -74,10 +96,10 @@ func (s *StateStore) Create(phone, codeHash string, appID int, appHash, sessionP
 		PhoneCodeHash: codeHash,
 		AppID:         appID,
 		AppHash:       appHash,
-		SessionPath:   sessionPath,
 		CreatedAt:     now,
 		ExpiresAt:     now.Add(ttl),
 	}
+	state.SetSessionData(sessionData)
 	if err := s.Save(state); err != nil {
 		return nil, err
 	}

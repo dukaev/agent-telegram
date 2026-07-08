@@ -3,10 +3,10 @@ package auth
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"agent-telegram/internal/ipc"
 )
 
 // LogoutCmd represents the logout command.
@@ -14,11 +14,11 @@ var LogoutCmd = &cobra.Command{
 	GroupID: "auth",
 	Use:     "logout",
 	Short:   "Logout and clear Telegram session",
-	Long: `Logout from Telegram by removing the saved session.
+	Long: `Logout from Telegram by shutting down the running in-memory session.
 
 This will:
-  - Delete the saved session file
-  - Remove authentication data
+  - Ask the running IPC server to logout from Telegram
+  - Clear the in-memory session on shutdown
   - You will need to authenticate again to use the app`,
 	Run: runLogout,
 }
@@ -28,31 +28,14 @@ func AddLogoutCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(LogoutCmd)
 }
 
-func runLogout(_ *cobra.Command, _ []string) {
-	// Get the session path
-	sessionPath := getSessionPath()
-
-	// Check if session exists
-	if _, err := os.Stat(sessionPath); os.IsNotExist(err) {
-		fmt.Println("No active session found. You are already logged out.")
+func runLogout(cmd *cobra.Command, _ []string) {
+	socketPath, _ := cmd.Root().PersistentFlags().GetString("socket")
+	if socketPath == "" {
+		socketPath = "/tmp/agent-telegram.sock"
+	}
+	if _, err := ipc.NewClient(socketPath).Call("shutdown", nil); err != nil {
+		fmt.Println("No active in-memory session found. You are already logged out.")
 		return
 	}
-
-	// Delete the session file
-	if err := os.Remove(sessionPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to delete session: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("Logged out successfully!")
-	fmt.Printf("Session removed from: %s\n", sessionPath)
-}
-
-// getSessionPath returns the default session path.
-func getSessionPath() string {
-	homeDir := os.Getenv("HOME")
-	if homeDir == "" {
-		homeDir = "."
-	}
-	return filepath.Join(homeDir, ".agent-telegram", "session.json")
+	fmt.Println("Logout requested. The server will logout from Telegram and stop.")
 }

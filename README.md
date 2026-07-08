@@ -53,7 +53,6 @@ agent-telegram stop                       # Stop server
 | `agent-telegram run inspect` | Inspect audit and logs for a run ID | - | - |
 | `agent-telegram serve` | Start IPC server with Telegram (Unix socket) | - | - |
 | `agent-telegram serve-api` | Start HTTP REST API server with Telegram | - | - |
-| `agent-telegram serve-callback` | Start Telegram client with HTTP callback API | - | - |
 | `agent-telegram server` | Manage the IPC server lifecycle | - | - |
 | `agent-telegram server ensure` | Start IPC server if needed and wait until ready | - | - |
 | `agent-telegram server wait-ready` | Wait until IPC server is ready | - | - |
@@ -206,7 +205,6 @@ agent-telegram stop                       # Stop server
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
 | `AGENT_TELEGRAM_PHONE` | Phone number for auth (optional; safer than passing phone in argv) |
-| `AGENT_TELEGRAM_SESSION_PATH` | Custom session file path |
 | `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |
 | `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api` |
 | `AGENT_TELEGRAM_RUN_ID` | Optional run ID shared across agent commands |
@@ -384,7 +382,7 @@ finished.
 | File | Path |
 |------|------|
 | Unix socket | `/tmp/agent-telegram.sock` |
-| Session | `~/.agent-telegram/session.json` |
+| Session | In-memory runtime storage |
 | Logs | `~/.agent-telegram/server.log` |
 | PID file | `~/.agent-telegram/server.pid` |
 | Lock file | `~/.agent-telegram/server.lock` |
@@ -412,8 +410,8 @@ agent-telegram --socket /tmp/agent2.sock serve
 agent-telegram --socket /tmp/agent1.sock chat list
 ```
 
-`serve-api` and `serve-callback` require an auth secret by default. For trusted
-local experiments only, pass `--unsafe-no-auth` explicitly.
+`serve-api` requires an auth secret by default. For trusted local experiments
+only, pass `--unsafe-no-auth` explicitly.
 
 ## Development
 

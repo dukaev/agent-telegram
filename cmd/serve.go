@@ -3,11 +3,13 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -16,16 +18,18 @@ import (
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/ipc"
 	"agent-telegram/internal/paths"
+	"agent-telegram/internal/policy"
 	telegramipc "agent-telegram/internal/telegram/ipc"
 	"agent-telegram/telegram"
 )
 
 const envTelegramSession = "TELEGRAM_SESSION"
+const envLogoutOnStop = "AGENT_TELEGRAM_LOGOUT_ON_STOP"
 
 var (
-	serveSocket     string
-	serveSession    string
-	serveForeground bool
+	serveSocket       string
+	serveForeground   bool
+	serveLogoutOnStop bool
 )
 
 // serveCmd represents the serve command.
@@ -45,10 +49,10 @@ func init() {
 
 	serveCmd.Flags().StringVarP(&serveSocket, "socket", "s", "",
 		"Path to Unix socket (default: /tmp/agent-telegram.sock)")
-	serveCmd.Flags().StringVarP(&serveSession, "session", "", "",
-		"Path to Telegram session file (default: ~/.agent-telegram/session.json)")
 	serveCmd.Flags().BoolVarP(&serveForeground, "foreground", "f", false,
 		"Run in foreground (default: background)")
+	serveCmd.Flags().BoolVar(&serveLogoutOnStop, "logout-on-stop", true,
+		"Logout from Telegram when the server stops")
 }
 
 //nolint:funlen // Server startup logic requires sequential steps
@@ -62,7 +66,6 @@ func runServe(_ *cobra.Command, _ []string) {
 	appID, appHash := storedCfg.AppID, storedCfg.AppHash
 
 	socketPath := getSocketPath()
-	sessionPath := getSessionPath()
 
 	if !serveForeground {
 		if err := daemonize(socketPath); err != nil {
@@ -106,20 +109,26 @@ func runServe(_ *cobra.Command, _ []string) {
 	// Setup slog after daemonize (when in foreground mode or in child process)
 	setupLoggerForSocket(socketPath)
 
-	ctx, cancel := setupContext()
+	tgClient := createTelegramClient(appID, appHash, telegramClientOptions{})
+	logoutOnStop := boolFromEnv(envLogoutOnStop, serveLogoutOnStop)
+	var logoutOnce sync.Once
+	logout := func() {
+		logoutOnce.Do(func() {
+			logoutTelegramClient(tgClient, logoutOnStop)
+		})
+	}
 
-	tgClient := createTelegramClient(appID, appHash, sessionPath)
+	ctx, cancel := setupContextWithShutdown(logout)
+
 	startTelegramClient(ctx, tgClient)
+	go waitForTelegramReady(ctx, tgClient)
 
-	// Wait for Telegram client to be ready before registering handlers
-	// This ensures domain clients have their API set
-	waitForTelegramReady(ctx, tgClient)
-
-	srv := createIPCServer(socketPath, tgClient, cancel)
+	srv := createIPCServer(socketPath, tgClient, cancel, logout)
 	if err := srv.Start(ctx); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}
+	logout()
 	slog.Info("Server stopped")
 }
 
@@ -156,6 +165,10 @@ func setupLoggerForSocket(socketPath string) {
 // setupContext creates a context with signal handling.
 // Returns both the context and cancel function for use in shutdown handler.
 func setupContext() (context.Context, context.CancelFunc) {
+	return setupContextWithShutdown(nil)
+}
+
+func setupContextWithShutdown(beforeCancel func()) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	sigCh := make(chan os.Signal, 1)
@@ -163,6 +176,9 @@ func setupContext() (context.Context, context.CancelFunc) {
 	go func() {
 		<-sigCh
 		fmt.Println("\nShutting down server...")
+		if beforeCancel != nil {
+			beforeCancel()
+		}
 		cancel()
 	}()
 
@@ -181,34 +197,45 @@ func getSocketPath() string {
 	return socketPath
 }
 
-// getSessionPath returns the session path from flags or environment.
-func getSessionPath() string {
-	sessionPath := serveSession
-	if sessionPath == "" {
-		sessionPath = os.Getenv("AGENT_TELEGRAM_SESSION_PATH")
-	}
-	return sessionPath
+type telegramClientOptions struct {
+	SessionData []byte
 }
 
 // createTelegramClient creates and configures the Telegram client.
-// If TELEGRAM_SESSION env is set (base64-encoded session), uses in-memory storage.
-// Otherwise falls back to file-based session.
-func createTelegramClient(appID int, appHash, sessionPath string) *telegram.Client {
+// TELEGRAM_SESSION and SessionData use in-memory storage. Empty storage is also
+// in-memory; no session file is read or written.
+func createTelegramClient(appID int, appHash string, opts telegramClientOptions) *telegram.Client {
 	tgClient := telegram.NewClient(appID, appHash)
+	storage := telegram.NewMemoryStorage(opts.SessionData)
 
 	if envSession := os.Getenv(envTelegramSession); envSession != "" {
-		storage, err := telegram.NewEnvStorage(envSession)
+		envStorage, err := telegram.NewEnvStorage(envSession)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: invalid %s: %v\n", envTelegramSession, err)
 			os.Exit(1)
 		}
 		slog.Info("Using session from environment variable")
-		tgClient = tgClient.WithSessionStorage(storage)
-	} else if sessionPath != "" {
-		tgClient = tgClient.WithSessionPath(sessionPath)
+		storage = envStorage
 	}
+	slog.Info("Using in-memory Telegram session")
+	tgClient = tgClient.WithSessionStorage(storage)
 
 	return tgClient.WithUpdateStore(telegram.NewUpdateStore(1000))
+}
+
+func boolFromEnv(envKey string, fallback bool) bool {
+	value := os.Getenv(envKey)
+	if value == "" {
+		return fallback
+	}
+	switch value {
+	case "1", "true", "TRUE", "yes", "YES", "on", "ON":
+		return true
+	case "0", "false", "FALSE", "no", "NO", "off", "OFF":
+		return false
+	default:
+		return fallback
+	}
 }
 
 // startTelegramClient starts the Telegram client in background with retry logic.
@@ -288,9 +315,16 @@ func waitForTelegramReady(ctx context.Context, tgClient *telegram.Client) {
 }
 
 // createIPCServer creates and configures the IPC server.
-func createIPCServer(socketPath string, tgClient *telegram.Client, cancel context.CancelFunc) *ipc.SocketServer {
+func createIPCServer(
+	socketPath string,
+	tgClient *telegram.Client,
+	cancel context.CancelFunc,
+	logout func(),
+) *ipc.SocketServer {
 	srv := ipc.NewSocketServer(socketPath)
 	ipc.RegisterPingPong(srv)
+	policyChecker := loadPolicyChecker(tgClient)
+	srv.SetPolicyChecker(policyChecker)
 	telegramipc.RegisterHandlers(srv, tgClient)
 
 	srv.Register("status", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
@@ -299,18 +333,17 @@ func createIPCServer(socketPath string, tgClient *telegram.Client, cancel contex
 		defer statusCancel()
 
 		tgStatus := tgClient.GetStatus(ctx)
-		sessionPath, _ := tgClient.GetSessionPath()
 
 		return map[string]any{
-			"status":         "running",
-			"pid":            os.Getpid(),
-			"session_path":   sessionPath,
-			"initialized":    tgStatus.Initialized,
-			"authorized":     tgStatus.Authorized,
-			"telegram_state": tgStatus.State,
-			"username":       tgStatus.Username,
-			"first_name":     tgStatus.FirstName,
-			"user_id":        tgStatus.UserID,
+			"status":          "running",
+			"pid":             os.Getpid(),
+			"session_storage": "memory",
+			"initialized":     tgStatus.Initialized,
+			"authorized":      tgStatus.Authorized,
+			"telegram_state":  tgStatus.State,
+			"username":        tgStatus.Username,
+			"first_name":      tgStatus.FirstName,
+			"user_id":         tgStatus.UserID,
 		}, nil
 	})
 
@@ -318,6 +351,9 @@ func createIPCServer(socketPath string, tgClient *telegram.Client, cancel contex
 		// Trigger graceful shutdown by canceling context
 		go func() {
 			time.Sleep(100 * time.Millisecond) // Small delay to send response first
+			if logout != nil {
+				logout()
+			}
 			cancel()
 		}()
 		return map[string]any{
@@ -326,8 +362,15 @@ func createIPCServer(socketPath string, tgClient *telegram.Client, cancel contex
 		}, nil
 	})
 
-	srv.Register("reload_session", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
+	srv.Register("reload_session", func(params json.RawMessage) (any, *ipc.ErrorObject) {
 		slog.Info("Reload session requested via IPC")
+		sessionData, err := parseReloadSessionData(params)
+		if err != nil {
+			return nil, ipc.NewTypedError(ipc.ErrCodeInvalidParams, ipc.ErrorTypeValidation, err.Error(), nil)
+		}
+		if err := importSessionForMemoryStorage(tgClient, sessionData); err != nil {
+			return nil, ipc.NewTypedError(ipc.ErrCodeInternalError, ipc.ErrorTypeInternal, err.Error(), nil)
+		}
 		tgClient.Reload()
 		return map[string]any{
 			"success": true,
@@ -336,6 +379,61 @@ func createIPCServer(socketPath string, tgClient *telegram.Client, cancel contex
 	})
 
 	return srv
+}
+
+func parseReloadSessionData(params json.RawMessage) ([]byte, error) {
+	var body struct {
+		Session string `json:"session"`
+	}
+	if err := json.Unmarshal(params, &body); err != nil {
+		return nil, fmt.Errorf("invalid reload_session payload: %w", err)
+	}
+	if body.Session == "" {
+		return nil, fmt.Errorf("session is required")
+	}
+	data, err := base64.StdEncoding.DecodeString(body.Session)
+	if err != nil {
+		return nil, fmt.Errorf("session must be base64: %w", err)
+	}
+	if len(data) == 0 {
+		return nil, fmt.Errorf("session is empty")
+	}
+	return data, nil
+}
+
+func importSessionForMemoryStorage(tgClient *telegram.Client, sessionData []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	imported, err := tgClient.ImportSession(ctx, sessionData)
+	if err != nil {
+		return err
+	}
+	if !imported {
+		return fmt.Errorf("server is not using in-memory session storage")
+	}
+	return nil
+}
+
+func loadPolicyChecker(tgClient *telegram.Client) ipc.PolicyChecker {
+	p, err := policy.LoadDefault()
+	if err != nil {
+		slog.Warn("failed to load local policy, using defaults", "error", err)
+		p = policy.Default()
+	}
+	return policy.NewEnforcer(p, tgClient)
+}
+
+func logoutTelegramClient(tgClient *telegram.Client, enabled bool) {
+	if !enabled || tgClient == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := tgClient.Logout(ctx); err != nil {
+		slog.Warn("Telegram logout failed", "error", err)
+		return
+	}
+	slog.Info("Telegram session logged out")
 }
 
 // isDaemonChild checks if this process is a daemon child.

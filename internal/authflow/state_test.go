@@ -11,7 +11,7 @@ func TestStateStoreCreateLoadDelete(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStateStore(dir)
 
-	state, err := store.Create("+15551234567", "hash", 123, "app-hash", filepath.Join(dir, "session.json"), time.Minute)
+	state, err := store.Create("+15551234567", "hash", 123, "app-hash", []byte("session-data"), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,6 +34,13 @@ func TestStateStoreCreateLoadDelete(t *testing.T) {
 	if loaded.Phone != state.Phone || loaded.PhoneCodeHash != state.PhoneCodeHash {
 		t.Fatalf("loaded state mismatch: %+v", loaded)
 	}
+	sessionData, err := loaded.SessionData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(sessionData) != "session-data" {
+		t.Fatalf("loaded session = %q", sessionData)
+	}
 
 	if err := store.Delete(state.ID); err != nil {
 		t.Fatal(err)
@@ -49,7 +56,7 @@ func TestStateStoreRejectsExpiredState(t *testing.T) {
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
 	store.now = func() time.Time { return now }
 
-	state, err := store.Create("+15551234567", "hash", 123, "app-hash", filepath.Join(dir, "session.json"), time.Minute)
+	state, err := store.Create("+15551234567", "hash", 123, "app-hash", []byte("session-data"), time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

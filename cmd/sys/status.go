@@ -78,9 +78,9 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			return
 		}
 
-		// Session path
-		if sessionPath := cliutil.ExtractString(m, "session_path"); sessionPath != "" {
-			fmt.Printf("Session: %s\n", sessionPath)
+		// Session storage
+		if sessionStorage := cliutil.ExtractString(m, "session_storage"); sessionStorage != "" {
+			fmt.Printf("Session: %s\n", sessionStorage)
 		}
 
 		// Telegram status

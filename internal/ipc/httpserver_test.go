@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,12 @@ import (
 
 	"agent-telegram/internal/observability"
 )
+
+type denyPolicyChecker struct{}
+
+func (denyPolicyChecker) Check(context.Context, string, json.RawMessage) error {
+	return NewPolicyDeniedError("send_message", "write operations are disabled")
+}
 
 func TestMain(m *testing.M) {
 	home, err := os.MkdirTemp("", "agent-telegram-ipc-test-*")
@@ -133,6 +140,39 @@ func TestHTTPServerDryRunReturnsValidationError(t *testing.T) {
 	}
 	if body.Error.Data["type"] != ErrorTypeValidation {
 		t.Fatalf("error type = %v, want %s", body.Error.Data["type"], ErrorTypeValidation)
+	}
+}
+
+func TestHTTPServerDryRunHonorsPolicy(t *testing.T) {
+	srv := NewHTTPServer(0, "secret", "")
+	srv.SetPolicyChecker(denyPolicyChecker{})
+	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+		t.Fatal("handler should not execute when policy denies")
+		return nil, nil
+	})
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/rpc/send_message?dryRun=true",
+		strings.NewReader(`{"peer":"@user","message":"hello"}`),
+	)
+	req.Header.Set("Authorization", "Bearer secret")
+	rec := httptest.NewRecorder()
+	srv.srv.Handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("policy status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+	var body struct {
+		Error struct {
+			Data map[string]any `json:"data"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Data["type"] != ErrorTypePolicyDenied {
+		t.Fatalf("error type = %v, want %s", body.Error.Data["type"], ErrorTypePolicyDenied)
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 // Run executes the worker command with the given arguments.
 func Run(args []string) {
 	workerCmd := flag.NewFlagSet("worker", flag.ExitOnError)
-	sessionPath := workerCmd.String("session", "", "Path to session file (default: auto-detect)")
+	sessionPath := workerCmd.String("session", "", "Deprecated no-op; sessions are in-memory")
 
 	if err := workerCmd.Parse(args); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)

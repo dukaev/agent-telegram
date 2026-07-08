@@ -10,7 +10,7 @@ var SessionCmd = &cobra.Command{
 	GroupID: "server",
 	Use:     "session",
 	Short:   "Manage Telegram session",
-	Long:    `Commands for managing the Telegram session file — export for use in environment variables.`,
+	Long:    `Commands for working with in-memory Telegram sessions and TELEGRAM_SESSION.`,
 }
 
 // AddSessionCommand adds the parent session command and all its subcommands to the root command.

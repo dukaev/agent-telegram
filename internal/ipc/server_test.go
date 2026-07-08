@@ -1,9 +1,20 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 )
+
+type testPolicyChecker struct {
+	calls int
+	err   error
+}
+
+func (p *testPolicyChecker) Check(_ context.Context, _ string, _ json.RawMessage) error {
+	p.calls++
+	return p.err
+}
 
 func TestServerPropagatesTraceID(t *testing.T) {
 	srv := NewServer()
@@ -50,5 +61,35 @@ func TestServerMethodNotFoundIsTyped(t *testing.T) {
 	}
 	if data["type"] != ErrorTypeMethodNotFound {
 		t.Fatalf("error type = %v, want %s", data["type"], ErrorTypeMethodNotFound)
+	}
+}
+
+func TestServerPolicyCheckerBlocksBeforeHandler(t *testing.T) {
+	checker := &testPolicyChecker{
+		err: NewPolicyDeniedError("send_message", "write operations are disabled"),
+	}
+	srv := NewServer()
+	srv.SetPolicyChecker(checker)
+	called := false
+	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+		called = true
+		return map[string]any{"ok": true}, nil
+	})
+
+	resp := srv.handleRequest(&Request{
+		JSONRPC: "2.0",
+		Method:  "send_message",
+		Params:  json.RawMessage(`{"peer":"@ada","message":"hi"}`),
+		ID:      1,
+	})
+
+	if called {
+		t.Fatal("handler should not execute when policy denies")
+	}
+	if checker.calls != 1 {
+		t.Fatalf("policy calls = %d, want 1", checker.calls)
+	}
+	if resp.Error == nil || resp.Error.Code != ErrCodePolicyDenied {
+		t.Fatalf("error = %+v, want policy denied", resp.Error)
 	}
 }

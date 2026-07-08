@@ -25,7 +25,7 @@ func (s *Service) SendCode(ctx context.Context, userID int, phoneNumber string) 
 		"user_id", userID,
 		"phone_number", phoneNumber,
 		"app_id", s.cfg.AppID,
-		"session_path", s.cfg.SessionPath)
+		"session_storage", "memory")
 
 	client, err := s.CreateClient(userID)
 	if err != nil {

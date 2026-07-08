@@ -190,6 +190,9 @@ func registerHandler(srv ipc.MethodRegistrar, method string, handler HandlerFunc
 }
 
 func classifyRPCError(err error) *ipc.ErrorObject {
+	if rpcErr := ipc.ErrorObjectFromError(err); rpcErr != nil {
+		return rpcErr
+	}
 	if errors.Is(err, client.ErrNotInitialized) {
 		return ipc.ErrNotInitialized
 	}

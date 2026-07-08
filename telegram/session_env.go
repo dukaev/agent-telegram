@@ -25,7 +25,17 @@ func NewEnvStorage(base64str string) (*EnvStorage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode TELEGRAM_SESSION: %w", err)
 	}
-	return &EnvStorage{data: data}, nil
+	return NewMemoryStorage(data), nil
+}
+
+// NewMemoryStorage creates an in-memory session storage with optional initial data.
+func NewMemoryStorage(data []byte) *EnvStorage {
+	storage := &EnvStorage{}
+	if len(data) > 0 {
+		storage.data = make([]byte, len(data))
+		copy(storage.data, data)
+	}
+	return storage
 }
 
 // LoadSession returns the session data from memory.
@@ -51,4 +61,21 @@ func (s *EnvStorage) StoreSession(_ context.Context, data []byte) error {
 	s.data = make([]byte, len(data))
 	copy(s.data, data)
 	return nil
+}
+
+// ExportSession returns a copy of the in-memory session bytes.
+func (s *EnvStorage) ExportSession() []byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	out := make([]byte, len(s.data))
+	copy(out, s.data)
+	return out
+}
+
+// Clear removes the in-memory session data.
+func (s *EnvStorage) Clear() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data = nil
 }

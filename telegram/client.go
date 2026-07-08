@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/gotd/td/session"
@@ -60,14 +58,14 @@ func NewClient(appID int, appHash string) *Client {
 	}
 }
 
-// WithSessionPath sets a custom session path.
+// WithSessionPath is retained for compatibility with older callers.
+// Sessions are kept in memory; this value is only reported back by GetSessionPath.
 func (c *Client) WithSessionPath(path string) *Client {
 	c.sessionPath = path
 	return c
 }
 
 // WithSessionStorage sets a custom session storage (e.g. EnvStorage).
-// When set, this takes priority over file-based storage.
 func (c *Client) WithSessionStorage(s session.Storage) *Client {
 	c.sessionStorage = s
 	return c
@@ -81,16 +79,12 @@ func (c *Client) WithUpdateStore(store *UpdateStore) *Client {
 
 // Start starts the Telegram client
 func (c *Client) Start(ctx context.Context) error {
-	// Determine session storage: env-based takes priority over file-based
 	var storage session.Storage
 	if c.sessionStorage != nil {
 		storage = c.sessionStorage
 	} else {
-		sessionPath, err := c.GetSessionPath()
-		if err != nil {
-			return err
-		}
-		storage = &session.FileStorage{Path: sessionPath}
+		storage = NewMemoryStorage(nil)
+		c.sessionStorage = storage
 	}
 
 	// Create dispatcher
@@ -111,15 +105,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 // GetSessionPath returns the session path to use.
 func (c *Client) GetSessionPath() (string, error) {
-	if c.sessionPath != "" {
-		return c.sessionPath, nil
-	}
-
-	sessionDir := filepath.Join(os.Getenv("HOME"), ".agent-telegram")
-	if err := os.MkdirAll(sessionDir, 0700); err != nil {
-		return "", fmt.Errorf("failed to create session directory: %w", err)
-	}
-	return filepath.Join(sessionDir, "session.json"), nil
+	return c.sessionPath, nil
 }
 
 // initDomainClients initializes all domain clients.
@@ -236,13 +222,44 @@ func (c *Client) GetStatus(ctx context.Context) ClientStatus {
 	return status
 }
 
+// Logout invalidates the current Telegram authorization and clears volatile storage.
+func (c *Client) Logout(ctx context.Context) error {
+	if c.client == nil {
+		return nil
+	}
+	_, err := c.client.API().AuthLogOut(ctx)
+	if clearer, ok := c.sessionStorage.(interface{ Clear() }); ok {
+		clearer.Clear()
+	}
+	return err
+}
+
+// ImportSession imports raw session bytes into in-memory storage.
+func (c *Client) ImportSession(ctx context.Context, data []byte) (bool, error) {
+	memoryStorage, ok := c.sessionStorage.(*EnvStorage)
+	if !ok {
+		return false, nil
+	}
+	if len(data) == 0 {
+		return false, nil
+	}
+	return true, memoryStorage.StoreSession(ctx, data)
+}
+
+// ExportSession returns the current in-memory session bytes when available.
+func (c *Client) ExportSession() []byte {
+	if exporter, ok := c.sessionStorage.(interface{ ExportSession() []byte }); ok {
+		return exporter.ExportSession()
+	}
+	return nil
+}
+
 // ReloadCh returns the channel that signals reload requests.
 func (c *Client) ReloadCh() <-chan struct{} {
 	return c.reloadCh
 }
 
-// Reload signals the client to reload the session.
-// This will disconnect and reconnect with the new session file.
+// Reload signals the client to reload the in-memory session.
 func (c *Client) Reload() {
 	c.mu.Lock()
 	// Reset ready channel for new connection

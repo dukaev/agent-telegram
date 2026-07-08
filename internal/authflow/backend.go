@@ -4,7 +4,6 @@ package authflow
 import (
 	"context"
 	"log/slog"
-	"path/filepath"
 	"time"
 
 	"agent-telegram/internal/config"
@@ -20,22 +19,21 @@ type Backend interface {
 	SignIn(ctx context.Context, phone, code, codeHash string) (*types.SignInResult, error)
 	SignInWith2FA(ctx context.Context, phone, password string) (*types.SignInResult, error)
 	SignInWithQR(ctx context.Context, onToken func(tokenURL string, expiresAt time.Time) error) (*types.SignInResult, error)
-	SessionPath() string
+	ImportSession(ctx context.Context, data []byte) error
+	ExportSession(ctx context.Context) ([]byte, error)
 }
 
 // TelegramBackend adapts tgauth.Service to the headless auth workflow.
 type TelegramBackend struct {
-	service     *tgauth.Service
-	userID      int
-	sessionPath string
+	service *tgauth.Service
+	userID  int
 }
 
 // NewTelegramBackend creates a real Telegram auth backend.
 func NewTelegramBackend(cfg *config.Config, logger *slog.Logger) *TelegramBackend {
 	return &TelegramBackend{
-		service:     tgauth.NewService(cfg, logger),
-		userID:      defaultUserID,
-		sessionPath: filepath.Join(cfg.SessionPath, "session.json"),
+		service: tgauth.NewService(cfg, logger),
+		userID:  defaultUserID,
 	}
 }
 
@@ -62,7 +60,12 @@ func (b *TelegramBackend) SignInWithQR(ctx context.Context, onToken func(tokenUR
 	return b.service.SignInWithQR(ctx, b.userID, onToken)
 }
 
-// SessionPath returns the session file path used by this backend.
-func (b *TelegramBackend) SessionPath() string {
-	return b.sessionPath
+// ImportSession restores temporary auth session bytes before the next auth step.
+func (b *TelegramBackend) ImportSession(ctx context.Context, data []byte) error {
+	return b.service.ImportSession(ctx, data)
+}
+
+// ExportSession returns the current temporary auth session bytes.
+func (b *TelegramBackend) ExportSession(_ context.Context) ([]byte, error) {
+	return b.service.ExportSession(), nil
 }
