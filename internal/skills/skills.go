@@ -1,12 +1,13 @@
 package skills
 
 import (
+	"cmp"
 	"embed"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -36,9 +37,10 @@ var bundledSkills = []Skill{{
 
 // List returns bundled installable skills.
 func List() []Skill {
-	out := make([]Skill, len(bundledSkills))
-	copy(out, bundledSkills)
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	out := slices.Clone(bundledSkills)
+	slices.SortFunc(out, func(a, b Skill) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
 	return out
 }
 

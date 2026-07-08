@@ -3,8 +3,9 @@ package docs
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -221,9 +222,9 @@ func topLevelGroups(rootCmd *cobra.Command) map[string][]*cobra.Command {
 }
 
 func sortedCommands(cmds []*cobra.Command) []*cobra.Command {
-	out := append([]*cobra.Command(nil), cmds...)
-	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].Name() < out[j].Name()
+	out := slices.Clone(cmds)
+	slices.SortStableFunc(out, func(a, b *cobra.Command) int {
+		return cmp.Compare(a.Name(), b.Name())
 	})
 	return out
 }

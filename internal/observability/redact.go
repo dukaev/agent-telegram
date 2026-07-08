@@ -3,8 +3,9 @@ package observability
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -154,10 +155,5 @@ func truncateText(value string, max int) string {
 }
 
 func mapKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
+	return slices.Sorted(maps.Keys(m))
 }

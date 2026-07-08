@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // UpdateStore stores Telegram updates in memory.
@@ -61,11 +61,9 @@ func (s *UpdateStore) Add(update types.StoredUpdate) {
 	s.mu.Unlock()
 
 	if onUpdate != nil {
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			onUpdate(update)
-		}()
+		})
 	}
 }
 
@@ -138,6 +136,7 @@ func NewStoredUpdate(updateType types.UpdateType, data map[string]interface{}) t
 }
 
 // MessageData extracts message data from tg.MessageClass.
+//
 //nolint:nestif // Function requires extracting multiple nested message fields
 func MessageData(msg tg.MessageClass, entities tg.Entities) map[string]interface{} {
 	data := map[string]interface{}{}
@@ -289,6 +288,7 @@ func extractButtonsData(markup tg.ReplyMarkupClass) []map[string]interface{} {
 }
 
 // getSenderName gets the name of a sender from their peer ID.
+//
 //nolint:nestif // Function requires multiple nested checks to extract user name
 func getSenderName(entities tg.Entities, fromID tg.PeerClass) string {
 	if p, ok := fromID.(*tg.PeerUser); ok {

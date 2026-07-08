@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -166,11 +168,7 @@ func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 
 // RegisteredMethods returns the Telegram IPC method names exposed by this package.
 func RegisteredMethods() []string {
-	methods := make([]string, 0, len(methodHandlers))
-	for method := range methodHandlers {
-		methods = append(methods, method)
-	}
-	return methods
+	return slices.Sorted(maps.Keys(methodHandlers))
 }
 
 // registerHandler registers a single handler with error wrapping and request timeout.

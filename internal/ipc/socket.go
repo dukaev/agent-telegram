@@ -26,7 +26,6 @@ type SocketServer struct {
 	path     string
 	listener net.Listener
 	mu       sync.Mutex
-	ctx      context.Context
 	cancel   context.CancelFunc
 	wg       sync.WaitGroup
 }
@@ -43,7 +42,7 @@ func NewSocketServer(path string) *SocketServer {
 }
 
 // IsServerRunning checks if a server is already running on the socket.
-func IsServerRunning(socketPath string) bool {
+func IsServerRunning(parent context.Context, socketPath string) bool {
 	if socketPath == "" {
 		socketPath = defaultSocketPath
 	}
@@ -54,7 +53,7 @@ func IsServerRunning(socketPath string) bool {
 	}
 
 	// Try to connect to the socket
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(parent, time.Second)
 	defer cancel()
 
 	dialer := &net.Dialer{}
@@ -68,11 +67,11 @@ func IsServerRunning(socketPath string) bool {
 
 // Start starts the socket server.
 func (s *SocketServer) Start(ctx context.Context) error {
-	s.ctx, s.cancel = context.WithCancel(ctx)
+	serverCtx, cancel := context.WithCancel(ctx)
+	s.cancel = cancel
 
 	// Check if server is already running
-	//nolint:contextcheck // IsServerRunning uses its own timeout, no need for external context
-	if IsServerRunning(s.path) {
+	if IsServerRunning(ctx, s.path) {
 		return fmt.Errorf("server is already running on %s", s.path)
 	}
 
@@ -98,10 +97,7 @@ func (s *SocketServer) Start(ctx context.Context) error {
 	fmt.Printf("IPC server listening on %s\n", s.path)
 
 	// Accept connections
-	serverCtx := s.ctx
-	s.wg.Add(1)
-	//nolint:contextcheck // serverCtx is derived from Start(ctx) and stored for shutdown coordination.
-	go s.acceptLoop(serverCtx)
+	s.wg.Go(func() { s.acceptLoop(serverCtx) })
 
 	// Wait for context cancellation
 	<-serverCtx.Done()
@@ -110,8 +106,6 @@ func (s *SocketServer) Start(ctx context.Context) error {
 
 // acceptLoop accepts incoming connections.
 func (s *SocketServer) acceptLoop(ctx context.Context) {
-	defer s.wg.Done()
-
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
@@ -124,14 +118,12 @@ func (s *SocketServer) acceptLoop(ctx context.Context) {
 			}
 		}
 
-		s.wg.Add(1)
-		go s.handleConnection(ctx, conn)
+		s.wg.Go(func() { s.handleConnection(ctx, conn) })
 	}
 }
 
 // handleConnection handles a single connection.
 func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
-	defer s.wg.Done()
 	defer func() { _ = conn.Close() }()
 
 	if err := s.server.Serve(ctx, conn); err != nil {
@@ -141,7 +133,9 @@ func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 
 // Shutdown gracefully shuts down the server.
 func (s *SocketServer) Shutdown() error {
-	s.cancel()
+	if s.cancel != nil {
+		s.cancel()
+	}
 
 	// Close listener
 	s.mu.Lock()

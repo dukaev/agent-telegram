@@ -4,7 +4,9 @@ package cliutil
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -46,11 +48,7 @@ func CommandMethodNames() []string {
 	for _, method := range commandMethods {
 		seen[method] = struct{}{}
 	}
-	methods := make([]string, 0, len(seen))
-	for method := range seen {
-		methods = append(methods, method)
-	}
-	return methods
+	return slices.Sorted(maps.Keys(seen))
 }
 
 // HasResultSchema reports whether a method has a result schema.

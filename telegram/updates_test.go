@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"strings"
+	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/gotd/td/session"
@@ -14,35 +16,45 @@ import (
 )
 
 func TestUpdateStoreAddGetLimitOffsetAndCallback(t *testing.T) {
-	store := NewUpdateStore(2)
-	seen := make(chan types.StoredUpdate, 3)
-	store.SetOnUpdate(func(update types.StoredUpdate) {
-		seen <- update
+	synctest.Test(t, func(t *testing.T) {
+		store := NewUpdateStore(2)
+		var seenMu sync.Mutex
+		var seen []types.StoredUpdate
+		store.SetOnUpdate(func(update types.StoredUpdate) {
+			seenMu.Lock()
+			defer seenMu.Unlock()
+			seen = append(seen, update)
+		})
+
+		store.Add(NewStoredUpdate(types.UpdateTypeNewMessage, map[string]any{"text": "one"}))
+		store.Add(NewStoredUpdate(types.UpdateTypeEditMessage, map[string]any{"text": "two"}))
+		store.Add(NewStoredUpdate(types.UpdateTypeDelete, map[string]any{"text": "three"}))
+		synctest.Wait()
+		store.Wait()
+
+		seenMu.Lock()
+		defer seenMu.Unlock()
+		if len(seen) != 3 {
+			t.Fatalf("callbacks = %+v, want 3", seen)
+		}
+		if first := seen[0]; first.ID == 0 || first.Timestamp.IsZero() {
+			t.Fatalf("callback update should have assigned metadata: %+v", first)
+		}
+
+		updates := store.Get(10)
+		if len(updates) != 2 || updates[0].ID != 3 || updates[1].ID != 2 {
+			t.Fatalf("updates = %+v, want newest two", updates)
+		}
+		if after := store.Get(10, 2); len(after) != 1 || after[0].ID != 3 {
+			t.Fatalf("offset updates = %+v, want only id 3", after)
+		}
+		if empty := store.Get(10, 3); len(empty) != 0 {
+			t.Fatalf("offset empty = %+v", empty)
+		}
+		if empty := NewUpdateStore(0).Get(10); len(empty) != 0 {
+			t.Fatalf("empty store = %+v", empty)
+		}
 	})
-
-	store.Add(NewStoredUpdate(types.UpdateTypeNewMessage, map[string]any{"text": "one"}))
-	store.Add(NewStoredUpdate(types.UpdateTypeEditMessage, map[string]any{"text": "two"}))
-	store.Add(NewStoredUpdate(types.UpdateTypeDelete, map[string]any{"text": "three"}))
-	store.Wait()
-
-	first := <-seen
-	if first.ID == 0 || first.Timestamp.IsZero() {
-		t.Fatalf("callback update should have assigned metadata: %+v", first)
-	}
-
-	updates := store.Get(10)
-	if len(updates) != 2 || updates[0].ID != 3 || updates[1].ID != 2 {
-		t.Fatalf("updates = %+v, want newest two", updates)
-	}
-	if after := store.Get(10, 2); len(after) != 1 || after[0].ID != 3 {
-		t.Fatalf("offset updates = %+v, want only id 3", after)
-	}
-	if empty := store.Get(10, 3); len(empty) != 0 {
-		t.Fatalf("offset empty = %+v", empty)
-	}
-	if empty := NewUpdateStore(0).Get(10); len(empty) != 0 {
-		t.Fatalf("empty store = %+v", empty)
-	}
 }
 
 func TestMessageDataAndHelpers(t *testing.T) {
@@ -102,7 +114,13 @@ func TestConvertMediaForUpdate(t *testing.T) {
 	}{
 		{"photo", &tg.MessageMediaPhoto{Photo: &tg.Photo{ID: 1}}, "photo", "photo_id", int64(1)},
 		{"document", &tg.MessageMediaDocument{Document: &tg.Document{ID: 2}}, "document", "document_id", int64(2)},
-		{"webpage", &tg.MessageMediaWebPage{Webpage: &tg.WebPage{URL: "https://e", DisplayURL: "e"}}, "webpage", "url", "https://e"},
+		{
+			"webpage",
+			&tg.MessageMediaWebPage{Webpage: &tg.WebPage{URL: "https://e", DisplayURL: "e"}},
+			"webpage",
+			"url",
+			"https://e",
+		},
 		{"geo", &tg.MessageMediaGeo{Geo: &tg.GeoPoint{Lat: 1.2, Long: 3.4}}, "geo", "lat", 1.2},
 		{"contact", &tg.MessageMediaContact{PhoneNumber: "+1", FirstName: "Ada", LastName: "L"}, "contact", "phone", "+1"},
 		{"poll", &tg.MessageMediaPoll{}, "poll", "", nil},

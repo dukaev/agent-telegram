@@ -2,6 +2,7 @@ package operations
 
 import (
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 )
@@ -113,8 +114,8 @@ func structSchema(t reflect.Type, input bool) JSONSchema {
 
 	schema := objectSchema(properties, required)
 	if input {
-		if _, hasPeer := properties["peer"]; hasPeer && !contains(required, "peer") {
-			if _, hasUsername := properties["username"]; hasUsername && !contains(required, "username") {
+		if _, hasPeer := properties["peer"]; hasPeer && !slices.Contains(required, "peer") {
+			if _, hasUsername := properties["username"]; hasUsername && !slices.Contains(required, "username") {
 				schema["anyOf"] = []map[string][]string{
 					{"required": []string{"peer"}},
 					{"required": []string{"username"}},
@@ -138,15 +139,6 @@ func objectSchema(properties map[string]any, required []string) JSONSchema {
 		schema["required"] = required
 	}
 	return schema
-}
-
-func contains(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 func jsonFieldName(field reflect.StructField) (name string, omitEmpty bool) {

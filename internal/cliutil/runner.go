@@ -13,7 +13,6 @@ import (
 
 	"agent-telegram/internal/ipc"
 	"agent-telegram/internal/observability"
-	"agent-telegram/internal/operations"
 	"agent-telegram/internal/paths"
 )
 
@@ -103,69 +102,22 @@ func NewRunner(socketFlag string, jsonOutput bool) *Runner {
 // It extracts the socket, quiet, output, filter, and dry-run flags.
 // The second parameter is ignored; JSON is the default output mode.
 func NewRunnerFromCmd(cmd *cobra.Command, _ bool) *Runner {
-	socketPath, _ := cmd.Flags().GetString("socket")
-	quiet, _ := cmd.Flags().GetBool("quiet")
-	outputFlag, _ := cmd.Flags().GetString("output")
-	fieldsFlag, _ := cmd.Flags().GetStringSlice("fields")
-	filterFlag, _ := cmd.Flags().GetStringSlice("filter")
-	verbosityFlag, _ := cmd.Flags().GetString("verbosity")
-	maxItems, _ := cmd.Flags().GetInt("max-items")
-	maxTextChars, _ := cmd.Flags().GetInt("max-text-chars")
-	includeFields, _ := cmd.Flags().GetStringSlice("include")
-	omitFields, _ := cmd.Flags().GetStringSlice("omit")
-	summary, _ := cmd.Flags().GetBool("summary")
-	receipt, _ := cmd.Flags().GetBool("receipt")
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	agentMode, _ := cmd.Flags().GetBool("agent")
-	runIDFlag, _ := cmd.Flags().GetString("run-id")
-
-	format := ParseOutputFormat(outputFlag)
-	if agentMode {
-		format = OutputJSON
-		receipt = true
-		quiet = true
-		if !flagChanged(cmd, "verbosity") {
-			verbosityFlag = string(VerbosityCompact)
-		}
-		if maxItems <= 0 {
-			maxItems = 8
-		}
-		if maxTextChars <= 0 {
-			maxTextChars = 180
-		}
-	}
-
-	var filterExprs FilterExpressions
-	if len(filterFlag) > 0 {
-		var err error
-		filterExprs, err = ParseFilterExpressions(filterFlag)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			Exit(1)
-		}
-	}
+	opts := runnerFlagOptionsFromCmd(cmd)
 
 	return &Runner{
-		socketFlag:    socketPath,
-		jsonOutput:    format == OutputJSON,
-		quiet:         quiet,
-		outputFormat:  format,
-		fieldSelector: NewFieldSelector(fieldsFlag),
-		filterExprs:   filterExprs,
-		dryRun:        dryRun,
-		agentMode:     agentMode,
-		runID:         resolveRunID(runIDFlag),
+		socketFlag:    opts.socketPath,
+		jsonOutput:    opts.format == OutputJSON,
+		quiet:         opts.quiet,
+		outputFormat:  opts.format,
+		fieldSelector: NewFieldSelector(opts.fields),
+		filterExprs:   opts.filterExpressions(),
+		dryRun:        opts.dryRun,
+		agentMode:     opts.agentMode,
+		runID:         resolveRunID(opts.runID),
 		traceID:       observability.NewTraceID(),
-		outputBudget: OutputBudgetOptions{
-			Verbosity:    ParseVerbosity(verbosityFlag),
-			MaxItems:     maxItems,
-			MaxTextChars: maxTextChars,
-			Include:      includeFields,
-			Omit:         omitFields,
-			Summary:      summary,
-		},
-		receipt:     receipt,
-		commandPath: cmd.CommandPath(),
+		outputBudget:  opts.outputBudget(),
+		receipt:       opts.receipt,
+		commandPath:   cmd.CommandPath(),
 	}
 }
 
@@ -295,259 +247,29 @@ func (r *Runner) CallInternal(method string, params any) any {
 
 func (r *Runner) call(method string, params any, userVisible bool) any {
 	if userVisible {
-		r.lastMethod = method
-		r.lastSafety = operationSafety(method)
+		r.recordCall(method)
 	}
 
-	// Ensure server is running.
-	if err := r.ensureServer(); err != nil {
-		if r.agentMode {
-			r.handleError(r.ensureErrorToRPC(err, method))
-			return nil
-		}
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		Exit(1)
+	if !r.ensureServerReady(method) {
+		return nil
 	}
 
 	log := getCLILogger(r.socketFlag)
-	start := time.Now()
-
-	client := r.Client()
-	var result any
-	var err *ipc.ErrorObject
-	if runAware, ok := client.(runRPCClient); ok {
-		result, err = runAware.CallWithTraceAndRun(method, params, r.traceID, r.runID)
-	} else if traced, ok := client.(traceRPCClient); ok {
-		result, err = traced.CallWithTrace(method, params, r.traceID)
-	} else {
-		result, err = client.Call(method, params)
-	}
-
-	duration := time.Since(start)
+	result, err, duration := r.callRPC(method, params)
 	if userVisible {
 		r.lastDuration = duration
 	}
 	if err != nil {
 		if userVisible {
-			log.Info("cli: call",
-				"run_id", r.runID,
-				"trace_id", r.traceID,
-				"method", method,
-				"params", truncateAny(params),
-				"duration_ms", duration.Milliseconds(),
-				"error_code", err.Code,
-				"error_type", errorType(err),
-				"error", err.Message,
-			)
-			r.writeAudit(method, params, nil, err, duration)
+			r.logCallError(log, method, params, err, duration)
 		}
 		r.handleError(err)
 	}
 
 	if userVisible {
-		log.Info("cli: call",
-			"run_id", r.runID,
-			"trace_id", r.traceID,
-			"method", method,
-			"params", truncateAny(params),
-			"duration_ms", duration.Milliseconds(),
-			"status", "ok",
-		)
-		r.writeAudit(method, params, result, nil, duration)
+		r.logCallSuccess(log, method, params, result, duration)
 	}
-
-	// Apply --filter expressions (early: modifies data for all formatters)
-	if len(r.filterExprs) > 0 {
-		result = r.filterExprs.Apply(result)
-	}
-
-	return result
-}
-
-// handleError handles RPC errors with user-friendly messages.
-func (r *Runner) handleError(err *ipc.ErrorObject) {
-	if r.agentMode {
-		r.printErrorEnvelope(err)
-		Exit(1)
-		return
-	}
-	switch err.Code {
-	case ipc.ErrCodeServerNotRunning:
-		fmt.Fprintln(os.Stderr, "Error: Server is not running")
-		fmt.Fprintln(os.Stderr, "Run: agent-telegram server ensure")
-	case ipc.ErrCodeNotAuthorized:
-		fmt.Fprintln(os.Stderr, "Error: Not authorized")
-		fmt.Fprintln(os.Stderr, "Please authenticate first: agent-telegram auth web")
-	case ipc.ErrCodeNotInitialized:
-		fmt.Fprintln(os.Stderr, "Error: Client not initialized")
-		fmt.Fprintln(os.Stderr, "The server may still be starting up. Please try again in a few seconds.")
-	default:
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Message)
-	}
-	Exit(1)
-}
-
-func (r *Runner) ensureErrorToRPC(err error, method string) *ipc.ErrorObject {
-	msg := err.Error()
-	switch msg {
-	case "server is not running; run: agent-telegram server ensure":
-		return ipc.NewTypedError(ipc.ErrCodeServerNotRunning, ipc.ErrorTypeServerNotRunning, msg, map[string]any{
-			"nextCommand": agentCommand(r.runID, "server", "ensure"),
-		})
-	case "telegram client is not ready within timeout":
-		return ipc.NewTypedError(ipc.ErrCodeNotInitialized, ipc.ErrorTypeNotInitialized, msg, map[string]any{
-			"nextCommand": agentCommand(r.runID, "server", "wait-ready"),
-		})
-	default:
-		return ipc.NewTypedError(-32000, ipc.ErrorTypeInternal, fmt.Sprintf("%s failed before %s", method, msg), nil)
-	}
-}
-
-func (r *Runner) printErrorEnvelope(err *ipc.ErrorObject) {
-	payload := map[string]any{
-		"ok":          false,
-		"runId":       r.runID,
-		"traceId":     r.traceID,
-		"command":     r.commandPath,
-		"method":      r.lastMethod,
-		"safety":      r.lastSafety,
-		"error":       errorObjectForOutput(err),
-		"diagnosis":   diagnosisForError(err),
-		"nextActions": nextActionsForError(err, r),
-	}
-	data, jsonErr := json.MarshalIndent(payload, "", "  ")
-	if jsonErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err.Message)
-		return
-	}
-	fmt.Println(string(data))
-}
-
-func errorObjectForOutput(err *ipc.ErrorObject) map[string]any {
-	out := map[string]any{
-		"code":      err.Code,
-		"type":      errorType(err),
-		"message":   err.Message,
-		"retryable": retryableError(err),
-	}
-	if err.Data != nil {
-		out["data"] = observability.RedactAny(err.Data)
-	}
-	return out
-}
-
-func diagnosisForError(err *ipc.ErrorObject) map[string]any {
-	errType := errorType(err)
-	switch errType {
-	case ipc.ErrorTypeServerNotRunning:
-		return map[string]any{
-			"category": "server_not_running",
-			"summary":  "The local IPC server is not reachable.",
-			"retry":    "Start the server, then retry the original command.",
-		}
-	case ipc.ErrorTypeNotAuthorized:
-		return map[string]any{
-			"category": "not_authorized",
-			"summary":  "Telegram session is missing or expired.",
-			"retry":    "Authenticate first, then retry the original command.",
-		}
-	case ipc.ErrorTypeNotInitialized:
-		return map[string]any{
-			"category": "not_initialized",
-			"summary":  "The server is running but Telegram is not ready yet.",
-			"retry":    "Wait for readiness, then retry.",
-		}
-	case ipc.ErrorTypeFloodWait:
-		return map[string]any{
-			"category": "rate_limited",
-			"summary":  "Telegram returned a flood wait.",
-			"retry":    "Wait for retryAfter seconds when present.",
-		}
-	case ipc.ErrorTypeValidation:
-		return map[string]any{
-			"category": "validation",
-			"summary":  "Command parameters failed validation.",
-			"retry":    "Inspect the schema and retry with valid parameters.",
-		}
-	case ipc.ErrorTypePeerNotFound:
-		return map[string]any{
-			"category": "peer_not_found",
-			"summary":  "Telegram could not resolve the requested peer.",
-			"retry":    "Verify the username, ID, invite link, or access rights.",
-		}
-	default:
-		return map[string]any{
-			"category": "unknown",
-			"summary":  "The command failed.",
-			"retry":    "Inspect audit/logs with the trace ID.",
-		}
-	}
-}
-
-func nextActionsForError(err *ipc.ErrorObject, r *Runner) []map[string]any {
-	errType := errorType(err)
-	switch errType {
-	case ipc.ErrorTypeServerNotRunning:
-		return []map[string]any{{
-			"kind":    "start_server",
-			"command": agentCommand(r.runID, "server", "ensure"),
-			"safety":  "local",
-			"reason":  "server is required before RPC-backed commands",
-		}}
-	case ipc.ErrorTypeNotAuthorized:
-		return []map[string]any{{
-			"kind":    "authenticate",
-			"command": "AGENT_TELEGRAM_PHONE=... agent-telegram auth web --agent --run-id " + r.runID,
-			"safety":  "sensitive",
-			"reason":  "Telegram session is required",
-		}}
-	case ipc.ErrorTypeNotInitialized:
-		return []map[string]any{{
-			"kind":    "wait_ready",
-			"command": agentCommand(r.runID, "server", "wait-ready"),
-			"safety":  "local",
-			"reason":  "server is still initializing",
-		}}
-	case ipc.ErrorTypeValidation:
-		command := r.commandPath + " --schema"
-		if r.commandPath == "" {
-			command = "agent-telegram manifest"
-		}
-		return []map[string]any{{
-			"kind":    "inspect_schema",
-			"command": command,
-			"safety":  "read",
-			"reason":  "schema explains required parameters",
-		}}
-	default:
-		return []map[string]any{{
-			"kind":    "inspect_trace",
-			"command": "agent-telegram trace inspect " + r.traceID + " --agent --run-id " + r.runID,
-			"safety":  "read",
-			"reason":  "trace bundle can show related audit and log events",
-		}}
-	}
-}
-
-func retryableError(err *ipc.ErrorObject) bool {
-	switch errorType(err) {
-	case ipc.ErrorTypeServerNotRunning, ipc.ErrorTypeNotInitialized, ipc.ErrorTypeTimeout, ipc.ErrorTypeFloodWait:
-		return true
-	default:
-		return false
-	}
-}
-
-func agentCommand(runID string, args ...string) string {
-	base := "agent-telegram"
-	for _, arg := range args {
-		base += " " + arg
-	}
-	base += " --agent"
-	if runID != "" {
-		base += " --run-id " + runID
-	}
-	return base
+	return r.applyResultFilters(result)
 }
 
 func (r *Runner) writeAudit(method string, params, result any, rpcErr *ipc.ErrorObject, duration time.Duration) {
@@ -574,25 +296,6 @@ func (r *Runner) writeAudit(method string, params, result any, rpcErr *ipc.Error
 	if err := observability.WriteAudit(r.socketFlag, event); err != nil {
 		getCLILogger(r.socketFlag).Warn("cli: audit write failed", "error", err)
 	}
-}
-
-func operationSafety(method string) string {
-	if op, ok := operations.Get(method); ok {
-		return op.Safety
-	}
-	return ""
-}
-
-func errorType(err *ipc.ErrorObject) string {
-	if err == nil || err.Data == nil {
-		return ""
-	}
-	if m, ok := err.Data.(map[string]any); ok {
-		if value, ok := m["type"].(string); ok {
-			return value
-		}
-	}
-	return ""
 }
 
 // CallWithParams executes an RPC call with parameters.
@@ -696,24 +399,6 @@ func (r *Runner) MustParseInt(s string) int {
 	return value
 }
 
-// FormatSuccess formats a success message with common fields.
-// Output goes to stderr so stdout remains clean for data.
-func FormatSuccess(result any, action string) {
-	r, ok := result.(map[string]any)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "%s succeeded!\n", action)
-		return
-	}
-
-	fmt.Fprintf(os.Stderr, "%s sent successfully!\n", action)
-	if id, ok := r["id"].(float64); ok {
-		fmt.Fprintf(os.Stderr, "  ID: %d\n", int64(id))
-	}
-	if peer, ok := r["peer"].(string); ok {
-		fmt.Fprintf(os.Stderr, "  Peer: %s\n", peer)
-	}
-}
-
 // Fatal prints an error message to stderr and exits with code 1.
 func (r *Runner) Fatal(msg string) {
 	if r.agentMode {
@@ -747,59 +432,4 @@ func (r *Runner) Log(msg string) {
 	if !r.quiet {
 		fmt.Fprintln(os.Stderr, msg)
 	}
-}
-
-const maxLogSize = 1024
-
-// truncateAny returns a truncated JSON string representation of a value.
-func truncateAny(v any) string {
-	data, err := json.Marshal(observability.RedactAny(v))
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	s := string(data)
-	if len(s) > maxLogSize {
-		return s[:maxLogSize] + "..."
-	}
-	return s
-}
-
-// ExtractString safely extracts a string from a map.
-func ExtractString(m map[string]any, key string) string {
-	if val, ok := m[key].(string); ok {
-		return val
-	}
-	return ""
-}
-
-// ExtractFloat64 safely extracts a float64 from a map (handles float64 and json.Number).
-func ExtractFloat64(m map[string]any, key string) float64 {
-	switch v := m[key].(type) {
-	case float64:
-		return v
-	case json.Number:
-		f, _ := v.Float64()
-		return f
-	}
-	return 0
-}
-
-// ExtractInt64 safely extracts an int64 from a map (handles int64, float64, and json.Number).
-func ExtractInt64(m map[string]any, key string) int64 {
-	switch v := m[key].(type) {
-	case int64:
-		return v
-	case json.Number:
-		n, _ := v.Int64()
-		return n
-	case float64:
-		return int64(v)
-	}
-	return 0
-}
-
-// ToMap converts any value to a map[string]any safely.
-func ToMap(result any) (map[string]any, bool) {
-	m, ok := result.(map[string]any)
-	return m, ok
 }

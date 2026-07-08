@@ -3,8 +3,9 @@ package operations
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
-	"sort"
+	"slices"
 
 	"agent-telegram/telegram/types"
 )
@@ -87,12 +88,7 @@ func Get(method string) (Operation, bool) {
 
 // Methods returns all registered operation methods sorted alphabetically.
 func Methods() []string {
-	methods := make([]string, 0, len(registry))
-	for method := range registry {
-		methods = append(methods, method)
-	}
-	sort.Strings(methods)
-	return methods
+	return slices.Sorted(maps.Keys(registry))
 }
 
 // Manifest returns all operations in a machine-readable format.
