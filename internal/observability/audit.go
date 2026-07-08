@@ -13,6 +13,7 @@ import (
 // AuditEvent is a durable, redacted record of one user-facing operation.
 type AuditEvent struct {
 	Time          time.Time      `json:"time"`
+	RunID         string         `json:"runId,omitempty"`
 	TraceID       string         `json:"traceId,omitempty"`
 	Surface       string         `json:"surface"`
 	Method        string         `json:"method,omitempty"`

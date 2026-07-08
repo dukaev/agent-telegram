@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"agent-telegram/internal/cliutil"
 	"agent-telegram/internal/ipc"
 	"agent-telegram/internal/paths"
 )
@@ -36,7 +37,9 @@ func init() {
 		"Force stop by sending SIGKILL instead of SIGTERM")
 }
 
-func runStop(_ *cobra.Command, _ []string) {
+func runStop(cmd *cobra.Command, _ []string) {
+	runner := cliutil.NewRunnerFromCmd(cmd, true)
+	runner.SetAction("shutdown")
 	socketPath := getStopSocketPath()
 	client := ipc.NewClient(socketPath)
 
@@ -61,6 +64,12 @@ func runStop(_ *cobra.Command, _ []string) {
 	}
 
 	// Send shutdown command
+	if runner.AgentMode() {
+		result := runner.CallDirect("shutdown", nil)
+		runner.PrintJSON(result)
+		waitForShutdown(client, 5*time.Second)
+		return
+	}
 	result, err := client.Call("shutdown", nil)
 	if err != nil {
 		// If RPC fails but we have PID, suggest force kill

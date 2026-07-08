@@ -6,6 +6,7 @@ import (
 	"agent-telegram/internal/cliutil"
 	"agent-telegram/internal/ipc"
 	"agent-telegram/internal/operations"
+	"agent-telegram/internal/skills"
 )
 
 var manifestOpenAPI bool
@@ -28,6 +29,7 @@ Use --openapi to output an OpenAPI 3.1 document for serve-api.`,
 				"ok":         true,
 				"operations": operations.Manifest(),
 				"errorTypes": ipc.ErrorTypesManifest(),
+				"skills":     skills.Manifest(),
 			}
 		}
 		cliutil.NewRunnerFromCmd(cmd, true).PrintJSON(payload)

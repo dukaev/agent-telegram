@@ -10,8 +10,6 @@ import (
 type OutputFormat string
 
 const (
-	// OutputText is the default human-readable format (to stderr).
-	OutputText OutputFormat = "text"
 	// OutputJSON outputs JSON to stdout.
 	OutputJSON OutputFormat = "json"
 	// OutputIDs outputs one ID per line to stdout.
@@ -19,25 +17,18 @@ const (
 )
 
 // ParseOutputFormat resolves the output format from --output.
-// Default is JSON. Text output is retained internally for legacy paths, but is
-// no longer part of the agentic CLI contract.
-func ParseOutputFormat(outputFlag string, textFlag bool) OutputFormat {
+// Default is JSON.
+func ParseOutputFormat(outputFlag string) OutputFormat {
 	if outputFlag != "" {
 		switch strings.ToLower(outputFlag) {
 		case "json":
 			return OutputJSON
 		case "ids":
 			return OutputIDs
-		case "text":
-			fmt.Fprintln(os.Stderr, "Warning: text output is deprecated, using json")
-			return OutputJSON
 		default:
 			fmt.Fprintf(os.Stderr, "Warning: unknown output format %q, using json\n", outputFlag)
 			return OutputJSON
 		}
-	}
-	if textFlag {
-		return OutputText
 	}
 	return OutputJSON
 }

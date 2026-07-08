@@ -52,23 +52,10 @@ var AuthCmd = &cobra.Command{
 	Short:   "Headless Telegram authentication",
 	Long: `Headless Telegram authentication commands for agentic workflows.
 
-Use web for browser-based local login, or begin to send a Telegram login code,
-verify to submit the code from stdin, and password to submit a 2FA password
-from stdin when required. Commands emit JSON on stdout.`,
-}
-
-// LoginCmd is a backwards-compatible alias for auth begin.
-var LoginCmd = &cobra.Command{
-	GroupID: "auth",
-	Use:     "login",
-	Short:   "Start headless Telegram login",
-	Long: `Start a headless Telegram login by sending a verification code.
-
-This command replaces the old TUI login. It emits JSON with a stateId, then use:
-  agent-telegram auth verify --state-id <id> --code-stdin
-
-Set AGENT_TELEGRAM_PHONE instead of passing a phone number in argv.`,
-	Run: runAuthBegin,
+Use web for browser-based local login, web --qr for Telegram QR login, or
+begin to send a Telegram login code, verify to submit the code from stdin, and
+password to submit a 2FA password from stdin when required. Commands emit JSON
+on stdout.`,
 }
 
 // AuthBeginCmd starts an auth flow by sending a verification code.
@@ -107,7 +94,6 @@ func AddAuthCommand(rootCmd *cobra.Command) {
 
 	addBeginFlags(AuthBeginCmd)
 	addBeginFlags(AuthWebCmd)
-	addBeginFlags(LoginCmd)
 	addStateFlags(AuthVerifyCmd)
 	addStateFlags(AuthPasswordCmd)
 
@@ -118,11 +104,6 @@ func AddAuthCommand(rootCmd *cobra.Command) {
 	AuthWebCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
 	AuthWebCmd.Flags().BoolVar(&authWebQR, "qr", false, "Use QR code authentication flow")
 	AuthWebCmd.Flags().IntVar(&authWebPort, "port", 0, "Local web auth port (0 chooses a free port)")
-}
-
-// AddLoginCommand adds the legacy login alias to the root command.
-func AddLoginCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(LoginCmd)
 }
 
 func addBeginFlags(cmd *cobra.Command) {

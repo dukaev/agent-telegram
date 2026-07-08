@@ -70,7 +70,7 @@ func LoadStoredConfig() (*StoredConfig, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf(
-				"config not found - run 'agent-telegram login' or set TELEGRAM_APP_ID and TELEGRAM_APP_HASH",
+				"config not found - run 'agent-telegram auth web' or set TELEGRAM_APP_ID and TELEGRAM_APP_HASH",
 			)
 		}
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -82,7 +82,7 @@ func LoadStoredConfig() (*StoredConfig, error) {
 	}
 
 	if cfg.AppID == 0 || cfg.AppHash == "" {
-		return nil, fmt.Errorf("invalid config - please run 'agent-telegram login' first")
+		return nil, fmt.Errorf("invalid config - please run 'agent-telegram auth web' first")
 	}
 
 	return &cfg, nil

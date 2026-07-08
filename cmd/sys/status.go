@@ -3,13 +3,12 @@ package sys
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
 )
-
-var statusJSON bool
 
 // StatusCmd represents the status command.
 var StatusCmd = &cobra.Command{
@@ -27,16 +26,16 @@ Example:
 func AddStatusCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(StatusCmd)
 
-	StatusCmd.Flags().BoolVarP(&statusJSON, "json", "j", false, "Output as JSON")
-
-	StatusCmd.Run = func(_ *cobra.Command, _ []string) {
-		runner := cliutil.NewRunnerFromCmd(StatusCmd, true)
+	StatusCmd.Run = func(cmd *cobra.Command, _ []string) {
+		runner := cliutil.NewRunnerFromCmd(cmd, true)
+		runner.SetAction("status")
+		jsonStatus := statusWantsJSON(cmd, runner)
 
 		// Use Client directly so status can report a stopped server.
 		client := runner.Client()
 		result, err := client.Call("status", nil)
 		if err != nil {
-			if statusJSON {
+			if jsonStatus {
 				runner.PrintJSON(map[string]any{
 					"ok":     false,
 					"status": "not_running",
@@ -50,7 +49,7 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 
 		m, ok := cliutil.ToMap(result)
 		if !ok {
-			if statusJSON {
+			if jsonStatus {
 				runner.PrintJSON(map[string]any{
 					"ok":     false,
 					"status": "unknown",
@@ -61,7 +60,7 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			return
 		}
 
-		if statusJSON {
+		if jsonStatus {
 			runner.PrintJSON(result)
 			return
 		}
@@ -96,7 +95,7 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			}
 			fmt.Printf("Telegram: %s...\n", state)
 		} else if !authorized {
-			fmt.Println("Telegram: not authorized (run: agent-telegram login)")
+			fmt.Println("Telegram: not authorized (run: agent-telegram auth web)")
 		} else {
 			username := cliutil.ExtractString(m, "username")
 			firstName := cliutil.ExtractString(m, "first_name")
@@ -110,4 +109,12 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			}
 		}
 	}
+}
+
+func statusWantsJSON(cmd *cobra.Command, runner *cliutil.Runner) bool {
+	if runner.AgentMode() {
+		return true
+	}
+	output, _ := cmd.Flags().GetString("output")
+	return strings.EqualFold(output, "json")
 }

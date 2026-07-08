@@ -144,8 +144,8 @@ func (c *Client) runClient(ctx context.Context) error {
 
 	if !status.Authorized {
 		// Server mode: don't try to authenticate, just fail
-		// User should run 'login' command first
-		return fmt.Errorf("not authenticated - please run 'agent-telegram login' first")
+		// User should authenticate first.
+		return fmt.Errorf("not authenticated - please run 'agent-telegram auth web' first")
 	}
 
 	// Get current user and log

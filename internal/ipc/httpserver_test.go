@@ -267,6 +267,7 @@ func TestHTTPServerTraceIDAndAudit(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/rpc/send_message", strings.NewReader(`{"peer":"@user","message":"hello"}`))
 	req.Header.Set("Authorization", "Bearer secret")
 	req.Header.Set("X-Trace-Id", "trace-test")
+	req.Header.Set("X-Run-Id", "run-test")
 	rec := httptest.NewRecorder()
 	srv.srv.Handler.ServeHTTP(rec, req)
 
@@ -276,14 +277,18 @@ func TestHTTPServerTraceIDAndAudit(t *testing.T) {
 	if rec.Header().Get("X-Trace-Id") != "trace-test" {
 		t.Fatalf("trace header = %q", rec.Header().Get("X-Trace-Id"))
 	}
+	if rec.Header().Get("X-Run-Id") != "run-test" {
+		t.Fatalf("run header = %q", rec.Header().Get("X-Run-Id"))
+	}
 	var body struct {
+		RunID   string `json:"runId"`
 		TraceID string `json:"traceId"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.TraceID != "trace-test" {
-		t.Fatalf("traceId = %q, want trace-test", body.TraceID)
+	if body.RunID != "run-test" || body.TraceID != "trace-test" {
+		t.Fatalf("ids = %q/%q, want run-test/trace-test", body.RunID, body.TraceID)
 	}
 
 	events, err := observability.ReadAudit("", 10)
@@ -294,7 +299,7 @@ func TestHTTPServerTraceIDAndAudit(t *testing.T) {
 		t.Fatal("expected audit event")
 	}
 	last := events[len(events)-1]
-	if last.TraceID != "trace-test" || last.Method != "send_message" || last.Status != "ok" {
+	if last.RunID != "run-test" || last.TraceID != "trace-test" || last.Method != "send_message" || last.Status != "ok" {
 		t.Fatalf("unexpected audit event: %+v", last)
 	}
 }
@@ -320,12 +325,19 @@ func TestHTTPServerManifestAndOpenAPI(t *testing.T) {
 		ErrorTypes []struct {
 			Type string `json:"type"`
 		} `json:"errorTypes"`
+		Skills []struct {
+			Name           string `json:"name"`
+			InstallCommand string `json:"installCommand"`
+		} `json:"skills"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &manifest); err != nil {
 		t.Fatal(err)
 	}
 	if !manifest.OK || len(manifest.Operations) == 0 || len(manifest.ErrorTypes) == 0 {
 		t.Fatalf("unexpected manifest body: %s", rec.Body.String())
+	}
+	if len(manifest.Skills) == 0 || manifest.Skills[0].Name != "agent-telegram" || manifest.Skills[0].InstallCommand == "" {
+		t.Fatalf("manifest should include installable skills: %s", rec.Body.String())
 	}
 	if !manifestHasOperation(manifest.Operations, "send_message") {
 		t.Fatal("manifest should include send_message")

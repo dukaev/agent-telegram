@@ -47,11 +47,17 @@ func (c *Client) Call(method string, params interface{}) (interface{}, *ErrorObj
 
 // CallWithTrace calls a JSON-RPC method with a caller-supplied trace ID.
 func (c *Client) CallWithTrace(method string, params interface{}, traceID string) (interface{}, *ErrorObject) {
+	return c.CallWithTraceAndRun(method, params, traceID, "")
+}
+
+// CallWithTraceAndRun calls a JSON-RPC method with caller-supplied trace and run IDs.
+func (c *Client) CallWithTraceAndRun(method string, params interface{}, traceID, runID string) (interface{}, *ErrorObject) {
 	// Create request
 	req := Request{
 		JSONRPC: "2.0",
 		Method:  method,
 		ID:      1,
+		RunID:   runID,
 		TraceID: traceID,
 	}
 	if params != nil {

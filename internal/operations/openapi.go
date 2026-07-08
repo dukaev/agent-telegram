@@ -33,6 +33,8 @@ func OpenAPI(title, version string) map[string]any {
 						"properties": map[string]any{
 							"ok":         JSONSchema{"type": "boolean"},
 							"operations": JSONSchema{"type": "array", "items": JSONSchema{"type": "object", "additionalProperties": true}},
+							"errorTypes": JSONSchema{"type": "array", "items": JSONSchema{"type": "object", "additionalProperties": true}},
+							"skills":     JSONSchema{"type": "array", "items": JSONSchema{"type": "object", "additionalProperties": true}},
 						},
 					}),
 				},
@@ -49,6 +51,8 @@ func OpenAPI(title, version string) map[string]any {
 				"tags":        []string{manifest.Category},
 				"security":    []map[string][]string{{"bearerAuth": []string{}}},
 				"parameters": []map[string]any{
+					headerParam("X-Trace-Id", "Optional caller-supplied trace ID for one operation."),
+					headerParam("X-Run-Id", "Optional caller-supplied run ID for multi-command agent correlation."),
 					boolQueryParam("dryRun", "Validate and preview without executing."),
 					boolQueryParam("validateOnly", "Validate params without executing."),
 				},
@@ -60,8 +64,10 @@ func OpenAPI(title, version string) map[string]any {
 				},
 				"responses": map[string]any{
 					"200": response("Result", objectWith(map[string]any{
-						"ok":     JSONSchema{"type": "boolean"},
-						"result": manifest.OutputSchema,
+						"ok":      JSONSchema{"type": "boolean"},
+						"runId":   JSONSchema{"type": "string"},
+						"traceId": JSONSchema{"type": "string"},
+						"result":  manifest.OutputSchema,
 					})),
 					"400": response("Bad request", errorSchema()),
 					"401": response("Unauthorized", errorSchema()),
@@ -120,9 +126,21 @@ func boolQueryParam(name, description string) map[string]any {
 	}
 }
 
+func headerParam(name, description string) map[string]any {
+	return map[string]any{
+		"name":        name,
+		"in":          "header",
+		"required":    false,
+		"description": description,
+		"schema":      JSONSchema{"type": "string"},
+	}
+}
+
 func errorSchema() JSONSchema {
 	return objectWith(map[string]any{
-		"ok": JSONSchema{"type": "boolean"},
+		"ok":      JSONSchema{"type": "boolean"},
+		"runId":   JSONSchema{"type": "string"},
+		"traceId": JSONSchema{"type": "string"},
 		"error": objectWith(map[string]any{
 			"code":    JSONSchema{"type": "integer"},
 			"message": JSONSchema{"type": "string"},

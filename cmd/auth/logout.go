@@ -19,7 +19,7 @@ var LogoutCmd = &cobra.Command{
 This will:
   - Delete the saved session file
   - Remove authentication data
-  - You will need to login again to use the app`,
+  - You will need to authenticate again to use the app`,
 	Run: runLogout,
 }
 

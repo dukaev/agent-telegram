@@ -11,33 +11,43 @@ import (
 
 func TestReadLogLinesFiltersTraceAndLast(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cli.log")
-	if err := os.WriteFile(path, []byte("one\ntrace-a two\ntrace-a three\nfour\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("one\ntrace-a run-a two\ntrace-a run-b three\nfour\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 
-	lines, err := readLogLines(path, 1, "trace-a")
+	lines, err := readLogLines(path, 1, "trace-a", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(lines) != 1 || lines[0] != "trace-a three" {
+	if len(lines) != 1 || lines[0] != "trace-a run-b three" {
+		t.Fatalf("lines = %#v", lines)
+	}
+
+	lines, err = readLogLines(path, 10, "", "run-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 1 || lines[0] != "trace-a run-a two" {
 		t.Fatalf("lines = %#v", lines)
 	}
 }
 
 func TestFilterAudit(t *testing.T) {
-	oldTrace, oldMethod, oldSince := auditTraceID, auditMethod, auditSince
+	oldTrace, oldRun, oldMethod, oldSince := auditTraceID, auditRunID, auditMethod, auditSince
 	defer func() {
-		auditTraceID, auditMethod, auditSince = oldTrace, oldMethod, oldSince
+		auditTraceID, auditRunID, auditMethod, auditSince = oldTrace, oldRun, oldMethod, oldSince
 	}()
 
 	auditTraceID = "trace-1"
+	auditRunID = "run-1"
 	auditMethod = "send_message"
 	auditSince = time.Hour
 	events := []observability.AuditEvent{
-		{TraceID: "trace-1", Method: "send_message", Time: time.Now().UTC()},
-		{TraceID: "trace-2", Method: "send_message", Time: time.Now().UTC()},
-		{TraceID: "trace-1", Method: "get_me", Time: time.Now().UTC()},
-		{TraceID: "trace-1", Method: "send_message", Time: time.Now().UTC().Add(-2 * time.Hour)},
+		{RunID: "run-1", TraceID: "trace-1", Method: "send_message", Time: time.Now().UTC()},
+		{RunID: "run-2", TraceID: "trace-1", Method: "send_message", Time: time.Now().UTC()},
+		{RunID: "run-1", TraceID: "trace-2", Method: "send_message", Time: time.Now().UTC()},
+		{RunID: "run-1", TraceID: "trace-1", Method: "get_me", Time: time.Now().UTC()},
+		{RunID: "run-1", TraceID: "trace-1", Method: "send_message", Time: time.Now().UTC().Add(-2 * time.Hour)},
 	}
 
 	filtered := filterAudit(events)

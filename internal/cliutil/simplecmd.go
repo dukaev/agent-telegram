@@ -199,9 +199,7 @@ func printSuccess(result any, msg string) {
 // Common flag definitions.
 var (
 	// ToFlag is the standard recipient flag (--to, -t). Maps to "peer" in API.
-	ToFlag = Flag{Name: "to", Short: "t", Usage: "Chat/channel (@username or username)", Required: true, ParamName: "peer"}
-	// PeerFlag is deprecated, use ToFlag instead. Kept for backwards compatibility.
-	PeerFlag    = ToFlag
+	ToFlag      = Flag{Name: "to", Short: "t", Usage: "Chat/channel (@username or username)", Required: true, ParamName: "peer"}
 	UserFlag    = Flag{Name: "user", Short: "u", Usage: "User (@username or username)", Required: true}
 	FileFlag    = Flag{Name: "file", Short: "f", Usage: "File path", Required: true}
 	TitleFlag   = Flag{Name: "title", Short: "T", Usage: "Title", Required: true}

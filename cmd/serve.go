@@ -53,7 +53,7 @@ func init() {
 
 //nolint:funlen // Server startup logic requires sequential steps
 func runServe(_ *cobra.Command, _ []string) {
-	// Load credentials from config.json (saved by login command)
+	// Load credentials from config.json (saved by auth commands)
 	storedCfg, err := config.LoadStoredConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

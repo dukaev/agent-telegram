@@ -15,9 +15,13 @@ func TestServerPropagatesTraceID(t *testing.T) {
 		JSONRPC: "2.0",
 		Method:  "ok",
 		ID:      1,
+		RunID:   "run-ipc",
 		TraceID: "trace-ipc",
 	})
 
+	if resp.RunID != "run-ipc" {
+		t.Fatalf("run id = %q, want run-ipc", resp.RunID)
+	}
 	if resp.TraceID != "trace-ipc" {
 		t.Fatalf("trace id = %q, want trace-ipc", resp.TraceID)
 	}

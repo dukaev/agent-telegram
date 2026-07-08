@@ -17,8 +17,6 @@ import (
 var (
 	// GetUpdatesLimit is the number of updates to get.
 	GetUpdatesLimit int
-	// GetUpdatesJSON enables JSON output.
-	GetUpdatesJSON bool
 	// GetUpdatesTo filters updates by recipient.
 	GetUpdatesTo cliutil.Recipient
 	// GetUpdatesFollow enables continuous polling mode.
@@ -45,7 +43,6 @@ func AddUpdatesCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(UpdatesCmd)
 
 	UpdatesCmd.Flags().IntVarP(&GetUpdatesLimit, "limit", "l", cliutil.DefaultLimitSmall, "Number of updates (max 100)")
-	UpdatesCmd.Flags().BoolVarP(&GetUpdatesJSON, "json", "j", false, "Output as JSON")
 	UpdatesCmd.Flags().VarP(&GetUpdatesTo, "to", "t", "Recipient (@username, username, or chat ID) to filter updates")
 	UpdatesCmd.Flags().BoolVarP(&GetUpdatesFollow, "follow", "f", false, "Continuously poll for updates (JSON Lines)")
 	UpdatesCmd.Flags().StringVar(&GetUpdatesType, "type", "", "Filter by update type (e.g., new_message, edit_message)")

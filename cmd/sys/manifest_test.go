@@ -24,6 +24,10 @@ func TestManifestCommandOutputsOperations(t *testing.T) {
 			Code      int    `json:"code"`
 			Retryable bool   `json:"retryable"`
 		} `json:"errorTypes"`
+		Skills []struct {
+			Name           string `json:"name"`
+			InstallCommand string `json:"installCommand"`
+		} `json:"skills"`
 	}
 	if err := json.Unmarshal([]byte(output), &body); err != nil {
 		t.Fatal(err)
@@ -36,6 +40,9 @@ func TestManifestCommandOutputsOperations(t *testing.T) {
 	}
 	if len(body.ErrorTypes) == 0 {
 		t.Fatal("manifest should include error types")
+	}
+	if len(body.Skills) == 0 || body.Skills[0].Name != "agent-telegram" || body.Skills[0].InstallCommand == "" {
+		t.Fatalf("manifest should include installable skills: %+v", body.Skills)
 	}
 }
 

@@ -102,4 +102,6 @@ func init() {
 	RootCmd.PersistentFlags().Bool("receipt", false, "Wrap JSON output with trace/action receipt metadata")
 	RootCmd.PersistentFlags().Bool("dry-run", false, "Preview action without executing")
 	RootCmd.PersistentFlags().Bool("schema", false, "Output operation schema without executing")
+	RootCmd.PersistentFlags().Bool("agent", false, "Enable agent-friendly compact JSON, receipts, run IDs, and structured errors")
+	RootCmd.PersistentFlags().String("run-id", "", "Agent run ID for correlating multiple commands")
 }

@@ -8,7 +8,7 @@
 
 ## 1. Authentication
 
-- [ ] 1.1 `login` — Interactive login
+- [ ] 1.1 `auth web` / `auth web --qr` — Headless login
 - [ ] 1.2 `logout` — Logout and clear session
 - [ ] 1.3 `my-info` — Get current user profile
 
@@ -185,7 +185,7 @@
 - [x] 16.2 `--help` — Show help
 - [x] 16.4 `--version` — Show version
 - [x] 16.5 `<cmd> --dry-run` — Dry run
-- [x] 16.6 `chat open @user --json` — JSON output
+- [x] 16.6 `chat open @user --output json` — JSON output
 - [x] 16.7 `send ... -q` — Quiet mode
 
 ---

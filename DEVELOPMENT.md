@@ -45,7 +45,7 @@ JSON-RPC Response ← Unix Socket ← Result
 ```
 agent-telegram/
 ├── cmd/                           # CLI commands
-│   ├── auth/                      # headless auth, login alias, logout
+│   ├── auth/                      # headless auth, logout
 │   ├── chat/                      # 26+ chat subcommands
 │   ├── contact/                   # add, list, delete
 │   ├── folders/                   # folder management
@@ -135,6 +135,28 @@ maps every RPC method to:
 CLI `--schema`, REST `GET /manifest`, and REST `GET /openapi.json` all use this
 registry.
 
+### 0.1 Documentation Generator (`internal/docs/`)
+
+README command tables, global option tables, and `llms-txt` are generated from
+the Cobra command tree plus `internal/operations` metadata. When command names,
+flags, descriptions, or method bindings change, update generated docs with:
+
+```bash
+go generate ./...
+# or
+agent-telegram docs generate --target README.md
+```
+
+CI should run:
+
+```bash
+agent-telegram docs check --target README.md
+```
+
+Bundled Codex skills live under `internal/skills/bundled` and are exposed via
+`agent-telegram skills list`, `agent-telegram skills install`, CLI/HTTP
+manifests, and generated docs.
+
 ### 1. IPC Layer (`internal/ipc/`)
 
 **Protocol**: JSON-RPC 2.0 over Unix domain sockets
@@ -182,13 +204,16 @@ errors include `error.data.retryAfter` when it can be parsed.
 
 ```go
 runner := cliutil.NewRunnerFromCmd(cmd, jsonFlag)
-result := runner.Call("method", params)  // Requires agent-telegram serve
+result := runner.Call("method", params)  // Requires agent-telegram server ensure
 runner.PrintResult(result, formatter)
 ```
 
 Agents should prefer `agent-telegram server ensure` before RPC-backed commands.
 Bot flows should prefer the high-level `bot step`, `bot press`, and `msg wait`
 commands over manually stitching lower-level button/message primitives.
+For automation, prefer `--agent` plus a stable `--run-id` or
+`AGENT_TELEGRAM_RUN_ID`; this enables compact receipts, structured error
+envelopes, and run-level audit/log correlation.
 
 **Recipient** - Peer identifier normalization:
 
@@ -484,16 +509,14 @@ to.AddToParams(params)  // Adds "peer" key
 7. Start IPC server on Unix socket
 8. Handle signals for graceful shutdown
 
-### Auto-Start (`internal/cliutil/runner.go`)
+### Explicit Start (`cmd/sys/server.go`)
 
-Commands automatically start the server:
+Agents start or verify the server explicitly:
 
 1. Check if server running (status RPC)
-2. If not running, acquire start lock
-3. Fork server process
-4. Wait up to 30 seconds for startup
-5. Release lock
-6. Proceed with command
+2. If not running, launch `serve --foreground` as a detached daemon
+3. Wait up to the configured timeout for readiness
+4. Proceed with RPC-backed commands
 
 ### Shutdown (`cmd/stop.go`)
 
@@ -531,9 +554,19 @@ instances do not share lifecycle state.
 | `AGENT_TELEGRAM_SESSION_PATH` | Custom session path |
 | `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |
 | `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api` |
+| `AGENT_TELEGRAM_RUN_ID` | Optional run ID shared across agent commands |
 
 `AGENT_TELEGRAM_RPC_TIMEOUT` also controls the HTTP API write timeout with a
 small client-side grace period.
+
+Agent observability helpers:
+
+```bash
+agent-telegram audit --run-id <runId>
+agent-telegram logs --kind server --run-id <runId>
+agent-telegram trace inspect <traceId> --agent
+agent-telegram run inspect <runId> --agent
+```
 
 ---
 

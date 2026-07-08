@@ -16,6 +16,7 @@ import (
 
 	"agent-telegram/internal/observability"
 	"agent-telegram/internal/operations"
+	"agent-telegram/internal/skills"
 )
 
 const (
@@ -125,6 +126,7 @@ func (s *HTTPServer) handleManifest(w http.ResponseWriter, _ *http.Request) {
 		"ok":         true,
 		"operations": operations.Manifest(),
 		"errorTypes": ErrorTypesManifest(),
+		"skills":     skills.Manifest(),
 	})
 }
 
@@ -139,8 +141,16 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 	if traceID == "" {
 		traceID = observability.NewTraceID()
 	}
+	runID := strings.TrimSpace(r.Header.Get("X-Run-Id"))
+	if runID != "" {
+		runID = observability.SanitizeRunID(runID)
+	}
 	r.Header.Set("X-Trace-Id", traceID)
 	w.Header().Set("X-Trace-Id", traceID)
+	if runID != "" {
+		r.Header.Set("X-Run-Id", runID)
+		w.Header().Set("X-Run-Id", runID)
+	}
 
 	s.mu.RLock()
 	handler, ok := s.methods[method]
@@ -148,9 +158,10 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 
 	if !ok {
 		rpcErr := NewTypedError(ErrCodeMethodNotFound, ErrorTypeMethodNotFound, "method not found", nil)
-		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
+		s.writeHTTPAudit(runID, traceID, method, nil, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, http.StatusNotFound, map[string]any{
 			"ok":      false,
+			"runId":   runID,
 			"traceId": traceID,
 			"error":   errorResponse(rpcErr),
 		})
@@ -160,9 +171,10 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxAPIBodySize+1))
 	if err != nil {
 		rpcErr := NewTypedError(ErrCodeParseError, ErrorTypeValidation, "failed to read request body", nil)
-		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
+		s.writeHTTPAudit(runID, traceID, method, nil, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, http.StatusBadRequest, map[string]any{
 			"ok":      false,
+			"runId":   runID,
 			"traceId": traceID,
 			"error":   errorResponse(rpcErr),
 		})
@@ -170,9 +182,10 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(body) > maxAPIBodySize {
 		rpcErr := NewTypedError(ErrCodeInvalidRequest, ErrorTypeValidation, "request body too large", nil)
-		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
+		s.writeHTTPAudit(runID, traceID, method, nil, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, http.StatusRequestEntityTooLarge, map[string]any{
 			"ok":      false,
+			"runId":   runID,
 			"traceId": traceID,
 			"error":   errorResponse(rpcErr),
 		})
@@ -182,9 +195,10 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 	params, dryRun, validateOnly, err := parseRPCBody(body)
 	if err != nil {
 		rpcErr := NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, err.Error(), nil)
-		s.writeHTTPAudit(traceID, method, nil, nil, rpcErr, time.Since(start), false)
+		s.writeHTTPAudit(runID, traceID, method, nil, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, errorToHTTPStatus(rpcErr), map[string]any{
 			"ok":      false,
+			"runId":   runID,
 			"traceId": traceID,
 			"error":   errorResponse(rpcErr),
 		})
@@ -199,18 +213,20 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 	if dryRun || validateOnly {
 		if err := operations.ValidateParams(method, params); err != nil {
 			rpcErr := NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, err.Error(), nil)
-			s.writeHTTPAudit(traceID, method, params, nil, rpcErr, time.Since(start), true)
+			s.writeHTTPAudit(runID, traceID, method, params, nil, rpcErr, time.Since(start), true)
 			writeJSONResponse(w, errorToHTTPStatus(rpcErr), map[string]any{
 				"ok":      false,
+				"runId":   runID,
 				"traceId": traceID,
 				"error":   errorResponse(rpcErr),
 			})
 			return
 		}
 		op, _ := operations.Get(method)
-		s.writeHTTPAudit(traceID, method, params, map[string]any{"dryRun": dryRun, "validateOnly": validateOnly}, nil, time.Since(start), true)
+		s.writeHTTPAudit(runID, traceID, method, params, map[string]any{"dryRun": dryRun, "validateOnly": validateOnly}, nil, time.Since(start), true)
 		writeJSONResponse(w, http.StatusOK, map[string]any{
 			"ok":           true,
+			"runId":        runID,
 			"traceId":      traceID,
 			"dryRun":       dryRun,
 			"validateOnly": validateOnly,
@@ -225,17 +241,18 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 	result, rpcErr := handler(params)
 	if rpcErr != nil {
 		status := errorToHTTPStatus(rpcErr)
-		s.writeHTTPAudit(traceID, method, params, nil, rpcErr, time.Since(start), false)
+		s.writeHTTPAudit(runID, traceID, method, params, nil, rpcErr, time.Since(start), false)
 		writeJSONResponse(w, status, map[string]any{
 			"ok":      false,
+			"runId":   runID,
 			"traceId": traceID,
 			"error":   errorResponse(rpcErr),
 		})
 		return
 	}
 
-	s.writeHTTPAudit(traceID, method, params, result, nil, time.Since(start), false)
-	writeJSONResponse(w, http.StatusOK, map[string]any{"ok": true, "traceId": traceID, "result": result})
+	s.writeHTTPAudit(runID, traceID, method, params, result, nil, time.Since(start), false)
+	writeJSONResponse(w, http.StatusOK, map[string]any{"ok": true, "runId": runID, "traceId": traceID, "result": result})
 }
 
 // --- Middleware ---
@@ -299,6 +316,7 @@ func (s *HTTPServer) loggingMiddleware(next http.Handler) http.Handler {
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sw, r)
 		slog.Info("http request",
+			"run_id", r.Header.Get("X-Run-Id"),
 			"trace_id", r.Header.Get("X-Trace-Id"),
 			"method", r.Method,
 			"path", r.URL.Path,
@@ -345,6 +363,7 @@ func errorResponse(err *ErrorObject) map[string]any {
 }
 
 func (s *HTTPServer) writeHTTPAudit(
+	runID string,
 	traceID, method string,
 	params, result any,
 	rpcErr *ErrorObject,
@@ -353,6 +372,7 @@ func (s *HTTPServer) writeHTTPAudit(
 ) {
 	event := observability.AuditEvent{
 		Time:       time.Now().UTC(),
+		RunID:      runID,
 		TraceID:    traceID,
 		Surface:    "http",
 		Method:     method,

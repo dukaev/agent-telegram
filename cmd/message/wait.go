@@ -1,8 +1,6 @@
 package message
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -40,16 +38,14 @@ func AddWaitCommand(parentCmd *cobra.Command) {
 		if len(args) > 0 {
 			_ = waitTo.Set(args[0])
 		}
+		runner := cliutil.NewRunnerFromCmd(WaitCmd, true)
 		if waitTo.Peer() == "" {
-			fmt.Fprintln(os.Stderr, "Error: peer is required (positional or --to)")
-			os.Exit(1)
+			runner.Fatal("peer is required (positional or --to)")
 		}
 
-		runner := cliutil.NewRunnerFromCmd(WaitCmd, true)
 		reply, polls, err := send.WaitForReply(runner, waitTo.Peer(), waitAfterID, waitTimeout)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			runner.Fatal(err.Error())
 		}
 		runner.PrintResult(map[string]any{
 			"reply": reply,

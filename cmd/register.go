@@ -24,7 +24,6 @@ import (
 func init() {
 	// Auth commands
 	auth.AddAuthCommand(RootCmd)
-	auth.AddLoginCommand(RootCmd)
 	auth.AddLogoutCommand(RootCmd)
 	get.AddMyInfoCommand(RootCmd)
 
@@ -71,6 +70,8 @@ func init() {
 	sys.AddLLMsTxtCommand(RootCmd)
 	sys.AddObservabilityCommands(RootCmd)
 	sys.AddServerCommand(RootCmd)
+	sys.AddDocsCommand(RootCmd)
+	sys.AddSkillsCommand(RootCmd)
 
 	// Register schema methods for commands not using helper constructors.
 	// Commands using NewSimpleCommand/NewToggleCommand/NewListCommand auto-register.
@@ -82,6 +83,7 @@ func registerSchemaMethods() {
 
 	// Root-level
 	r(BalanceCmd, "get_balance")
+	r(ChatsCmd, "get_chats")
 
 	// Get
 	r(get.MyInfoCmd, "get_me")

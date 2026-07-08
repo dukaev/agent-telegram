@@ -4,11 +4,15 @@ import (
 	"testing"
 
 	"agent-telegram/cmd/auth"
+	"agent-telegram/cmd/chat"
+	"agent-telegram/cmd/get"
 	"agent-telegram/cmd/sys"
 	"agent-telegram/internal/cliutil"
 	"agent-telegram/internal/observability"
 	"agent-telegram/internal/operations"
 	telegramipc "agent-telegram/internal/telegram/ipc"
+
+	"github.com/spf13/cobra"
 )
 
 func TestCommandMethodsHaveSchemasAndHandlers(t *testing.T) {
@@ -43,6 +47,11 @@ func TestOperationMethodsHaveHandlers(t *testing.T) {
 }
 
 func TestAgenticContractDoesNotExposeRemovedFlags(t *testing.T) {
+	for _, name := range []string{"agent", "run-id"} {
+		if RootCmd.PersistentFlags().Lookup(name) == nil {
+			t.Fatalf("root should expose --%s for agent mode", name)
+		}
+	}
 	for _, name := range []string{"text", "fields"} {
 		if RootCmd.PersistentFlags().Lookup(name) != nil {
 			t.Fatalf("root should not expose removed flag --%s", name)
@@ -60,6 +69,18 @@ func TestAgenticContractDoesNotExposeRemovedFlags(t *testing.T) {
 	if sys.AuditCmd.Flags().Lookup("redaction").DefValue != "safe" {
 		t.Fatal("audit redaction should default to safe")
 	}
+	if childCommand(RootCmd, "login") != nil {
+		t.Fatal("root should not expose removed login alias")
+	}
+	for name, cmd := range map[string]*cobra.Command{
+		"status":    sys.StatusCmd,
+		"updates":   get.UpdatesCmd,
+		"chat open": chat.OpenCmd,
+	} {
+		if cmd.Flags().Lookup("json") != nil {
+			t.Fatalf("%s should not expose removed --json flag", name)
+		}
+	}
 }
 
 func stringSet(values []string) map[string]struct{} {
@@ -68,4 +89,13 @@ func stringSet(values []string) map[string]struct{} {
 		set[value] = struct{}{}
 	}
 	return set
+}
+
+func childCommand(cmd *cobra.Command, name string) *cobra.Command {
+	for _, child := range cmd.Commands() {
+		if child.Name() == name {
+			return child
+		}
+	}
+	return nil
 }

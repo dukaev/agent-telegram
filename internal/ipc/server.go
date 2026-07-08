@@ -51,7 +51,7 @@ var (
 	ErrNotAuthorized = NewTypedError(
 		ErrCodeNotAuthorized,
 		ErrorTypeNotAuthorized,
-		"Not authorized. Run: agent-telegram login",
+		"Not authorized. Run: agent-telegram auth web",
 		nil,
 	)
 	// ErrNotInitialized is returned when the client is not initialized.
@@ -130,6 +130,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 					Message: fmt.Sprintf("Handler panic: %v", r),
 				},
 				ID:      req.ID,
+				RunID:   req.RunID,
 				TraceID: req.TraceID,
 			}
 		}
@@ -145,6 +146,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 			JSONRPC: "2.0",
 			Error:   ErrMethodNotFound,
 			ID:      req.ID,
+			RunID:   req.RunID,
 			TraceID: req.TraceID,
 		}
 	}
@@ -155,6 +157,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 			JSONRPC: "2.0",
 			Error:   err,
 			ID:      req.ID,
+			RunID:   req.RunID,
 			TraceID: req.TraceID,
 		}
 	}
@@ -163,6 +166,7 @@ func (s *Server) handleRequest(req *Request) (resp *Response) {
 		JSONRPC: "2.0",
 		Result:  result,
 		ID:      req.ID,
+		RunID:   req.RunID,
 		TraceID: req.TraceID,
 	}
 }
@@ -172,6 +176,7 @@ func (s *Server) logRequest(req *Request, resp *Response, duration time.Duration
 	params := truncateJSON(req.Params, maxLogSize)
 	if resp.Error != nil {
 		slog.Info("ipc: request",
+			"run_id", req.RunID,
 			"trace_id", req.TraceID,
 			"method", req.Method,
 			"params", params,
@@ -182,6 +187,7 @@ func (s *Server) logRequest(req *Request, resp *Response, duration time.Duration
 	} else {
 		resultJSON, _ := json.Marshal(resp.Result)
 		slog.Info("ipc: request",
+			"run_id", req.RunID,
 			"trace_id", req.TraceID,
 			"method", req.Method,
 			"params", params,

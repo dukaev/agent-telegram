@@ -29,6 +29,12 @@ func RegisterMethod(cmd *cobra.Command, method string) {
 	}
 }
 
+// MethodForCommand returns the registered IPC method for a cobra command.
+func MethodForCommand(cmd *cobra.Command) (string, bool) {
+	method, ok := commandMethods[cmd]
+	return method, ok
+}
+
 // ResultMethodNames returns all IPC methods with a registered result schema.
 func ResultMethodNames() []string {
 	return operations.Methods()

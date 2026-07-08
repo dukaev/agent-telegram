@@ -3,7 +3,7 @@ package bot
 
 import (
 	"fmt"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -72,9 +72,8 @@ func runStep(_ *cobra.Command, args []string) {
 	if len(args) > 0 {
 		_ = stepTo.Set(args[0])
 	}
-	requirePeer(stepTo.Peer())
-
 	runner := cliutil.NewRunnerFromCmd(StepCmd, true)
+	requirePeer(runner, stepTo.Peer())
 	var action any
 	var message map[string]any
 	var waitMeta map[string]any
@@ -88,8 +87,7 @@ func runStep(_ *cobra.Command, args []string) {
 		if stepWait {
 			reply, polls, err := send.WaitForReply(runner, stepTo.Peer(), afterID, stepTimeout)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+				runner.Fatal(err.Error())
 			}
 			message, _ = reply.(map[string]any)
 			waitMeta = map[string]any{
@@ -124,9 +122,8 @@ func runPress(_ *cobra.Command, args []string) {
 		messageIDArg = args[0]
 		buttonIndexArg = args[1]
 	}
-	requirePeer(pressTo.Peer())
-
 	runner := cliutil.NewRunnerFromCmd(PressCmd, true)
+	requirePeer(runner, pressTo.Peer())
 	messageID := runner.MustParseInt64(messageIDArg)
 	action := runner.Call("press_inline_button", map[string]any{
 		"peer":        pressTo.Peer(),
@@ -139,8 +136,7 @@ func runPress(_ *cobra.Command, args []string) {
 	if pressWait {
 		reply, polls, err := send.WaitForReply(runner, pressTo.Peer(), messageID, pressTimeout)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			runner.Fatal(err.Error())
 		}
 		message, _ = reply.(map[string]any)
 		waitMeta = map[string]any{
@@ -183,7 +179,9 @@ func buildBotState(runner *cliutil.Runner, peer string, message map[string]any) 
 		"message": message,
 	}
 	if message == nil {
-		state["suggestedActions"] = []any{"send"}
+		next := nextActions(peer, 0, state)
+		state["nextActions"] = next
+		state["suggestedActions"] = actionNames(next)
 		return state
 	}
 
@@ -201,22 +199,59 @@ func buildBotState(runner *cliutil.Runner, peer string, message map[string]any) 
 	if m, ok := keyboard.(map[string]any); ok {
 		state["replyKeyboard"] = m["keyboard"]
 	}
-	state["suggestedActions"] = suggestedActions(state)
+	next := nextActions(peer, messageID, state)
+	state["nextActions"] = next
+	state["suggestedActions"] = actionNames(next)
 	return state
 }
 
-func suggestedActions(state map[string]any) []string {
-	var actions []string
+func nextActions(peer string, messageID int64, state map[string]any) []map[string]any {
+	var actions []map[string]any
 	if buttons, ok := state["inlineButtons"].([]any); ok && len(buttons) > 0 {
-		actions = append(actions, "bot press")
+		actions = append(actions, map[string]any{
+			"kind":    "press_inline_button",
+			"command": fmt.Sprintf("agent-telegram bot press %s %d <button_index> --agent", shellArg(peer), messageID),
+			"safety":  "write",
+			"reason":  "inline buttons are available on the latest bot message",
+			"params": map[string]any{
+				"peer":      peer,
+				"messageId": messageID,
+			},
+		})
 	}
 	if keyboard, ok := state["replyKeyboard"].(map[string]any); ok && keyboard != nil {
 		if rows, ok := keyboard["rows"].([]any); ok && len(rows) > 0 {
-			actions = append(actions, "msg press-keyboard")
+			actions = append(actions, map[string]any{
+				"kind":    "press_reply_keyboard",
+				"command": fmt.Sprintf("agent-telegram msg press-keyboard %s <button_text_or_index> --wait-reply --agent", shellArg(peer)),
+				"safety":  "write",
+				"reason":  "reply keyboard buttons are available",
+				"params": map[string]any{
+					"peer": peer,
+				},
+			})
 		}
 	}
-	actions = append(actions, "bot step --send")
+	actions = append(actions, map[string]any{
+		"kind":    "send_text",
+		"command": fmt.Sprintf("agent-telegram bot step %s --send <text> --agent", shellArg(peer)),
+		"safety":  "write",
+		"reason":  "send text to continue the bot flow",
+		"params": map[string]any{
+			"peer": peer,
+		},
+	})
 	return actions
+}
+
+func actionNames(actions []map[string]any) []string {
+	names := make([]string, 0, len(actions))
+	for _, action := range actions {
+		if kind, _ := action["kind"].(string); kind != "" {
+			names = append(names, kind)
+		}
+	}
+	return names
 }
 
 func extractMessageID(value any) int64 {
@@ -227,9 +262,18 @@ func extractMessageID(value any) int64 {
 	return cliutil.ExtractInt64(m, "id")
 }
 
-func requirePeer(peer string) {
+func shellArg(value string) string {
+	if value == "" {
+		return "''"
+	}
+	if strings.ContainsAny(value, " \t\n\"'\\$`") {
+		return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+	}
+	return value
+}
+
+func requirePeer(runner *cliutil.Runner, peer string) {
 	if peer == "" {
-		fmt.Fprintln(os.Stderr, "Error: peer is required (positional or --to)")
-		os.Exit(1)
+		runner.Fatal("peer is required (positional or --to)")
 	}
 }

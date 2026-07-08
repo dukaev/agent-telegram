@@ -94,8 +94,7 @@ func HandleWaitReplyAfter(runner *cliutil.Runner, peer string, afterMsgID int64,
 
 	reply, polls, err := WaitForReply(runner, peer, afterMsgID, timeout)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		runner.Fatal(err.Error())
 	}
 
 	runner.PrintResult(map[string]any{

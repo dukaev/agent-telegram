@@ -8,12 +8,15 @@ import (
 	"strings"
 )
 
-const envTraceID = "AGENT_TELEGRAM_TRACE_ID"
+const (
+	envTraceID = "AGENT_TELEGRAM_TRACE_ID"
+	envRunID   = "AGENT_TELEGRAM_RUN_ID"
+)
 
 // NewTraceID returns a stable trace ID for one user-facing operation.
 func NewTraceID() string {
 	if value := strings.TrimSpace(os.Getenv(envTraceID)); value != "" {
-		return sanitizeTraceID(value)
+		return sanitizeID(value, "trace-unavailable")
 	}
 	var buf [16]byte
 	if _, err := rand.Read(buf[:]); err != nil {
@@ -22,8 +25,24 @@ func NewTraceID() string {
 	return hex.EncodeToString(buf[:])
 }
 
-// sanitizeTraceID keeps trace IDs log-friendly.
-func sanitizeTraceID(value string) string {
+// NewRunID returns a stable run ID for a multi-command agent task.
+func NewRunID() string {
+	if value := strings.TrimSpace(os.Getenv(envRunID)); value != "" {
+		return SanitizeRunID(value)
+	}
+	var buf [16]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		return "run-unavailable"
+	}
+	return "run_" + hex.EncodeToString(buf[:])
+}
+
+// SanitizeRunID keeps caller-provided run IDs log-friendly.
+func SanitizeRunID(value string) string {
+	return sanitizeID(value, "run-unavailable")
+}
+
+func sanitizeID(value, fallback string) string {
 	var b strings.Builder
 	for _, r := range value {
 		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' {
@@ -34,7 +53,7 @@ func sanitizeTraceID(value string) string {
 		}
 	}
 	if b.Len() == 0 {
-		return "trace-unavailable"
+		return fallback
 	}
 	return b.String()
 }

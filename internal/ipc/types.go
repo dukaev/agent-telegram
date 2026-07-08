@@ -9,6 +9,7 @@ type Request struct {
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
 	ID      interface{}     `json:"id"`
+	RunID   string          `json:"runId,omitempty"`
 	TraceID string          `json:"traceId,omitempty"`
 }
 
@@ -18,6 +19,7 @@ type Response struct {
 	Result  interface{}  `json:"result,omitempty"`
 	Error   *ErrorObject `json:"error,omitempty"`
 	ID      interface{}  `json:"id"`
+	RunID   string       `json:"runId,omitempty"`
 	TraceID string       `json:"traceId,omitempty"`
 }
 
