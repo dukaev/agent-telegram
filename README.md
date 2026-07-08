@@ -27,6 +27,7 @@ go build -o agent-telegram .
 
 ```bash
 AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web  # Local browser login
+AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web --qr # QR code login
 agent-telegram server ensure              # Start IPC server explicitly
 agent-telegram my-info                    # Get your profile
 agent-telegram chat list                  # List all chats
@@ -41,6 +42,7 @@ agent-telegram stop                       # Stop server
 
 ```bash
 AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web    # Local browser login
+AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web --qr # QR code login
 AGENT_TELEGRAM_PHONE=+123 agent-telegram auth begin  # Send login code, output JSON stateId
 echo "12345" | agent-telegram auth verify --state-id <id> --code-stdin
 echo "$PASSWORD" | agent-telegram auth password --state-id <id> --password-stdin
@@ -248,6 +250,8 @@ agent-telegram open @user                 # Quick open chat (alias)
 | `--receipt` | Wrap JSON output with trace/action receipt metadata |
 | `--dry-run` | Preview action without executing |
 | `--schema` | Output operation input/output schema without executing |
+| `--agent` | Enable compact JSON receipts, `runId`, and structured error envelopes |
+| `--run-id <id>` | Correlate multiple commands in one agent task |
 | `-l, --limit <n>` | Limit results (per command) |
 | `-o, --offset <n>` | Offset for pagination (per command) |
 
@@ -261,6 +265,7 @@ agent-telegram open @user                 # Quick open chat (alias)
 | `AGENT_TELEGRAM_SESSION_PATH` | Custom session file path |
 | `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |
 | `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api` |
+| `AGENT_TELEGRAM_RUN_ID` | Optional run ID shared across agent commands |
 
 Default API credentials are built-in, so you can start using agent-telegram immediately. To use your own credentials, get them at https://my.telegram.org and set via environment variables or `.env` file.
 
@@ -378,14 +383,16 @@ REST error responses preserve typed error metadata in `error.data.type`, such as
 For token-efficient reads, use output budgets:
 
 ```bash
+RUN_ID=run_demo_1
+agent-telegram server ensure --agent --run-id "$RUN_ID"
 agent-telegram msg list @user --verbosity compact --max-items 5 --max-text-chars 120
 agent-telegram msg list @user --summary
 agent-telegram msg list @user --omit entities,media
-agent-telegram send --to @user "hi" --dry-run --receipt
-agent-telegram msg press-button 123 0 --to @bot --wait-reply --receipt
-agent-telegram msg wait @bot --after-id 123 --timeout 20s
-agent-telegram bot step @bot --send "/start" --receipt
-agent-telegram bot press @bot 123 0 --receipt
+agent-telegram send --to @user "hi" --dry-run --agent --run-id "$RUN_ID"
+agent-telegram msg press-button 123 0 --to @bot --wait-reply --agent --run-id "$RUN_ID"
+agent-telegram msg wait @bot --after-id 123 --timeout 20s --agent --run-id "$RUN_ID"
+agent-telegram bot step @bot --send "/start" --agent --run-id "$RUN_ID"
+agent-telegram bot press @bot 123 0 --agent --run-id "$RUN_ID"
 ```
 
 For analysis and debugging, use redacted audit/log commands:
@@ -393,8 +400,12 @@ For analysis and debugging, use redacted audit/log commands:
 ```bash
 agent-telegram audit --last 20
 agent-telegram audit --trace-id <traceId>
+agent-telegram audit --run-id <runId>
 agent-telegram logs --kind cli --last 50
+agent-telegram logs --kind server --run-id <runId>
 agent-telegram logs --kind server --follow
+agent-telegram trace inspect <traceId> --agent
+agent-telegram run inspect <runId> --agent
 ```
 
 Audit/log commands default to `--redaction safe`, which hides free-form message

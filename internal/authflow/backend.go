@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"time"
 
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/tgauth"
@@ -18,6 +19,7 @@ type Backend interface {
 	SendCode(ctx context.Context, phone string) (*types.SendCodeResult, error)
 	SignIn(ctx context.Context, phone, code, codeHash string) (*types.SignInResult, error)
 	SignInWith2FA(ctx context.Context, phone, password string) (*types.SignInResult, error)
+	SignInWithQR(ctx context.Context, onToken func(tokenURL string, expiresAt time.Time) error) (*types.SignInResult, error)
 	SessionPath() string
 }
 
@@ -53,6 +55,11 @@ func (b *TelegramBackend) SignIn(
 // SignInWith2FA completes login with a Telegram 2FA password.
 func (b *TelegramBackend) SignInWith2FA(ctx context.Context, phone, password string) (*types.SignInResult, error) {
 	return b.service.SignInWith2FA(ctx, b.userID, phone, password)
+}
+
+// SignInWithQR completes login through Telegram QR code flow.
+func (b *TelegramBackend) SignInWithQR(ctx context.Context, onToken func(tokenURL string, expiresAt time.Time) error) (*types.SignInResult, error) {
+	return b.service.SignInWithQR(ctx, b.userID, onToken)
 }
 
 // SessionPath returns the session file path used by this backend.

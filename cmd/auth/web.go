@@ -1,11 +1,14 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"html"
+	"image/png"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,9 +19,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/authflow"
+	"agent-telegram/internal/types"
+
+	"github.com/gotd/td/telegram/auth/qrlogin"
+	"rsc.io/qr"
 )
 
 var authWebPort int
+var authWebQR bool
 
 // AuthWebCmd starts a local browser-based auth portal.
 var AuthWebCmd = &cobra.Command{
@@ -26,8 +34,10 @@ var AuthWebCmd = &cobra.Command{
 	Short: "Login through a local browser page",
 	Long: `Start a local browser-based login flow.
 
-The command sends a Telegram login code, prints a one-time localhost URL to
-stderr, waits for the browser form to complete, then emits final JSON on stdout.`,
+The command starts a local login page. Use --qr for Telegram QR login or let
+the existing phone-code flow handle verification. The page is printed to stderr
+as one-time localhost URL, then the command waits for completion and emits JSON
+on stdout.`,
 	Run: runAuthWeb,
 }
 
@@ -43,6 +53,11 @@ type webAuthSession struct {
 	state   *authflow.State
 	token   string
 	done    chan webAuthResult
+	qrMode  bool
+
+	qrImage    string
+	qrTokenURL string
+	qrExpires  time.Time
 
 	mu        sync.Mutex
 	completed bool
@@ -55,18 +70,28 @@ func runAuthWeb(cmd *cobra.Command, _ []string) {
 	if err != nil {
 		failJSON(err.Error())
 	}
-	if cfg.Phone == "" {
+	if !authWebQR && cfg.Phone == "" {
 		failJSON("phone is required")
 	}
 
 	backend := newAuthBackend(cfg)
-	result, err := backend.SendCode(context.Background(), cfg.Phone)
-	if err != nil {
-		failJSON(fmt.Sprintf("failed to send code: %v", err))
+
+	var result *types.SendCodeResult
+	if !authWebQR {
+		result, err = backend.SendCode(context.Background(), cfg.Phone)
+		if err != nil {
+			failJSON(fmt.Sprintf("failed to send code: %v", err))
+		}
 	}
 
 	store := authflow.NewStateStore(authStateDir)
-	state, err := store.Create(cfg.Phone, result.PhoneCodeHash, cfg.AppID, cfg.AppHash, backend.SessionPath(), authStateTTL)
+	phone := ""
+	codeHash := ""
+	if !authWebQR {
+		phone = cfg.Phone
+		codeHash = result.PhoneCodeHash
+	}
+	state, err := store.Create(phone, codeHash, cfg.AppID, cfg.AppHash, backend.SessionPath(), authStateTTL)
 	if err != nil {
 		failJSON(err.Error())
 	}
@@ -83,6 +108,7 @@ func runAuthWeb(cmd *cobra.Command, _ []string) {
 		store:   store,
 		state:   state,
 		token:   token,
+		qrMode:  authWebQR,
 		done:    make(chan webAuthResult, 1),
 	}
 
@@ -92,7 +118,19 @@ func runAuthWeb(cmd *cobra.Command, _ []string) {
 		failJSON(err.Error())
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Open this link:\n%s\n\nWaiting for browser login for %s...\n", link, maskPhone(state.Phone))
+	promptSuffix := "for this session"
+	if state.Phone != "" {
+		promptSuffix = "for " + maskPhone(state.Phone)
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Open this link:\n%s\n\nWaiting for browser login %s...\n", link, promptSuffix)
+
+	var cancel context.CancelFunc
+	if authWebQR {
+		ctx, done := context.WithTimeout(context.Background(), time.Until(state.ExpiresAt))
+		cancel = done
+		session.startQRCodeFlow(ctx)
+		defer cancel()
+	}
 
 	select {
 	case result := <-session.done:
@@ -158,10 +196,27 @@ func (s *webAuthSession) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
+	completed := s.completed
+	qrMode := s.qrMode
+	qrImage := s.qrImage
+	qrTokenURL := s.qrTokenURL
+	qrExpires := s.qrExpires
 	requires2FA := s.state.Requires2FA
 	hint := s.state.TwoFactorHint
-	completed := s.completed
 	s.mu.Unlock()
+
+	if qrMode {
+		if completed {
+			renderAuthPage(w, authPageData{Title: "Login complete", Message: "You can close this page."})
+			return
+		}
+		if qrImage == "" {
+			renderAuthPage(w, qrWaitingPageData(s.token))
+			return
+		}
+		renderAuthPage(w, qrPageData(s.token, qrImage, qrTokenURL, qrExpires))
+		return
+	}
 
 	switch {
 	case completed:
@@ -174,6 +229,13 @@ func (s *webAuthSession) handleAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *webAuthSession) handleVerify(w http.ResponseWriter, r *http.Request) {
+	if s.qrMode {
+		renderAuthPage(w, authPageData{
+			Title: "QR authentication",
+			Error: "QR mode does not use a verification code",
+		})
+		return
+	}
 	if !s.authorized(w, r) {
 		return
 	}
@@ -213,6 +275,13 @@ func (s *webAuthSession) handleVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *webAuthSession) handlePassword(w http.ResponseWriter, r *http.Request) {
+	if s.qrMode {
+		renderAuthPage(w, authPageData{
+			Title: "QR authentication",
+			Error: "QR mode does not use a 2FA form",
+		})
+		return
+	}
 	if !s.authorized(w, r) {
 		return
 	}
@@ -249,6 +318,46 @@ func (s *webAuthSession) complete(w http.ResponseWriter) {
 	renderAuthPage(w, authPageData{Title: "Login complete", Message: "You can close this page and return to the terminal."})
 }
 
+func (s *webAuthSession) completeAsync() {
+	body, err := finishAuth(s.cmd, s.state)
+	if err != nil {
+		s.finish(nil, err)
+		return
+	}
+	s.finish(body, nil)
+}
+
+func (s *webAuthSession) startQRCodeFlow(ctx context.Context) {
+	go func() {
+		result, err := s.backend.SignInWithQR(ctx, s.updateQRCode)
+		if err != nil {
+			s.finish(nil, err)
+			return
+		}
+		if !result.Success {
+			s.finish(nil, fmt.Errorf("QR authentication failed"))
+			return
+		}
+		s.completeAsync()
+	}()
+}
+
+func (s *webAuthSession) updateQRCode(tokenURL string, expiresAt time.Time) error {
+	qrImage, err := qrCodeImage(tokenURL)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.completed {
+		return nil
+	}
+	s.qrImage = qrImage
+	s.qrTokenURL = tokenURL
+	s.qrExpires = expiresAt
+	return nil
+}
+
 func (s *webAuthSession) finish(body map[string]any, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -282,6 +391,10 @@ type authPageData struct {
 	Error   string
 	Action  string
 	Token   string
+	QRImage string
+	QRLink  string
+	Refresh int
+	Expires string
 	Field   string
 	Type    string
 	Label   string
@@ -322,26 +435,102 @@ func passwordPageData(token, hint, errMsg string) authPageData {
 	}
 }
 
+func qrPageData(token, image, tokenURL string, expiresAt time.Time) authPageData {
+	expires := ""
+	if !expiresAt.IsZero() {
+		expires = expiresAt.Format(time.RFC3339)
+	}
+	return authPageData{
+		Title:   "Scan Telegram QR code",
+		Hint:    "Open Telegram on your phone and scan this code.",
+		Message: "Waiting for QR scan.",
+		Token:   token,
+		QRImage: image,
+		QRLink:  tokenURL,
+		Expires: expires,
+		Refresh: qrRefreshDelay(expiresAt),
+	}
+}
+
+func qrWaitingPageData(token string) authPageData {
+	return authPageData{
+		Title:   "Preparing QR login",
+		Hint:    "Generating a fresh login code.",
+		Message: "Please keep this page open.",
+		Token:   token,
+		Refresh: 1,
+	}
+}
+
+func qrRefreshDelay(expiresAt time.Time) int {
+	if expiresAt.IsZero() {
+		return 1
+	}
+	seconds := int(time.Until(expiresAt).Seconds())
+	if seconds <= 0 {
+		return 1
+	}
+	if seconds > 3 {
+		return 3
+	}
+	return seconds + 1
+}
+
+func qrCodeImage(tokenURL string) (string, error) {
+	token, err := qrlogin.ParseTokenURL(tokenURL)
+	if err != nil {
+		return "", fmt.Errorf("parse QR token URL: %w", err)
+	}
+	img, err := token.Image(qr.M)
+	if err != nil {
+		return "", fmt.Errorf("render QR image: %w", err)
+	}
+
+	var out bytes.Buffer
+	if err := png.Encode(&out, img); err != nil {
+		return "", fmt.Errorf("encode QR image: %w", err)
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(out.Bytes()), nil
+}
+
 func renderAuthPage(w http.ResponseWriter, data authPageData) {
 	setAuthHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	refresh := ""
+	if data.Refresh > 0 {
+		refresh = fmt.Sprintf(`<meta http-equiv="refresh" content="%d">`, data.Refresh)
+	}
 
 	fmt.Fprintf(w, `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+%s
 <title>%s</title>
 <style>
 :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f5f7fb; color: #101828; }
-main { width: min(420px, calc(100vw - 32px)); }
+main { width: min(560px, calc(100vw - 32px)); }
 h1 { font-size: 24px; margin: 0 0 12px; }
 p { line-height: 1.5; color: #475467; }
 form { display: grid; gap: 12px; }
 label { font-weight: 600; }
 input { box-sizing: border-box; width: 100%%; height: 44px; padding: 0 12px; font-size: 18px; border: 1px solid #cfd7e6; border-radius: 8px; }
 button { height: 44px; border: 0; border-radius: 8px; background: #1976d2; color: white; font-size: 16px; font-weight: 700; cursor: pointer; }
+img {
+  display: block;
+  width: min(100%%, 420px);
+  margin: 0 auto;
+  padding: 12px;
+  border: 1px solid #cfd7e6;
+  border-radius: 8px;
+  background: white;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+code { display:block; padding: 12px; border-radius: 8px; background: rgba(16, 24, 40, .05); overflow:auto; white-space: pre-wrap; word-break: break-word; }
 .panel { background: white; border: 1px solid #e3e8f2; border-radius: 8px; padding: 24px; box-shadow: 0 12px 30px rgba(16, 24, 40, .08); }
 .error { color: #b42318; font-weight: 600; }
 @media (prefers-color-scheme: dark) {
@@ -354,13 +543,25 @@ button { height: 44px; border: 0; border-radius: 8px; background: #1976d2; color
 </head>
 <body><main><section class="panel">
 <h1>%s</h1>
-`, html.EscapeString(data.Title), html.EscapeString(data.Title))
+`, refresh, html.EscapeString(data.Title), html.EscapeString(data.Title))
 
 	if data.Error != "" {
 		fmt.Fprintf(w, "<p class=\"error\">%s</p>\n", html.EscapeString(data.Error))
 	}
 	if data.Message != "" {
 		fmt.Fprintf(w, "<p>%s</p>\n", html.EscapeString(data.Message))
+	}
+	if data.Hint != "" && data.Action == "" {
+		fmt.Fprintf(w, "<p>%s</p>\n", html.EscapeString(data.Hint))
+	}
+	if data.QRImage != "" {
+		fmt.Fprintf(w, "<p><img alt=\"Telegram QR code\" src=\"%s\"></p>\n", html.EscapeString(data.QRImage))
+		if data.Expires != "" {
+			fmt.Fprintf(w, "<p>QR token valid until %s</p>\n", html.EscapeString(data.Expires))
+		}
+		if data.QRLink != "" {
+			fmt.Fprintf(w, "<p>%s</p>\n", html.EscapeString(data.QRLink))
+		}
 	}
 	if data.Action != "" {
 		fmt.Fprintf(w, `<p>%s</p>
@@ -389,5 +590,5 @@ func setAuthHeaders(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: 'self'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 }

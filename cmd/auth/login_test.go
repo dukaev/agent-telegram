@@ -24,6 +24,7 @@ type fakeAuthBackend struct {
 	passResult  *types.SignInResult
 	sentPhone   string
 	signedCode  string
+	qrTokenURL  string
 	password    string
 }
 
@@ -40,6 +41,18 @@ func (f *fakeAuthBackend) SignIn(_ context.Context, _ string, code, _ string) (*
 func (f *fakeAuthBackend) SignInWith2FA(_ context.Context, _ string, password string) (*types.SignInResult, error) {
 	f.password = password
 	return f.passResult, nil
+}
+
+func (f *fakeAuthBackend) SignInWithQR(
+	_ context.Context,
+	onToken func(tokenURL string, expiresAt time.Time) error,
+) (*types.SignInResult, error) {
+	if onToken != nil {
+		if err := onToken("tg://login?token=a", time.Time{}); err != nil {
+			return nil, err
+		}
+	}
+	return f.signResult, nil
 }
 
 func (f *fakeAuthBackend) SessionPath() string {

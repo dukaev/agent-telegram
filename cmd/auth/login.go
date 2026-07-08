@@ -116,6 +116,7 @@ func AddAuthCommand(rootCmd *cobra.Command) {
 	AuthVerifyCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
 	AuthPasswordCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
 	AuthWebCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
+	AuthWebCmd.Flags().BoolVar(&authWebQR, "qr", false, "Use QR code authentication flow")
 	AuthWebCmd.Flags().IntVar(&authWebPort, "port", 0, "Local web auth port (0 chooses a free port)")
 }
 
