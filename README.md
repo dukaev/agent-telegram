@@ -4,8 +4,6 @@ Telegram automation CLI for AI agents. It is a fast Go MTProto client with a loc
 
 By Aslan Dukaev [X](https://x.com/dukaev) · [Telegram](https://t.me/dukaev)
 
-![Screenshot](docs/screen.png)
-
 ## Install
 
 ```bash
