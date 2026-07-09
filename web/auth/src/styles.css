@@ -112,6 +112,30 @@ textarea {
   background: #f8fafc;
 }
 
+.mock-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #cfe0f8;
+  border-radius: 8px;
+  background: #f3f8ff;
+}
+
+.mock-title {
+  color: #194185;
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.mock-copy {
+  color: #4e5f7d;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .api-fields {
   display: grid;
   grid-template-columns: minmax(120px, 0.7fr) minmax(180px, 1fr);
@@ -312,7 +336,8 @@ textarea {
   }
 
   .setup-heading,
-  .setup-actions {
+  .setup-actions,
+  .mock-panel {
     align-items: stretch;
     flex-direction: column;
   }

@@ -128,6 +128,7 @@ func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) 
 	mux.HandleFunc("POST /auth/password", session.handlePassword)
 	mux.HandleFunc("POST /auth/policy", session.handlePolicy)
 	mux.HandleFunc("POST /auth/finish", session.handleFinish)
+	mux.HandleFunc("POST /auth/mock/advance", session.handleMockAdvance)
 
 	lc := &net.ListenConfig{}
 	ln, err := lc.Listen(ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", port))
@@ -161,6 +162,12 @@ func shutdownWebAuthServer(server *http.Server) {
 }
 
 func (s *webAuthSession) complete(ctx context.Context, w http.ResponseWriter) {
+	if s.runtime.WebMock {
+		s.completeForSetup(ctx, nil)
+		writeAuthState(w, http.StatusOK, s.clientState(""))
+		return
+	}
+
 	if err := s.persistCurrentSession(ctx); err != nil {
 		s.finish(nil, err)
 		writeAuthState(w, http.StatusInternalServerError, s.clientState("Failed to save Telegram session."))
@@ -177,6 +184,11 @@ func (s *webAuthSession) complete(ctx context.Context, w http.ResponseWriter) {
 }
 
 func (s *webAuthSession) completeAsync(ctx context.Context) {
+	if s.runtime.WebMock {
+		s.completeForSetup(ctx, nil)
+		return
+	}
+
 	if err := s.persistCurrentSession(ctx); err != nil {
 		s.finish(nil, err)
 		return
@@ -272,13 +284,19 @@ func (s *webAuthSession) updateAPISettings(appID int, appHash string) error {
 
 	cfg := config.LoadFromArgs(appID, appHash, phone, "")
 	backend := newAuthBackend(cfg)
+	var sessionData []byte
+	if s.runtime.WebMock {
+		mockBackend := newMockAuthBackend()
+		backend = mockBackend
+		sessionData = mockBackend.sessionData
+	}
 
 	s.mu.Lock()
 	s.backend = backend
 	s.state.AppID = appID
 	s.state.AppHash = appHash
-	s.state.SetSessionData(nil)
-	s.sessionData = nil
+	s.state.SetSessionData(sessionData)
+	s.sessionData = append([]byte(nil), sessionData...)
 	s.qrImage = ""
 	s.qrTokenURL = ""
 	s.qrExpires = time.Time{}
@@ -396,12 +414,19 @@ type authClientState struct {
 	Refresh   int           `json:"refresh,omitempty"`
 	API       authAPIState  `json:"api"`
 	Policy    policy.Policy `json:"policy"`
+	Mock      *authMockInfo `json:"mock,omitempty"`
 }
 
 type authAPIState struct {
 	AppID   int  `json:"appId"`
 	Default bool `json:"default"`
 	CanEdit bool `json:"canEdit"`
+}
+
+type authMockInfo struct {
+	Enabled  bool   `json:"enabled"`
+	Code     string `json:"code,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
 type authPeersState struct {

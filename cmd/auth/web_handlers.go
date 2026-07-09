@@ -60,7 +60,7 @@ func (s *webAuthSession) handlePolicy(w http.ResponseWriter, r *http.Request) {
 		writeAuthResponse(w, r, http.StatusBadRequest, s.clientState("Invalid policy payload."))
 		return
 	}
-	if err := policy.SaveDefault(nextPolicy); err != nil {
+	if err := s.savePolicy(nextPolicy); err != nil {
 		writeAuthResponse(w, r, http.StatusInternalServerError, s.clientState("Failed to save policy."))
 		return
 	}
@@ -129,7 +129,7 @@ func (s *webAuthSession) handleFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ok {
-		if err := policy.SaveDefault(nextPolicy); err != nil {
+		if err := s.savePolicy(nextPolicy); err != nil {
 			writeAuthState(w, http.StatusInternalServerError, s.clientState("Failed to save policy."))
 			return
 		}
@@ -140,7 +140,7 @@ func (s *webAuthSession) handleFinish(w http.ResponseWriter, r *http.Request) {
 
 	if body == nil {
 		var err error
-		body, err = finishAuth(s.cmd, s.runtime, s.state)
+		body, err = s.finishBody()
 		if err != nil {
 			writeAuthState(w, http.StatusInternalServerError, s.clientState(err.Error()))
 			return
@@ -196,6 +196,45 @@ func (s *webAuthSession) handleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.complete(r.Context(), w)
+}
+
+func (s *webAuthSession) handleMockAdvance(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(w, r) {
+		return
+	}
+	if !s.runtime.WebMock {
+		http.NotFound(w, r)
+		return
+	}
+	action, err := parseAuthField(r, "action", trimAllSpace)
+	if err != nil {
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Invalid mock payload."))
+		return
+	}
+	if action != "qr_scan" {
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Unsupported mock action."))
+		return
+	}
+	if !s.qrMode {
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Mock QR scan is only available in QR mode."))
+		return
+	}
+	s.completeForSetup(r.Context(), nil)
+	writeAuthState(w, http.StatusOK, s.clientState(""))
+}
+
+func (s *webAuthSession) savePolicy(nextPolicy policy.Policy) error {
+	if s.runtime.WebMock {
+		return nil
+	}
+	return policy.SaveDefault(nextPolicy)
+}
+
+func (s *webAuthSession) finishBody() (map[string]any, error) {
+	if s.runtime.WebMock {
+		return s.mockFinishBody()
+	}
+	return finishAuth(s.cmd, s.runtime, s.state)
 }
 
 func (s *webAuthSession) handlePassword(w http.ResponseWriter, r *http.Request) {

@@ -28,6 +28,7 @@ go build -o agent-telegram .
 ```bash
 AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web  # Local browser login
 AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web --qr # QR code login
+agent-telegram auth web --mock           # Try the web login UI with mock data
 agent-telegram server ensure              # Start IPC server explicitly
 agent-telegram my-info                    # Get your profile
 agent-telegram chat list                  # List all chats
@@ -307,6 +308,38 @@ list. For pure terminal flows, use `auth begin`, pipe the
 Telegram code into `auth verify --code-stdin`, and pipe the 2FA password into
 `auth password --password-stdin` if needed. Temporary auth state is stored
 locally with owner-only permissions and a TTL.
+
+#### Web Auth
+
+`auth web` starts a loopback-only browser flow. The React page is just the UI:
+Telegram QR/code login, session export, and IPC reload happen in the local Go
+process. The browser does not receive Telegram session bytes. After successful
+login, the runtime session is kept in memory; the temporary auth state is
+deleted when the flow finishes or expires.
+
+Use mock mode to develop and test the web UI without Telegram:
+
+```bash
+# QR flow with mock dialogs and a "Simulate QR scan" button
+agent-telegram auth web --mock
+
+# Code + 2FA flow with mock credentials
+agent-telegram auth web --mock --qr=false
+# code: 22222
+# password: mock-password
+```
+
+Mock mode returns a fixed dialog list with users, groups, channels, and bots,
+does not contact Telegram, does not reload the IPC server, and does not write
+the selected policy to the user's real policy file.
+
+The web UI can be hosted remotely only if it talks to a local
+`agent-telegram auth web` backend running on the user's machine. In that setup,
+the session stays with the client because the local backend owns the Telegram
+login. If the auth backend itself runs on a remote server, that server receives
+the Telegram session and must be treated as trusted infrastructure. A remote
+static frontend also needs explicit loopback API discovery/CORS handling before
+it can call the local backend safely.
 
 Use `agent-telegram <command> --schema` for per-command input/output schemas,
 safety metadata (`read`, `write`, `destructive`, `paid`), idempotency, retry

@@ -288,6 +288,7 @@ func resetAuthGlobals(t *testing.T, home string) {
 	authPassStdin = false
 	authReload = false
 	authWebQR = true
+	authWebMock = false
 	authStatusPhone = ""
 }
 

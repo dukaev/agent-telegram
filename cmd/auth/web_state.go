@@ -15,6 +15,7 @@ type webAuthSnapshot struct {
 	qrTokenURL  string
 	qrExpires   time.Time
 	policy      policy.Policy
+	mock        bool
 	requires2FA bool
 	hint        string
 	phone       string
@@ -49,6 +50,7 @@ func (s *webAuthSession) snapshot() webAuthSnapshot {
 		qrTokenURL:  s.qrTokenURL,
 		qrExpires:   s.qrExpires,
 		policy:      s.policy,
+		mock:        s.runtime.WebMock,
 		requires2FA: s.state.Requires2FA,
 		hint:        s.state.TwoFactorHint,
 		phone:       s.state.Phone,
@@ -62,7 +64,7 @@ func (s webAuthSnapshot) baseClientState(errMsg string) authClientState {
 	if currentPolicy.Version == 0 {
 		currentPolicy = policy.Default()
 	}
-	return authClientState{
+	state := authClientState{
 		Error:     errMsg,
 		Completed: s.completed,
 		API: authAPIState{
@@ -72,6 +74,10 @@ func (s webAuthSnapshot) baseClientState(errMsg string) authClientState {
 		},
 		Policy: currentPolicy,
 	}
+	if s.mock {
+		state.Mock = &authMockInfo{Enabled: true, Code: mockCode, Password: mockPassword}
+	}
+	return state
 }
 
 func (s webAuthSnapshot) completedClientState(data authClientState) authClientState {

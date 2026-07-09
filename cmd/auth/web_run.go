@@ -10,6 +10,7 @@ import (
 
 	"agent-telegram/internal/authflow"
 	"agent-telegram/internal/config"
+	"agent-telegram/internal/policy"
 )
 
 type webAuthStart struct {
@@ -20,6 +21,10 @@ type webAuthStart struct {
 }
 
 func buildWebAuthStart(runtime authRuntimeConfig) (webAuthStart, error) {
+	if runtime.WebMock {
+		return mockWebAuthStart(runtime)
+	}
+
 	cfg, err := runtime.authConfig(runtime.Phone)
 	if err != nil {
 		return webAuthStart{}, err
@@ -76,11 +81,25 @@ func newWebAuthSession(
 		state:       start.state,
 		token:       token,
 		qrMode:      runtime.WebQR,
-		policy:      loadWebPolicy(),
+		policy:      webAuthInitialPolicy(runtime),
 		sessionData: append([]byte(nil), start.sessionData...),
-		peerLoader:  loadAuthPeers,
+		peerLoader:  webAuthPeerLoader(runtime),
 		done:        make(chan webAuthResult, 1),
 	}
+}
+
+func webAuthInitialPolicy(runtime authRuntimeConfig) policy.Policy {
+	if runtime.WebMock {
+		return policy.Default()
+	}
+	return loadWebPolicy()
+}
+
+func webAuthPeerLoader(runtime authRuntimeConfig) func(context.Context, *authflow.State, []byte) ([]authPeer, error) {
+	if runtime.WebMock {
+		return mockAuthPeers
+	}
+	return loadAuthPeers
 }
 
 func printWebAuthStart(cmd *cobra.Command, link string, state *authflow.State) error {

@@ -40,6 +40,7 @@ var (
 	authPassStdin   bool
 	authReload      bool
 	authStatusPhone string
+	authWebMock     bool
 )
 
 var newAuthBackend = func(cfg *config.Config) authflow.Backend {
@@ -59,6 +60,7 @@ type authRuntimeConfig struct {
 	StatusPhone string
 	WebQR       bool
 	WebPort     int
+	WebMock     bool
 }
 
 func authRuntimeFromGlobals() authRuntimeConfig {
@@ -75,6 +77,7 @@ func authRuntimeFromGlobals() authRuntimeConfig {
 		StatusPhone: authStatusPhone,
 		WebQR:       authWebQR,
 		WebPort:     authWebPort,
+		WebMock:     authWebMock,
 	}
 }
 
@@ -158,6 +161,7 @@ func AddAuthCommand(rootCmd *cobra.Command) {
 	AuthWebCmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
 	AuthWebCmd.Flags().BoolVar(&authWebQR, "qr", true, "Use QR code authentication flow")
 	AuthWebCmd.Flags().IntVar(&authWebPort, "port", 0, "Local web auth port (0 chooses a free port)")
+	AuthWebCmd.Flags().BoolVar(&authWebMock, "mock", false, "Use mock web auth data without Telegram")
 }
 
 func addBeginFlags(cmd *cobra.Command) {

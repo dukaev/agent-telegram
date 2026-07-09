@@ -49,12 +49,19 @@ type AuthState = {
   refresh?: number;
   api: AuthAPI;
   policy: Policy;
+  mock?: AuthMock;
 };
 
 type AuthAPI = {
   appId: number;
   default: boolean;
   canEdit: boolean;
+};
+
+type AuthMock = {
+  enabled: boolean;
+  code?: string;
+  password?: string;
 };
 
 type PeerOption = {
@@ -671,6 +678,8 @@ function AuthBody({
     }
   };
 
+  const mock = state.mock?.enabled ? state.mock : undefined;
+
   if (state.mode === "setup") {
     return null;
   }
@@ -688,12 +697,30 @@ function AuthBody({
 
   if (state.mode === "qr") {
     return (
-      <div className="qr-stage">
-        {state.qrImage ? (
-          <img alt="Telegram QR code" className="qr-image" src={state.qrImage} />
-        ) : (
-          <div className="flex min-h-56 items-center justify-center">
-            <Spinner size="lg" />
+      <div className="grid gap-3">
+        <div className="qr-stage">
+          {state.qrImage ? (
+            <img alt="Telegram QR code" className="qr-image" src={state.qrImage} />
+          ) : (
+            <div className="flex min-h-56 items-center justify-center">
+              <Spinner size="lg" />
+            </div>
+          )}
+        </div>
+        {mock && (
+          <div className="mock-panel">
+            <div>
+              <div className="mock-title">Mock data</div>
+              <div className="mock-copy">QR scan moves this session to dialog filtering.</div>
+            </div>
+            <Button
+              isDisabled={submitting}
+              size="sm"
+              type="button"
+              onClick={() => void submit("/auth/mock/advance", {action: "qr_scan"})}
+            >
+              Simulate QR scan
+            </Button>
           </div>
         )}
       </div>
@@ -726,6 +753,23 @@ function AuthBody({
           value={password}
           onChange={(event) => setPassword(event.currentTarget.value)}
         />
+        {mock?.password && (
+          <div className="mock-panel">
+            <div>
+              <div className="mock-title">Mock password</div>
+              <div className="mock-copy">{mock.password}</div>
+            </div>
+            <Button
+              isDisabled={submitting}
+              size="sm"
+              type="button"
+              variant="secondary"
+              onClick={() => void submit("/auth/password", {password: mock.password ?? ""})}
+            >
+              Use password
+            </Button>
+          </div>
+        )}
         <Button isDisabled={submitting} type="submit">
           {submitting ? "Completing" : "Complete login"}
         </Button>
@@ -758,6 +802,23 @@ function AuthBody({
         value={code}
         onChange={(event) => setCode(event.currentTarget.value)}
       />
+      {mock?.code && (
+        <div className="mock-panel">
+          <div>
+            <div className="mock-title">Mock code</div>
+            <div className="mock-copy">{mock.code}</div>
+          </div>
+          <Button
+            isDisabled={submitting}
+            size="sm"
+            type="button"
+            variant="secondary"
+            onClick={() => void submit("/auth/verify", {code: mock.code ?? ""})}
+          >
+            Use code
+          </Button>
+        </div>
+      )}
       <Button isDisabled={submitting} type="submit">
         {submitting ? "Verifying" : "Verify code"}
       </Button>

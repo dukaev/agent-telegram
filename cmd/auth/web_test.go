@@ -483,6 +483,101 @@ func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 	}
 }
 
+func TestWebAuthMockQRFlowAdvancesToPeerSetup(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	runtime := authRuntimeFromGlobals()
+	runtime.WebMock = true
+	runtime.WebQR = true
+
+	start, err := buildWebAuthStart(runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := newWebAuthSession(&cobra.Command{}, runtime, start, "test-token")
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/mock/advance?t=test-token",
+		strings.NewReader(`{"action":"qr_scan"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	session.handleMockAdvance(rec, req)
+
+	authState := decodeAuthState(t, rec)
+	if rec.Code != http.StatusOK || authState.Mode != "setup" || !authState.Completed {
+		t.Fatalf("mock qr state = %+v, status %d", authState, rec.Code)
+	}
+	waitForPeers(t, session)
+
+	req = httptest.NewRequest(http.MethodGet, "/auth/peers?t=test-token", nil)
+	rec = httptest.NewRecorder()
+	session.handlePeers(rec, req)
+	var peers authPeersState
+	if err := json.Unmarshal(rec.Body.Bytes(), &peers); err != nil {
+		t.Fatal(err)
+	}
+	if peers.Count != 5 || !peers.Loaded {
+		t.Fatalf("mock peers = %+v", peers)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/auth/finish?t=test-token", strings.NewReader(testAllowUserPolicyBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	session.handleFinish(rec, req)
+	result := <-session.done
+	if result.err != nil || result.body["mock"] != true || result.body["next"] != "done" {
+		t.Fatalf("mock finish = %#v, err %v", result.body, result.err)
+	}
+}
+
+func TestWebAuthMockCodeFlowUsesMockCredentials(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	runtime := authRuntimeFromGlobals()
+	runtime.WebMock = true
+	runtime.WebQR = false
+	runtime.Phone = ""
+
+	start, err := buildWebAuthStart(runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := newWebAuthSession(&cobra.Command{}, runtime, start, "test-token")
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/state?t=test-token", nil)
+	rec := httptest.NewRecorder()
+	session.handleState(rec, req)
+	authState := decodeAuthState(t, rec)
+	if authState.Mode != "code" || authState.Mock == nil || authState.Mock.Code != mockCode {
+		t.Fatalf("initial mock state = %+v", authState)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/auth/verify?t=test-token", strings.NewReader(`{"code":"`+mockCode+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	session.handleVerify(rec, req)
+	authState = decodeAuthState(t, rec)
+	if authState.Mode != "password" || authState.Mock == nil || authState.Mock.Password != mockPassword {
+		t.Fatalf("mock password state = %+v", authState)
+	}
+
+	req = httptest.NewRequest(
+		http.MethodPost,
+		"/auth/password?t=test-token",
+		strings.NewReader(`{"password":"`+mockPassword+`"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	session.handlePassword(rec, req)
+	authState = decodeAuthState(t, rec)
+	if rec.Code != http.StatusOK || authState.Mode != "setup" || !authState.Completed {
+		t.Fatalf("mock setup state = %+v, status %d", authState, rec.Code)
+	}
+	waitForPeers(t, session)
+}
+
 func TestAuthPeersFromChatsMapsDialogTypes(t *testing.T) {
 	peers := authPeersFromChats([]map[string]any{
 		{
