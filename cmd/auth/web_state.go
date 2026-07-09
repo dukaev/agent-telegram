@@ -70,7 +70,7 @@ func (s webAuthSnapshot) baseClientState(errMsg string) authClientState {
 		API: authAPIState{
 			AppID:   s.appID,
 			Default: isDefaultAPISettings(s.appID, s.appHash),
-			CanEdit: s.qrMode && !s.completed && !s.doneSent,
+			CanEdit: !s.completed && !s.doneSent && (s.qrMode || s.phone == ""),
 		},
 		Policy: currentPolicy,
 	}
@@ -82,13 +82,13 @@ func (s webAuthSnapshot) baseClientState(errMsg string) authClientState {
 
 func (s webAuthSnapshot) completedClientState(data authClientState) authClientState {
 	if s.doneSent {
-		data.Title = "Вход завершен"
+		data.Title = "Всё готово"
 		data.Message = "Настройки сохранены."
 		data.Mode = "done"
 		return data
 	}
-	data.Title = "Вход выполнен"
-	data.Message = "Выбери, с кем агент может взаимодействовать."
+	data.Title = "Настрой доступ"
+	data.Message = "Выбери диалоги, с которыми сможет работать агент."
 	data.Mode = "setup"
 	return data
 }
@@ -96,12 +96,12 @@ func (s webAuthSnapshot) completedClientState(data authClientState) authClientSt
 func (s webAuthSnapshot) qrClientState(data authClientState) authClientState {
 	data.Mode = "qr"
 	data.Refresh = 1
-	data.Message = "Отсканируй код в Telegram."
+	data.Message = "Отсканируй код в приложении Telegram."
 	if s.qrImage == "" {
-		data.Title = "Готовлю QR-код"
+		data.Title = "Войдите в Telegram"
 		return data
 	}
-	data.Title = "Вход по QR-коду"
+	data.Title = "Войдите в Telegram"
 	data.QRImage = s.qrImage
 	data.QRLink = s.qrTokenURL
 	data.Refresh = qrRefreshDelay(s.qrExpires)
@@ -112,20 +112,26 @@ func (s webAuthSnapshot) qrClientState(data authClientState) authClientState {
 }
 
 func (s webAuthSnapshot) passwordClientState(data authClientState) authClientState {
-	data.Title = "Two-step verification"
+	data.Title = "Введите пароль"
 	data.Mode = "password"
-	data.Hint = "Enter your Telegram 2FA password."
+	data.Hint = "Введи пароль двухэтапной аутентификации Telegram."
 	if s.hint != "" {
-		data.Hint = "2FA hint: " + s.hint
+		data.Hint = "Подсказка: " + s.hint
 	}
 	return data
 }
 
 func (s webAuthSnapshot) codeClientState(data authClientState) authClientState {
-	data.Title = "Telegram login"
-	data.Mode = "code"
+	data.Title = "Войдите по номеру"
 	data.Phone = maskPhone(s.phone)
-	data.Hint = "Enter the code Telegram sent for " + data.Phone + "."
+	if s.phone == "" {
+		data.Mode = "phone"
+		data.Hint = "Укажи номер, к которому привязан аккаунт Telegram."
+		return data
+	}
+	data.Mode = "code"
+	data.Title = "Введите код"
+	data.Hint = "Telegram отправил код для " + data.Phone + "."
 	return data
 }
 

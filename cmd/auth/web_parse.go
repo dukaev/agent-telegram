@@ -25,6 +25,23 @@ func parseAuthField(r *http.Request, name string, trim func(string) string) (str
 	return trim(r.FormValue(name)), nil
 }
 
+func parseAuthModeRequest(r *http.Request) (mode string, phone string, err error) {
+	if isJSONRequest(r) {
+		var body struct {
+			Mode  string `json:"mode"`
+			Phone string `json:"phone"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			return "", "", err
+		}
+		return strings.TrimSpace(body.Mode), strings.TrimSpace(body.Phone), nil
+	}
+	if err := r.ParseForm(); err != nil {
+		return "", "", err
+	}
+	return strings.TrimSpace(r.FormValue("mode")), strings.TrimSpace(r.FormValue("phone")), nil
+}
+
 func parsePolicyRequest(r *http.Request) (policy.Policy, error) {
 	if isJSONRequest(r) {
 		var nextPolicy policy.Policy

@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
+	"unicode"
 
 	"agent-telegram/internal/policy"
 )
@@ -78,8 +81,12 @@ func (s *webAuthSession) handleAPISettings(w http.ResponseWriter, r *http.Reques
 	if !s.authorized(w, r) {
 		return
 	}
-	if !s.qrMode {
-		writeAuthState(w, http.StatusBadRequest, s.clientState("API settings are only available for QR login."))
+	s.mu.Lock()
+	qrMode := s.qrMode
+	phone := s.state.Phone
+	s.mu.Unlock()
+	if !qrMode && phone != "" {
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Изменить API можно до отправки кода."))
 		return
 	}
 
@@ -106,8 +113,80 @@ func (s *webAuthSession) handleAPISettings(w http.ResponseWriter, r *http.Reques
 		writeAuthState(w, http.StatusInternalServerError, s.clientState("Failed to update API settings."))
 		return
 	}
-	s.startQRCodeFlow(r.Context())
+	if qrMode {
+		s.startQRCodeFlow()
+	}
 	writeAuthState(w, http.StatusOK, s.clientState(""))
+}
+
+func (s *webAuthSession) handleMode(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(w, r) {
+		return
+	}
+	mode, phone, err := parseAuthModeRequest(r)
+	if err != nil {
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Не удалось изменить способ входа."))
+		return
+	}
+
+	s.mu.Lock()
+	completed := s.completed
+	doneSent := s.doneSent
+	s.mu.Unlock()
+	if completed || doneSent {
+		writeAuthState(w, http.StatusConflict, s.clientState("Вход уже завершён."))
+		return
+	}
+
+	switch mode {
+	case "phone":
+		s.cancelQRCodeFlow()
+		if err := s.resetAuthMode(false); err != nil {
+			writeAuthState(w, http.StatusInternalServerError, s.clientState("Не удалось подготовить вход по номеру."))
+			return
+		}
+	case "code":
+		phone, err = normalizeAuthPhone(phone)
+		if err != nil {
+			writeAuthState(w, http.StatusBadRequest, s.clientState(err.Error()))
+			return
+		}
+		s.cancelQRCodeFlow()
+		if err := s.beginPhoneCode(r.Context(), phone); err != nil {
+			writeAuthState(w, http.StatusBadRequest, s.clientState("Не удалось отправить код. Проверь номер и попробуй снова."))
+			return
+		}
+	case "qr":
+		s.cancelQRCodeFlow()
+		if err := s.resetAuthMode(true); err != nil {
+			writeAuthState(w, http.StatusInternalServerError, s.clientState("Не удалось подготовить QR-код."))
+			return
+		}
+		s.startQRCodeFlow()
+	default:
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Неизвестный способ входа."))
+		return
+	}
+
+	writeAuthState(w, http.StatusOK, s.clientState(""))
+}
+
+func normalizeAuthPhone(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	var digits strings.Builder
+	for _, r := range value {
+		if unicode.IsDigit(r) {
+			digits.WriteRune(r)
+			continue
+		}
+		if r != '+' && r != ' ' && r != '-' && r != '(' && r != ')' {
+			return "", fmt.Errorf("Введи номер телефона в международном формате.")
+		}
+	}
+	if digits.Len() < 7 || digits.Len() > 15 {
+		return "", fmt.Errorf("Введи номер телефона в международном формате.")
+	}
+	return "+" + digits.String(), nil
 }
 
 func (s *webAuthSession) handleFinish(w http.ResponseWriter, r *http.Request) {

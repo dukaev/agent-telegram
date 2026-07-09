@@ -82,7 +82,7 @@ func TestWebAuthVerifyThenPasswordCompletes2FA(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	authState := decodeAuthState(t, rec)
-	if authState.Mode != "password" || authState.Title != "Two-step verification" {
+	if authState.Mode != "password" || authState.Title != "Введите пароль" {
 		t.Fatalf("verify should return password state, got: %+v", authState)
 	}
 	select {
@@ -352,7 +352,7 @@ func TestWebAuthQRCompletionWaitsForFilterSetup(t *testing.T) {
 	rec := httptest.NewRecorder()
 	session.handleState(rec, req)
 	authState := decodeAuthState(t, rec)
-	if !authState.Completed || authState.Mode != "setup" || authState.Title != "Вход выполнен" {
+	if !authState.Completed || authState.Mode != "setup" || authState.Title != "Настрой доступ" {
 		t.Fatalf("unexpected setup state: %+v", authState)
 	}
 
@@ -576,6 +576,57 @@ func TestWebAuthMockCodeFlowUsesMockCredentials(t *testing.T) {
 		t.Fatalf("mock setup state = %+v, status %d", authState, rec.Code)
 	}
 	waitForPeers(t, session)
+}
+
+func TestWebAuthMockCanSwitchBetweenQRAndPhone(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	runtime := authRuntimeFromGlobals()
+	runtime.WebMock = true
+	runtime.WebQR = true
+
+	start, err := buildWebAuthStart(runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := newWebAuthSession(&cobra.Command{}, runtime, start, "test-token")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	session.setContext(ctx)
+	session.startQRCodeFlow()
+	defer session.cancelQRCodeFlow()
+
+	postMode := func(body string) authClientState {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/auth/mode?t=test-token", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		session.handleMode(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("mode status = %d; body: %s", rec.Code, rec.Body.String())
+		}
+		return decodeAuthState(t, rec)
+	}
+
+	if state := postMode(`{"mode":"phone"}`); state.Mode != "phone" {
+		t.Fatalf("phone-entry state = %+v", state)
+	}
+	if state := postMode(`{"mode":"code","phone":"+1 (555) 010-1010"}`); state.Mode != "code" || state.Phone == "" {
+		t.Fatalf("code state = %+v", state)
+	}
+	if state := postMode(`{"mode":"qr"}`); state.Mode != "qr" {
+		t.Fatalf("qr state = %+v", state)
+	}
+}
+
+func TestNormalizeAuthPhone(t *testing.T) {
+	phone, err := normalizeAuthPhone("+90 (555) 123-45-67")
+	if err != nil || phone != "+905551234567" {
+		t.Fatalf("normalizeAuthPhone = %q, %v", phone, err)
+	}
+	if _, err := normalizeAuthPhone("12"); err == nil {
+		t.Fatal("short phone should be rejected")
+	}
 }
 
 func TestAuthPeersFromChatsMapsDialogTypes(t *testing.T) {

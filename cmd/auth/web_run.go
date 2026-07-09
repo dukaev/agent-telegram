@@ -77,6 +77,7 @@ func newWebAuthSession(
 		cmd:         cmd,
 		runtime:     runtime,
 		backend:     start.backend,
+		ctx:         context.Background(),
 		store:       start.store,
 		state:       start.state,
 		token:       token,

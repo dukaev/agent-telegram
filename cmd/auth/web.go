@@ -50,6 +50,7 @@ type webAuthSession struct {
 	cmd     *cobra.Command
 	runtime authRuntimeConfig
 	backend authflow.Backend
+	ctx     context.Context
 	store   *authflow.StateStore
 	state   *authflow.State
 	token   string
@@ -97,6 +98,7 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 
 	authCtx, authCancel := context.WithCancel(context.Background())
 	defer authCancel()
+	session.setContext(authCtx)
 
 	server, link, err := startWebAuthServer(authCtx, session, runtime.WebPort)
 	if err != nil {
@@ -111,7 +113,7 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 	}
 
 	if runtime.WebQR {
-		session.startQRCodeFlow(authCtx)
+		session.startQRCodeFlow()
 	}
 	waitForWebAuthResult(session, server, start)
 }
@@ -124,6 +126,7 @@ func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) 
 	mux.HandleFunc("GET /auth/peers", session.handlePeers)
 	mux.HandleFunc("GET /auth/assets/", handleAuthAsset)
 	mux.HandleFunc("POST /auth/api", session.handleAPISettings)
+	mux.HandleFunc("POST /auth/mode", session.handleMode)
 	mux.HandleFunc("POST /auth/verify", session.handleVerify)
 	mux.HandleFunc("POST /auth/password", session.handlePassword)
 	mux.HandleFunc("POST /auth/policy", session.handlePolicy)
@@ -196,7 +199,22 @@ func (s *webAuthSession) completeAsync(ctx context.Context) {
 	s.completeForSetup(ctx, nil)
 }
 
-func (s *webAuthSession) startQRCodeFlow(ctx context.Context) {
+func (s *webAuthSession) setContext(ctx context.Context) {
+	s.mu.Lock()
+	s.ctx = ctx
+	s.mu.Unlock()
+}
+
+func (s *webAuthSession) authContext() context.Context {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ctx == nil {
+		return context.Background()
+	}
+	return s.ctx
+}
+
+func (s *webAuthSession) startQRCodeFlow() {
 	s.mu.Lock()
 	timeout := time.Until(s.state.ExpiresAt)
 	if timeout <= 0 {
@@ -215,7 +233,7 @@ func (s *webAuthSession) startQRCodeFlow(ctx context.Context) {
 		previousCancel()
 	}
 
-	flowCtx, cancel := context.WithTimeout(ctx, timeout)
+	flowCtx, cancel := context.WithTimeout(s.authContext(), timeout)
 	s.mu.Lock()
 	if s.qrVersion == version {
 		s.qrCancel = cancel
@@ -300,6 +318,72 @@ func (s *webAuthSession) updateAPISettings(appID int, appHash string) error {
 	s.qrImage = ""
 	s.qrTokenURL = ""
 	s.qrExpires = time.Time{}
+	state := *s.state
+	s.mu.Unlock()
+
+	return s.store.Save(&state)
+}
+
+func (s *webAuthSession) resetAuthMode(qrMode bool) error {
+	s.mu.Lock()
+	appID := s.state.AppID
+	appHash := s.state.AppHash
+	s.mu.Unlock()
+
+	backend := newAuthBackend(config.LoadFromArgs(appID, appHash, "", ""))
+	var sessionData []byte
+	if s.runtime.WebMock {
+		mockBackend := newMockAuthBackend()
+		backend = mockBackend
+		sessionData = mockBackend.sessionData
+	}
+
+	s.mu.Lock()
+	s.backend = backend
+	s.qrMode = qrMode
+	s.state.Phone = ""
+	s.state.PhoneCodeHash = ""
+	s.state.Requires2FA = false
+	s.state.TwoFactorHint = ""
+	s.state.SetSessionData(sessionData)
+	s.sessionData = append([]byte(nil), sessionData...)
+	s.qrImage = ""
+	s.qrTokenURL = ""
+	s.qrExpires = time.Time{}
+	state := *s.state
+	s.mu.Unlock()
+
+	return s.store.Save(&state)
+}
+
+func (s *webAuthSession) beginPhoneCode(ctx context.Context, phone string) error {
+	s.mu.Lock()
+	appID := s.state.AppID
+	appHash := s.state.AppHash
+	s.mu.Unlock()
+
+	backend := newAuthBackend(config.LoadFromArgs(appID, appHash, phone, ""))
+	if s.runtime.WebMock {
+		backend = newMockAuthBackend()
+	}
+	result, err := backend.SendCode(ctx, phone)
+	if err != nil {
+		return fmt.Errorf("send Telegram code: %w", err)
+	}
+	sessionData, err := backend.ExportSession(ctx)
+	if err != nil {
+		return fmt.Errorf("export auth session: %w", err)
+	}
+
+	s.mu.Lock()
+	s.backend = backend
+	s.qrMode = false
+	s.state.Phone = phone
+	s.state.PhoneCodeHash = result.PhoneCodeHash
+	s.state.Requires2FA = false
+	s.state.TwoFactorHint = ""
+	s.state.SetSessionData(sessionData)
+	s.sessionData = append([]byte(nil), sessionData...)
 	state := *s.state
 	s.mu.Unlock()
 
