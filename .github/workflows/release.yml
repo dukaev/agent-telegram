@@ -10,7 +10,9 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    # Native macOS builds use Security.framework for Keychain-backed sessions.
+    # CGO-free Linux/Windows targets are cross-compiled by the same release.
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4

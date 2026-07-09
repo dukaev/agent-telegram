@@ -76,6 +76,8 @@ func init() {
 
 	// Global flags
 	RootCmd.PersistentFlags().StringP("socket", "s", paths.DefaultSocketPath, "Path to Unix socket")
+	RootCmd.PersistentFlags().String("session-provider", os.Getenv("AGENT_TELEGRAM_SESSION_PROVIDER"), "Session provider (default: native platform provider)")
+	RootCmd.PersistentFlags().String("profile", os.Getenv("AGENT_TELEGRAM_PROFILE"), "Session profile (default: default)")
 	RootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress status messages (data still goes to stdout)")
 	RootCmd.PersistentFlags().String("output", "", "Output format: json or ids")
 	RootCmd.PersistentFlags().StringSlice("filter", nil, "Filter results (e.g., 'stars>1000', 'type=channel')")

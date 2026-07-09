@@ -70,6 +70,12 @@ type webAuthSession struct {
 	peersError   string
 	peerLoader   func(context.Context, *authflow.State, []byte) ([]authPeer, error)
 
+	sessionProvider   string
+	sessionProfile    string
+	sessionPersistent bool
+	savedSession      bool
+	sessionStoreError string
+
 	mu        sync.Mutex
 	completed bool
 	doneSent  bool
@@ -127,6 +133,7 @@ func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) 
 	mux.HandleFunc("GET /auth/assets/", handleAuthAsset)
 	mux.HandleFunc("POST /auth/api", session.handleAPISettings)
 	mux.HandleFunc("POST /auth/mode", session.handleMode)
+	mux.HandleFunc("POST /auth/session", session.handleSavedSession)
 	mux.HandleFunc("POST /auth/verify", session.handleVerify)
 	mux.HandleFunc("POST /auth/password", session.handlePassword)
 	mux.HandleFunc("POST /auth/policy", session.handlePolicy)
@@ -485,20 +492,30 @@ func newWebToken() (string, error) {
 }
 
 type authClientState struct {
-	Title     string        `json:"title"`
-	Message   string        `json:"message,omitempty"`
-	Error     string        `json:"error,omitempty"`
-	Mode      string        `json:"mode"`
-	Completed bool          `json:"completed"`
-	Phone     string        `json:"phone,omitempty"`
-	Hint      string        `json:"hint,omitempty"`
-	QRImage   string        `json:"qrImage,omitempty"`
-	QRLink    string        `json:"qrLink,omitempty"`
-	Expires   string        `json:"expires,omitempty"`
-	Refresh   int           `json:"refresh,omitempty"`
-	API       authAPIState  `json:"api"`
-	Policy    policy.Policy `json:"policy"`
-	Mock      *authMockInfo `json:"mock,omitempty"`
+	Title     string           `json:"title"`
+	Message   string           `json:"message,omitempty"`
+	Error     string           `json:"error,omitempty"`
+	Mode      string           `json:"mode"`
+	Completed bool             `json:"completed"`
+	Phone     string           `json:"phone,omitempty"`
+	Hint      string           `json:"hint,omitempty"`
+	QRImage   string           `json:"qrImage,omitempty"`
+	QRLink    string           `json:"qrLink,omitempty"`
+	Expires   string           `json:"expires,omitempty"`
+	Refresh   int              `json:"refresh,omitempty"`
+	API       authAPIState     `json:"api"`
+	Policy    policy.Policy    `json:"policy"`
+	Mock      *authMockInfo    `json:"mock,omitempty"`
+	Session   *authSessionInfo `json:"session,omitempty"`
+}
+
+type authSessionInfo struct {
+	Provider      string `json:"provider"`
+	Profile       string `json:"profile"`
+	Persistent    bool   `json:"persistent"`
+	Available     bool   `json:"available"`
+	SaveByDefault bool   `json:"saveByDefault"`
+	Error         string `json:"error,omitempty"`
 }
 
 type authAPIState struct {

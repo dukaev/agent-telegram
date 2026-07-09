@@ -1,13 +1,16 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unicode"
 
 	"agent-telegram/internal/policy"
+	"agent-telegram/internal/sessionstore"
 )
 
 func (s *webAuthSession) handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -169,6 +172,72 @@ func (s *webAuthSession) handleMode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeAuthState(w, http.StatusOK, s.clientState(""))
+}
+
+func (s *webAuthSession) handleSavedSession(w http.ResponseWriter, r *http.Request) {
+	if !s.authorized(w, r) {
+		return
+	}
+	action, err := parseAuthField(r, "action", trimAllSpace)
+	if err != nil || action != "use_saved" {
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Unsupported saved-session action."))
+		return
+	}
+
+	s.mu.Lock()
+	if s.completed || s.doneSent {
+		s.mu.Unlock()
+		writeAuthState(w, http.StatusConflict, s.clientState("Sign-in is already complete."))
+		return
+	}
+	provider := s.sessionProvider
+	profile := s.sessionProfile
+	available := s.savedSession
+	loader := s.peerLoader
+	state := *s.state
+	s.mu.Unlock()
+	if !available {
+		writeAuthState(w, http.StatusNotFound, s.clientState("No saved session is available."))
+		return
+	}
+
+	storage, err := sessionstore.Open(provider, profile)
+	if err != nil {
+		writeAuthState(w, http.StatusInternalServerError, s.clientState("Could not open the saved session."))
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	data, err := storage.LoadSession(ctx)
+	if err == nil {
+		if loader == nil {
+			loader = loadAuthPeers
+		}
+		var peers []authPeer
+		peers, err = loader(ctx, &state, data)
+		if err == nil {
+			s.cancelQRCodeFlow()
+			s.mu.Lock()
+			if !s.completed && !s.doneSent {
+				s.completed = true
+				s.sessionData = append([]byte(nil), data...)
+				s.state.SetSessionData(data)
+				s.peers = peers
+				s.peersLoaded = true
+				s.peersLoading = false
+				s.peersError = ""
+			}
+			s.mu.Unlock()
+			writeAuthState(w, http.StatusOK, s.clientState(""))
+			return
+		}
+	}
+
+	s.mu.Lock()
+	s.savedSession = false
+	s.sessionStoreError = "The saved session is no longer valid. Sign in again to replace it."
+	s.mu.Unlock()
+	writeAuthState(w, http.StatusUnauthorized, s.clientState("The saved session could not be verified with Telegram."))
 }
 
 func normalizeAuthPhone(value string) (string, error) {

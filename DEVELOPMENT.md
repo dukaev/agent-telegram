@@ -547,7 +547,8 @@ Agents start or verify the server explicitly:
 | File | Path | Purpose |
 |------|------|---------|
 | Socket | `/tmp/agent-telegram.sock` | IPC communication |
-| Session | In-memory runtime storage | Telegram auth state |
+| Session metadata | `~/.agent-telegram/config.json` | Provider and profile selection |
+| Session secret (macOS) | Native login Keychain | Opaque Telegram auth state |
 | Log | `~/.agent-telegram/server.log` | Server logs (JSON) |
 | PID | `~/.agent-telegram/server.pid` | Running server PID |
 | Lock | `~/.agent-telegram/server.lock` | Instance lock (flock) |
@@ -565,12 +566,33 @@ instances do not share lifecycle state.
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
 | `AGENT_TELEGRAM_PHONE` | Phone number for auth |
+| `AGENT_TELEGRAM_SESSION_PROVIDER` | Session provider (`keychain` on native macOS, otherwise `memory`) |
+| `AGENT_TELEGRAM_PROFILE` | Session profile name (default `default`) |
 | `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |
 | `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api` |
 | `AGENT_TELEGRAM_RUN_ID` | Optional run ID shared across agent commands |
 
 `AGENT_TELEGRAM_RPC_TIMEOUT` also controls the HTTP API write timeout with a
 small client-side grace period.
+
+### Session storage providers
+
+`internal/sessionstore` owns session persistence. Auth, daemon startup, reload,
+and management commands depend only on its `Store` interface. A platform or
+external integration registers a factory during initialization:
+
+```go
+sessionstore.RegisterProvider("example", func() (sessionstore.Store, error) {
+    return newExampleStore(), nil
+})
+```
+
+Providers store opaque bytes by profile and declare whether they are
+persistent. The gotd adapter writes session updates back through the provider,
+so implementations must make `Save` atomic. Secrets must not be included in
+provider metadata, logs, errors, or IPC payloads. Persistent reload requests
+contain only `provider` and `profile`; raw base64 remains solely for backwards
+compatibility with volatile deployments.
 
 Agent observability helpers:
 

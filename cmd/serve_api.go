@@ -63,7 +63,7 @@ func init() {
 	serveAPICmd.Flags().BoolVar(&serveAPILogout, "logout-on-stop", false, "Logout from Telegram when the server stops")
 }
 
-func runServeAPI(_ *cobra.Command, _ []string) {
+func runServeAPI(cmd *cobra.Command, _ []string) {
 	storedCfg, err := config.LoadStoredConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -82,7 +82,10 @@ func runServeAPI(_ *cobra.Command, _ []string) {
 		os.Exit(1)
 	}
 
-	tgClient := createTelegramClient(storedCfg.AppID, storedCfg.AppHash, telegramClientOptions{})
+	tgClient := createTelegramClient(storedCfg.AppID, storedCfg.AppHash, telegramClientOptions{
+		Provider: firstConfigured(sessionFlagValue(cmd, "session-provider"), storedCfg.SessionProvider),
+		Profile:  firstConfigured(sessionFlagValue(cmd, "profile"), storedCfg.SessionProfile),
+	})
 	logoutOnStop := boolFromEnv(envLogoutOnStop, serveAPILogout)
 	var logoutOnce sync.Once
 	logout := func() {

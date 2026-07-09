@@ -116,6 +116,13 @@ func TestFileAndStoredConfig(t *testing.T) {
 	if stored.AppID != 9 || stored.AppHash != "stored" {
 		t.Fatalf("stored = %+v", stored)
 	}
+	if err := SaveConfigForSession(9, "stored", "keychain", "work"); err != nil {
+		t.Fatal(err)
+	}
+	stored, err = LoadStoredConfig()
+	if err != nil || stored.SessionProvider != "keychain" || stored.SessionProfile != "work" {
+		t.Fatalf("stored session selection = %+v, %v", stored, err)
+	}
 
 	t.Setenv("TELEGRAM_APP_ID", "10")
 	t.Setenv("TELEGRAM_APP_HASH", "envhash")

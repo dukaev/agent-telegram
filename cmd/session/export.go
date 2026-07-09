@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -12,25 +13,36 @@ func AddExportCommand(parentCmd *cobra.Command) {
 	exportCmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export session as base64 for TELEGRAM_SESSION env",
-		Long: `Print the TELEGRAM_SESSION environment variable when it is already set.
+		Long: `Export the selected Telegram session as base64.
 
-agent-telegram now keeps sessions in memory and no longer writes session.json.
-Use auth web while the server is running, or provide TELEGRAM_SESSION explicitly
-for deployments where the session must be injected from an external secret store.
+The command reads from TELEGRAM_SESSION when it is set, otherwise from the
+selected session provider/profile. Exporting grants full account access and
+therefore requires --confirm.
 
 Example:
-  agent-telegram session export`,
-		Run: runExport,
+  agent-telegram session export --confirm`,
+		RunE: runExport,
 	}
 
 	parentCmd.AddCommand(exportCmd)
 }
 
-func runExport(_ *cobra.Command, _ []string) {
-	if sessionValue := os.Getenv("TELEGRAM_SESSION"); sessionValue != "" {
-		fmt.Print(sessionValue)
-		return
+func runExport(cmd *cobra.Command, _ []string) error {
+	if !confirmed(cmd) {
+		return printSessionError("--confirm is required to export a Telegram session")
 	}
-	fmt.Fprintln(os.Stderr, "Error: session.json is no longer used; TELEGRAM_SESSION is not set")
-	os.Exit(1)
+	if sessionValue := os.Getenv("TELEGRAM_SESSION"); sessionValue != "" {
+		_, err := fmt.Fprint(cmd.OutOrStdout(), sessionValue)
+		return err
+	}
+	storage, err := openSelectedStorage(cmd)
+	if err != nil {
+		return err
+	}
+	data, err := storage.LoadSession(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("load session from %s/%s: %w", storage.Provider(), storage.Profile(), err)
+	}
+	_, err = fmt.Fprint(cmd.OutOrStdout(), base64.StdEncoding.EncodeToString(data))
+	return err
 }

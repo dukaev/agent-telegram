@@ -13,8 +13,10 @@ import (
 
 // StoredConfig represents saved configuration in config.json.
 type StoredConfig struct {
-	AppID   int    `json:"app_id"`
-	AppHash string `json:"app_hash"`
+	AppID           int    `json:"app_id"`
+	AppHash         string `json:"app_hash"`
+	SessionProvider string `json:"session_provider,omitempty"`
+	SessionProfile  string `json:"session_profile,omitempty"`
 }
 
 // ConfigPath returns the path to config.json.
@@ -28,6 +30,11 @@ func ConfigPath() (string, error) {
 
 // SaveConfig saves appID and appHash to config.json.
 func SaveConfig(appID int, appHash string) error {
+	return SaveConfigForSession(appID, appHash, "", "")
+}
+
+// SaveConfigForSession saves API credentials and the selected session location.
+func SaveConfigForSession(appID int, appHash, provider, profile string) error {
 	configPath, err := ConfigPath()
 	if err != nil {
 		return err
@@ -39,8 +46,10 @@ func SaveConfig(appID int, appHash string) error {
 	}
 
 	cfg := StoredConfig{
-		AppID:   appID,
-		AppHash: appHash,
+		AppID:           appID,
+		AppHash:         appHash,
+		SessionProvider: provider,
+		SessionProfile:  profile,
 	}
 
 	data, err := json.MarshalIndent(cfg, "", "  ")
@@ -53,6 +62,27 @@ func SaveConfig(appID int, appHash string) error {
 	}
 
 	return nil
+}
+
+// UpdateSessionSelection updates only provider/profile in the local config.
+// It deliberately ignores API credential environment overrides.
+func UpdateSessionSelection(provider, profile string) error {
+	configPath, err := ConfigPath()
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(configPath) //nolint:gosec // fixed per-user config path
+	if err != nil {
+		return fmt.Errorf("read config: %w", err)
+	}
+	var cfg StoredConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return fmt.Errorf("parse config: %w", err)
+	}
+	if cfg.AppID == 0 || cfg.AppHash == "" {
+		return fmt.Errorf("invalid config - please run 'agent-telegram auth web' first")
+	}
+	return SaveConfigForSession(cfg.AppID, cfg.AppHash, provider, profile)
 }
 
 // LoadStoredConfig loads configuration from config.json.

@@ -82,3 +82,21 @@ jobs:
 
       - name: Run focused lint on new Go issues
         run: make lint-new-ci LINT_NEW_BASE="${{ steps.base.outputs.sha }}"
+
+  macos-keychain-build:
+    name: macOS Keychain Build
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Compile and test native session provider
+        env:
+          CGO_ENABLED: "1"
+        run: go test ./internal/sessionstore && go build .

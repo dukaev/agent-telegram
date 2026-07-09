@@ -35,7 +35,9 @@ type PingResult struct {
 }
 
 type ReloadSessionParams struct {
-	Session string `json:"session" validate:"required"`
+	Session  string `json:"session,omitempty"`
+	Provider string `json:"provider,omitempty"`
+	Profile  string `json:"profile,omitempty"`
 }
 
 type ControlResult struct {

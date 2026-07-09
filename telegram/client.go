@@ -188,6 +188,14 @@ type ClientStatus struct {
 	UserID      int64  `json:"userId,omitempty"`
 }
 
+// SessionStorageStatus describes the configured session backend without
+// exposing any session bytes.
+type SessionStorageStatus struct {
+	Provider   string `json:"provider"`
+	Profile    string `json:"profile"`
+	Persistent bool   `json:"persistent"`
+}
+
 // Ready returns a channel that is closed when the client is fully initialized.
 func (c *Client) Ready() <-chan struct{} {
 	c.mu.Lock()
@@ -247,22 +255,24 @@ func (c *Client) Logout(ctx context.Context) error {
 		return nil
 	}
 	_, err := tgClient.API().AuthLogOut(ctx)
+	if err != nil {
+		return err
+	}
+	if clearer, ok := c.sessionStorage.(interface{ ClearSession(context.Context) error }); ok {
+		return clearer.ClearSession(ctx)
+	}
 	if clearer, ok := c.sessionStorage.(interface{ Clear() }); ok {
 		clearer.Clear()
 	}
-	return err
+	return nil
 }
 
-// ImportSession imports raw session bytes into in-memory storage.
+// ImportSession imports raw session bytes into the configured writable storage.
 func (c *Client) ImportSession(ctx context.Context, data []byte) (bool, error) {
-	memoryStorage, ok := c.sessionStorage.(*EnvStorage)
-	if !ok {
+	if c.sessionStorage == nil || len(data) == 0 {
 		return false, nil
 	}
-	if len(data) == 0 {
-		return false, nil
-	}
-	return true, memoryStorage.StoreSession(ctx, data)
+	return true, c.sessionStorage.StoreSession(ctx, data)
 }
 
 // ExportSession returns the current in-memory session bytes when available.
@@ -271,6 +281,21 @@ func (c *Client) ExportSession() []byte {
 		return exporter.ExportSession()
 	}
 	return nil
+}
+
+// SessionStorageStatus returns non-secret storage metadata.
+func (c *Client) SessionStorageStatus() SessionStorageStatus {
+	status := SessionStorageStatus{Provider: "memory", Profile: "default"}
+	if descriptor, ok := c.sessionStorage.(interface {
+		Provider() string
+		Profile() string
+		Persistent() bool
+	}); ok {
+		status.Provider = descriptor.Provider()
+		status.Profile = descriptor.Profile()
+		status.Persistent = descriptor.Persistent()
+	}
+	return status
 }
 
 // ReloadCh returns the channel that signals reload requests.

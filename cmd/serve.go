@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gotd/td/session"
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/config"
@@ -20,6 +21,7 @@ import (
 	"agent-telegram/internal/observability"
 	"agent-telegram/internal/paths"
 	"agent-telegram/internal/policy"
+	"agent-telegram/internal/sessionstore"
 	telegramipc "agent-telegram/internal/telegram/ipc"
 	"agent-telegram/telegram"
 )
@@ -57,7 +59,7 @@ func init() {
 }
 
 //nolint:funlen // Server startup logic requires sequential steps
-func runServe(_ *cobra.Command, _ []string) {
+func runServe(cmd *cobra.Command, _ []string) {
 	// Load credentials from config.json (saved by auth commands)
 	storedCfg, err := config.LoadStoredConfig()
 	if err != nil {
@@ -110,7 +112,10 @@ func runServe(_ *cobra.Command, _ []string) {
 	// Setup slog after daemonize (when in foreground mode or in child process)
 	setupLoggerForSocket(socketPath)
 
-	tgClient := createTelegramClient(appID, appHash, telegramClientOptions{})
+	tgClient := createTelegramClient(appID, appHash, telegramClientOptions{
+		Provider: firstConfigured(sessionFlagValue(cmd, "session-provider"), storedCfg.SessionProvider),
+		Profile:  firstConfigured(sessionFlagValue(cmd, "profile"), storedCfg.SessionProfile),
+	})
 	logoutOnStop := boolFromEnv(envLogoutOnStop, serveLogoutOnStop)
 	var logoutOnce sync.Once
 	logout := func() {
@@ -193,25 +198,20 @@ func getSocketPath() string {
 
 type telegramClientOptions struct {
 	SessionData []byte
+	Provider    string
+	Profile     string
 }
 
 // createTelegramClient creates and configures the Telegram client.
-// TELEGRAM_SESSION and SessionData use in-memory storage. Empty storage is also
-// in-memory; no session file is read or written.
+// Explicit bytes and TELEGRAM_SESSION stay in memory. Otherwise the selected
+// pluggable provider is used (native Keychain on macOS builds).
 func createTelegramClient(appID int, appHash string, opts telegramClientOptions) *telegram.Client {
 	tgClient := telegram.NewClient(appID, appHash)
-	sessionData := opts.SessionData
-	if len(sessionData) == 0 && os.Getenv(envTelegramSession) == "" {
-		pending, err := config.ConsumePendingSession()
-		if err != nil {
-			slog.Warn("Failed to consume pending Telegram session", "error", err)
-		} else if len(pending) > 0 {
-			sessionData = pending
-			slog.Info("Using one-time Telegram session handoff")
-		}
+	var storage session.Storage
+	if len(opts.SessionData) > 0 {
+		storage = telegram.NewMemoryStorage(opts.SessionData)
+		slog.Info("Using caller-provided in-memory Telegram session")
 	}
-	storage := telegram.NewMemoryStorage(sessionData)
-
 	if envSession := os.Getenv(envTelegramSession); envSession != "" {
 		envStorage, err := telegram.NewEnvStorage(envSession)
 		if err != nil {
@@ -221,10 +221,62 @@ func createTelegramClient(appID int, appHash string, opts telegramClientOptions)
 		slog.Info("Using session from environment variable")
 		storage = envStorage
 	}
-	slog.Info("Using in-memory Telegram session")
+	if storage == nil {
+		managed, err := sessionstore.Open(opts.Provider, opts.Profile)
+		if err != nil {
+			slog.Warn("Failed to open configured session provider; using memory", "error", err)
+			storage = telegram.NewMemoryStorage(nil)
+		} else if managed.Persistent() {
+			if pending, pendingErr := config.ConsumePendingSession(); pendingErr != nil {
+				slog.Warn("Failed to consume pending Telegram session", "error", pendingErr)
+			} else if len(pending) > 0 {
+				if storeErr := managed.StoreSession(context.Background(), pending); storeErr != nil {
+					slog.Warn("Failed to migrate pending session", "error", storeErr)
+				} else {
+					slog.Info("Migrated one-time session handoff", "provider", managed.Provider(), "profile", managed.Profile())
+				}
+			}
+			storage = managed
+			slog.Info("Using persistent Telegram session", "provider", managed.Provider(), "profile", managed.Profile())
+		} else {
+			pending, pendingErr := config.ConsumePendingSession()
+			if pendingErr != nil {
+				slog.Warn("Failed to consume pending Telegram session", "error", pendingErr)
+			} else if len(pending) > 0 {
+				if storeErr := managed.StoreSession(context.Background(), pending); storeErr != nil {
+					slog.Warn("Failed to import pending Telegram session", "error", storeErr)
+				}
+			}
+			storage = managed
+			slog.Info("Using volatile Telegram session", "provider", managed.Provider(), "profile", managed.Profile())
+		}
+	}
 	tgClient = tgClient.WithSessionStorage(storage)
 
 	return tgClient.WithUpdateStore(telegram.NewUpdateStore(1000))
+}
+
+func sessionFlagValue(cmd *cobra.Command, name string) string {
+	if cmd == nil {
+		return ""
+	}
+	if value, err := cmd.Flags().GetString(name); err == nil {
+		return value
+	}
+	if root := cmd.Root(); root != nil {
+		value, _ := root.PersistentFlags().GetString(name)
+		return value
+	}
+	return ""
+}
+
+func firstConfigured(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func boolFromEnv(envKey string, fallback bool) bool {
@@ -341,17 +393,20 @@ func registerControlHandlers(srv ipc.MethodRegistrar, tgClient *telegram.Client,
 		defer statusCancel()
 
 		tgStatus := tgClient.GetStatus(ctx)
+		storageStatus := tgClient.SessionStorageStatus()
 
 		return map[string]any{
-			"status":          "running",
-			"pid":             os.Getpid(),
-			"session_storage": "memory",
-			"initialized":     tgStatus.Initialized,
-			"authorized":      tgStatus.Authorized,
-			"telegram_state":  tgStatus.State,
-			"username":        tgStatus.Username,
-			"first_name":      tgStatus.FirstName,
-			"user_id":         tgStatus.UserID,
+			"status":             "running",
+			"pid":                os.Getpid(),
+			"session_storage":    storageStatus.Provider,
+			"session_profile":    storageStatus.Profile,
+			"session_persistent": storageStatus.Persistent,
+			"initialized":        tgStatus.Initialized,
+			"authorized":         tgStatus.Authorized,
+			"telegram_state":     tgStatus.State,
+			"username":           tgStatus.Username,
+			"first_name":         tgStatus.FirstName,
+			"user_id":            tgStatus.UserID,
 		}, nil
 	})
 
@@ -399,20 +454,30 @@ func registerControlHandlers(srv ipc.MethodRegistrar, tgClient *telegram.Client,
 
 func parseReloadSessionData(params json.RawMessage) ([]byte, error) {
 	var body struct {
-		Session string `json:"session"`
+		Session  string `json:"session"`
+		Provider string `json:"provider"`
+		Profile  string `json:"profile"`
 	}
 	if err := json.Unmarshal(params, &body); err != nil {
 		return nil, fmt.Errorf("invalid reload_session payload: %w", err)
 	}
-	if body.Session == "" {
-		return nil, fmt.Errorf("session is required")
+	if body.Session != "" {
+		data, err := base64.StdEncoding.DecodeString(body.Session)
+		if err != nil {
+			return nil, fmt.Errorf("session must be base64: %w", err)
+		}
+		if len(data) == 0 {
+			return nil, fmt.Errorf("session is empty")
+		}
+		return data, nil
 	}
-	data, err := base64.StdEncoding.DecodeString(body.Session)
+	storage, err := sessionstore.Open(body.Provider, body.Profile)
 	if err != nil {
-		return nil, fmt.Errorf("session must be base64: %w", err)
+		return nil, err
 	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("session is empty")
+	data, err := storage.LoadSession(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("load session from %s/%s: %w", storage.Provider(), storage.Profile(), err)
 	}
 	return data, nil
 }
@@ -425,7 +490,7 @@ func importSessionForMemoryStorage(tgClient *telegram.Client, sessionData []byte
 		return err
 	}
 	if !imported {
-		return fmt.Errorf("server is not using in-memory session storage")
+		return fmt.Errorf("server session storage is not writable")
 	}
 	return nil
 }

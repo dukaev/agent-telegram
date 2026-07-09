@@ -335,6 +335,101 @@ button {
   text-align: left;
 }
 
+.session-save-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid #cfe8dc;
+  border-radius: 12px;
+  color: #4d6d5e;
+  background: #f2fbf7;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.session-save-note strong {
+  color: #265d47;
+  font-weight: 720;
+}
+
+.saved-session-screen {
+  width: min(520px, 100%);
+  gap: 12px;
+}
+
+.saved-session-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #cbdfee;
+  border-radius: 17px;
+  background: linear-gradient(145deg, #fafdff, #f2f8fc);
+  box-shadow: 0 10px 28px rgba(42, 73, 104, 0.07);
+}
+
+.saved-session-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #167fad;
+  background: #dff2fb;
+}
+
+.saved-session-icon .inline-icon {
+  width: 21px;
+  height: 21px;
+}
+
+.saved-session-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.saved-session-eyebrow {
+  color: #2783ac;
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.saved-session-copy h2,
+.saved-session-copy p {
+  margin: 0;
+}
+
+.saved-session-copy h2 {
+  color: #20354b;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+}
+
+.saved-session-copy p {
+  color: #607187;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.saved-session-copy strong {
+  color: #3a536a;
+  font-weight: 720;
+}
+
+.saved-session-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+  padding-top: 3px;
+}
+
 .inline-icon {
   width: 17px;
   height: 17px;
@@ -890,6 +985,7 @@ button {
   .qr-screen > .state-alert,
   .qr-screen > .mock-panel,
   .qr-screen > .text-action,
+  .qr-screen > .session-save-note,
   .qr-screen > .trust-note {
     grid-column: 1 / -1;
   }
@@ -967,6 +1063,7 @@ button {
   }
 
   .mock-panel,
+  .saved-session-actions,
   .selection-toolbar,
   .finish-bar {
     align-items: stretch;
@@ -974,8 +1071,13 @@ button {
   }
 
   .mock-panel button,
+  .saved-session-actions button,
   .finish-bar button {
     width: 100%;
+  }
+
+  .saved-session-actions {
+    grid-template-columns: 1fr;
   }
 
   .peer-row {

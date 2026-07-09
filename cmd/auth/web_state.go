@@ -8,19 +8,24 @@ import (
 )
 
 type webAuthSnapshot struct {
-	completed   bool
-	doneSent    bool
-	qrMode      bool
-	qrImage     string
-	qrTokenURL  string
-	qrExpires   time.Time
-	policy      policy.Policy
-	mock        bool
-	requires2FA bool
-	hint        string
-	phone       string
-	appID       int
-	appHash     string
+	completed         bool
+	doneSent          bool
+	qrMode            bool
+	qrImage           string
+	qrTokenURL        string
+	qrExpires         time.Time
+	policy            policy.Policy
+	mock              bool
+	requires2FA       bool
+	hint              string
+	phone             string
+	appID             int
+	appHash           string
+	sessionProvider   string
+	sessionProfile    string
+	sessionPersistent bool
+	savedSession      bool
+	sessionStoreError string
 }
 
 func (s *webAuthSession) clientState(errMsg string) authClientState {
@@ -43,19 +48,24 @@ func (s *webAuthSession) snapshot() webAuthSnapshot {
 	defer s.mu.Unlock()
 
 	return webAuthSnapshot{
-		completed:   s.completed,
-		doneSent:    s.doneSent,
-		qrMode:      s.qrMode,
-		qrImage:     s.qrImage,
-		qrTokenURL:  s.qrTokenURL,
-		qrExpires:   s.qrExpires,
-		policy:      s.policy,
-		mock:        s.runtime.WebMock,
-		requires2FA: s.state.Requires2FA,
-		hint:        s.state.TwoFactorHint,
-		phone:       s.state.Phone,
-		appID:       s.state.AppID,
-		appHash:     s.state.AppHash,
+		completed:         s.completed,
+		doneSent:          s.doneSent,
+		qrMode:            s.qrMode,
+		qrImage:           s.qrImage,
+		qrTokenURL:        s.qrTokenURL,
+		qrExpires:         s.qrExpires,
+		policy:            s.policy,
+		mock:              s.runtime.WebMock,
+		requires2FA:       s.state.Requires2FA,
+		hint:              s.state.TwoFactorHint,
+		phone:             s.state.Phone,
+		appID:             s.state.AppID,
+		appHash:           s.state.AppHash,
+		sessionProvider:   s.sessionProvider,
+		sessionProfile:    s.sessionProfile,
+		sessionPersistent: s.sessionPersistent,
+		savedSession:      s.savedSession,
+		sessionStoreError: s.sessionStoreError,
 	}
 }
 
@@ -76,6 +86,16 @@ func (s webAuthSnapshot) baseClientState(errMsg string) authClientState {
 	}
 	if s.mock {
 		state.Mock = &authMockInfo{Enabled: true, Code: mockCode, Password: mockPassword}
+	}
+	if s.sessionProvider != "" {
+		state.Session = &authSessionInfo{
+			Provider:      s.sessionProvider,
+			Profile:       s.sessionProfile,
+			Persistent:    s.sessionPersistent,
+			Available:     s.savedSession,
+			SaveByDefault: s.sessionPersistent,
+			Error:         s.sessionStoreError,
+		}
 	}
 	return state
 }

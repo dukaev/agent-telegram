@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,7 @@ import (
 	"agent-telegram/internal/authflow"
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/policy"
+	"agent-telegram/internal/sessionstore"
 	"agent-telegram/internal/types"
 )
 
@@ -480,6 +482,116 @@ func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 	authState := decodeAuthState(t, rec)
 	if authState.API.AppID != 456 || authState.API.Default {
 		t.Fatalf("unexpected API state: %+v", authState.API)
+	}
+}
+
+func TestWebAuthOffersAndLoadsSavedSession(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	const profile = "saved-web"
+	t.Setenv(sessionstore.EnvProvider, "auth-test-persistent")
+	t.Setenv(sessionstore.EnvProfile, profile)
+	authTestPersistentStore.data[profile] = []byte("saved-keychain-session")
+	t.Cleanup(func() { delete(authTestPersistentStore.data, profile) })
+
+	state := createTestState(t)
+	runtime := authRuntimeFromGlobals()
+	session := newWebAuthSession(&cobra.Command{}, runtime, webAuthStart{
+		backend: &fakeAuthBackend{},
+		store:   authflow.NewStateStore(authStateDir),
+		state:   state,
+	}, "test-token")
+
+	initial := session.clientState("")
+	if initial.Session == nil || !initial.Session.Available || !initial.Session.SaveByDefault {
+		t.Fatalf("saved session metadata = %+v", initial.Session)
+	}
+	if initial.Session.Provider != "auth-test-persistent" || initial.Session.Profile != profile {
+		t.Fatalf("saved session selection = %+v", initial.Session)
+	}
+
+	var loaded []byte
+	session.peerLoader = func(_ context.Context, _ *authflow.State, data []byte) ([]authPeer, error) {
+		loaded = append([]byte(nil), data...)
+		return []authPeer{{Peer: "user:1", Title: "Ada", Type: "user", ID: 1}}, nil
+	}
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/session?t=test-token",
+		strings.NewReader(`{"action":"use_saved"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	session.handleSavedSession(rec, req)
+
+	authState := decodeAuthState(t, rec)
+	if rec.Code != http.StatusOK || authState.Mode != "setup" || !authState.Completed {
+		t.Fatalf("saved session state = %+v, status %d", authState, rec.Code)
+	}
+	if string(loaded) != "saved-keychain-session" {
+		t.Fatalf("loaded session = %q", loaded)
+	}
+	stored, err := state.SessionData()
+	if err != nil || string(stored) != "saved-keychain-session" {
+		t.Fatalf("state session = %q, %v", stored, err)
+	}
+	if len(session.peers) != 1 || !session.peersLoaded {
+		t.Fatalf("saved session peers = %+v, loaded %v", session.peers, session.peersLoaded)
+	}
+}
+
+func TestWebAuthRejectsInvalidSavedSessionAndReturnsToSignIn(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	const profile = "expired-web"
+	t.Setenv(sessionstore.EnvProvider, "auth-test-persistent")
+	t.Setenv(sessionstore.EnvProfile, profile)
+	authTestPersistentStore.data[profile] = []byte("expired-session")
+	t.Cleanup(func() { delete(authTestPersistentStore.data, profile) })
+
+	state := createTestState(t)
+	session := newWebAuthSession(&cobra.Command{}, authRuntimeFromGlobals(), webAuthStart{
+		backend: &fakeAuthBackend{},
+		store:   authflow.NewStateStore(authStateDir),
+		state:   state,
+	}, "test-token")
+	session.peerLoader = func(context.Context, *authflow.State, []byte) ([]authPeer, error) {
+		return nil, errors.New("telegram authorization expired")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/auth/session?t=test-token",
+		strings.NewReader(`{"action":"use_saved"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	session.handleSavedSession(rec, req)
+
+	authState := decodeAuthState(t, rec)
+	if rec.Code != http.StatusUnauthorized || authState.Mode != "qr" {
+		t.Fatalf("invalid saved session state = %+v, status %d", authState, rec.Code)
+	}
+	if authState.Session == nil || authState.Session.Available || authState.Session.Error == "" {
+		t.Fatalf("invalid saved session metadata = %+v", authState.Session)
+	}
+}
+
+func TestWebAuthMockCanExposeSavedSession(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	runtime := authRuntimeFromGlobals()
+	runtime.WebMock = true
+	runtime.WebMockSaved = true
+
+	start, err := buildWebAuthStart(runtime)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := newWebAuthSession(&cobra.Command{}, runtime, start, "test-token")
+	state := session.clientState("")
+	if state.Session == nil || !state.Session.Available || state.Session.Provider != sessionstore.MemoryProvider {
+		t.Fatalf("mock saved session = %+v", state.Session)
 	}
 }
 

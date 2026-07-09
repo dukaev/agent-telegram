@@ -34,6 +34,15 @@ export type AuthMock = {
   password?: string;
 };
 
+export type AuthSession = {
+  provider: string;
+  profile: string;
+  persistent: boolean;
+  available: boolean;
+  saveByDefault: boolean;
+  error?: string;
+};
+
 export type AuthState = {
   title: string;
   message?: string;
@@ -49,6 +58,7 @@ export type AuthState = {
   api: AuthAPI;
   policy: Policy;
   mock?: AuthMock;
+  session?: AuthSession;
 };
 
 export type PeerOption = {

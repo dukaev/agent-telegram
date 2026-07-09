@@ -14,6 +14,7 @@ import (
 
 	"agent-telegram/internal/authflow"
 	"agent-telegram/internal/config"
+	"agent-telegram/internal/sessionstore"
 	"agent-telegram/internal/types"
 )
 
@@ -26,6 +27,36 @@ type fakeAuthBackend struct {
 	sentPhone       string
 	signedCode      string
 	password        string
+}
+
+type recordingSessionStore struct {
+	data map[string][]byte
+}
+
+func (s *recordingSessionStore) Provider() string { return "auth-test-persistent" }
+func (s *recordingSessionStore) Persistent() bool { return true }
+func (s *recordingSessionStore) Load(_ context.Context, profile string) ([]byte, error) {
+	data := s.data[profile]
+	if len(data) == 0 {
+		return nil, sessionstore.ErrNotFound
+	}
+	return append([]byte(nil), data...), nil
+}
+func (s *recordingSessionStore) Save(_ context.Context, profile string, data []byte) error {
+	s.data[profile] = append([]byte(nil), data...)
+	return nil
+}
+func (s *recordingSessionStore) Delete(_ context.Context, profile string) error {
+	delete(s.data, profile)
+	return nil
+}
+
+var authTestPersistentStore = &recordingSessionStore{data: make(map[string][]byte)}
+
+func init() {
+	sessionstore.RegisterProvider("auth-test-persistent", func() (sessionstore.Store, error) {
+		return authTestPersistentStore, nil
+	})
 }
 
 func (f *fakeAuthBackend) SendCode(_ context.Context, phone string) (*types.SendCodeResult, error) {
@@ -158,6 +189,33 @@ func TestAuthVerifyCompletesSuccessfulLogin(t *testing.T) {
 	}
 }
 
+func TestFinishAuthPersistsSelectedProvider(t *testing.T) {
+	tmp := t.TempDir()
+	resetAuthGlobals(t, tmp)
+	t.Setenv(sessionstore.EnvProvider, "auth-test-persistent")
+	t.Setenv(sessionstore.EnvProfile, "work")
+	delete(authTestPersistentStore.data, "work")
+	state := createTestState(t)
+
+	body, err := finishAuth(&cobra.Command{}, authRuntimeFromGlobals(), state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(authTestPersistentStore.data["work"]); got != "state-session" {
+		t.Fatalf("persisted session = %q", got)
+	}
+	if body["sessionStorage"] != "auth-test-persistent" || body["sessionPersistent"] != true {
+		t.Fatalf("finish body = %+v", body)
+	}
+	stored, err := config.LoadStoredConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.SessionProvider != "auth-test-persistent" || stored.SessionProfile != "work" {
+		t.Fatalf("stored selection = %+v", stored)
+	}
+}
+
 func TestAuthVerifyReports2FAWithoutDeletingState(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
@@ -277,6 +335,8 @@ func resetAuthGlobals(t *testing.T, home string) {
 	t.Setenv("TELEGRAM_APP_ID", "")
 	t.Setenv("TELEGRAM_APP_HASH", "")
 	t.Setenv("AGENT_TELEGRAM_PHONE", "")
+	t.Setenv(sessionstore.EnvProvider, sessionstore.MemoryProvider)
+	t.Setenv(sessionstore.EnvProfile, sessionstore.DefaultProfile)
 
 	authAppID = "123"
 	authAppHash = "app-hash"
@@ -289,6 +349,7 @@ func resetAuthGlobals(t *testing.T, home string) {
 	authReload = false
 	authWebQR = true
 	authWebMock = false
+	authWebMockSaved = false
 	authStatusPhone = ""
 }
 

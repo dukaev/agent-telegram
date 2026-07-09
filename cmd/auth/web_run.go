@@ -2,15 +2,18 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	gotdsession "github.com/gotd/td/session"
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/authflow"
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/policy"
+	"agent-telegram/internal/sessionstore"
 )
 
 type webAuthStart struct {
@@ -73,7 +76,7 @@ func newWebAuthSession(
 	start webAuthStart,
 	token string,
 ) *webAuthSession {
-	return &webAuthSession{
+	session := &webAuthSession{
 		cmd:         cmd,
 		runtime:     runtime,
 		backend:     start.backend,
@@ -86,6 +89,50 @@ func newWebAuthSession(
 		sessionData: append([]byte(nil), start.sessionData...),
 		peerLoader:  webAuthPeerLoader(runtime),
 		done:        make(chan webAuthResult, 1),
+	}
+	session.configureSessionStore()
+	return session
+}
+
+func (s *webAuthSession) configureSessionStore() {
+	provider, profile := authSessionSelection(s.cmd)
+	if s.runtime.WebMock {
+		provider = sessionstore.MemoryProvider
+		profile = "mock"
+	}
+	storage, err := sessionstore.Open(provider, profile)
+	if err != nil {
+		s.sessionProvider = firstNonEmpty(provider, sessionstore.DefaultProvider())
+		s.sessionProfile = firstNonEmpty(profile, sessionstore.DefaultProfile)
+		s.sessionStoreError = err.Error()
+		return
+	}
+	selection := storage.Selection()
+	s.sessionProvider = selection.Provider
+	s.sessionProfile = selection.Profile
+	s.sessionPersistent = selection.Persistent
+	if s.runtime.WebMock {
+		if s.runtime.WebMockSaved {
+			data := append([]byte(nil), s.sessionData...)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := storage.StoreSession(ctx, data); err != nil {
+				s.sessionStoreError = err.Error()
+				return
+			}
+			s.savedSession = len(data) > 0
+		}
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	data, err := storage.LoadSession(ctx)
+	if err == nil && len(data) > 0 {
+		s.savedSession = true
+		return
+	}
+	if err != nil && !errors.Is(err, gotdsession.ErrNotFound) {
+		s.sessionStoreError = err.Error()
 	}
 }
 

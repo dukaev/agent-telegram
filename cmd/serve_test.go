@@ -5,9 +5,18 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"testing"
+
+	"agent-telegram/internal/sessionstore"
 )
 
+func useMemorySessionStore(t *testing.T) {
+	t.Helper()
+	t.Setenv(sessionstore.EnvProvider, sessionstore.MemoryProvider)
+	t.Setenv(sessionstore.EnvProfile, sessionstore.DefaultProfile)
+}
+
 func TestCreateTelegramClientDefaultsToMemory(t *testing.T) {
+	useMemorySessionStore(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envTelegramSession, "")
 
@@ -25,6 +34,7 @@ func TestCreateTelegramClientDefaultsToMemory(t *testing.T) {
 }
 
 func TestCreateTelegramClientUsesEnvSession(t *testing.T) {
+	useMemorySessionStore(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envTelegramSession, base64.StdEncoding.EncodeToString([]byte("env-session")))
 
@@ -35,6 +45,7 @@ func TestCreateTelegramClientUsesEnvSession(t *testing.T) {
 }
 
 func TestImportSessionForMemoryStorage(t *testing.T) {
+	useMemorySessionStore(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envTelegramSession, "")
 	tgClient := createTelegramClient(123, "app-hash", telegramClientOptions{})
@@ -59,6 +70,31 @@ func TestParseReloadSessionData(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := string(data); got != "reload-session" {
+		t.Fatalf("decoded session = %q", got)
+	}
+}
+
+func TestParseReloadSessionDataFromProviderReference(t *testing.T) {
+	useMemorySessionStore(t)
+	storage, err := sessionstore.Open(sessionstore.MemoryProvider, "reload-reference")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.StoreSession(context.Background(), []byte("referenced-session")); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(map[string]string{
+		"provider": sessionstore.MemoryProvider,
+		"profile":  "reload-reference",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := parseReloadSessionData(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); got != "referenced-session" {
 		t.Fatalf("decoded session = %q", got)
 	}
 }

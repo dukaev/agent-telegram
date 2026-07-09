@@ -39,6 +39,8 @@ agent-telegram stop
 
 Default Telegram API credentials are built in. To use your own, create an app at [my.telegram.org](https://my.telegram.org) and set `TELEGRAM_APP_ID` and `TELEGRAM_APP_HASH`.
 
+On startup, web auth checks the selected session provider and profile. If a saved session exists, the page offers to verify and reuse it before showing a new QR code. A new login is saved to the selected persistent provider by default; native macOS builds use Keychain.
+
 ## Command Areas
 
 <!-- BEGIN GENERATED:commands -->
@@ -71,10 +73,12 @@ Run `agent-telegram --help`, `agent-telegram <command> --help`, or `agent-telegr
 | `--max-text-chars <int>` | Maximum text field characters in JSON output (0 uses verbosity default) |
 | `--omit <strings>` | Omit output fields (comma-separated, supports dot paths) |
 | `--output <string>` | Output format: json or ids |
+| `--profile <string>` | Session profile (default: default) |
 | `-q, --quiet` | Suppress status messages (data still goes to stdout) |
 | `--receipt` | Wrap JSON output with trace/action receipt metadata |
 | `--run-id <string>` | Agent run ID for correlating multiple commands |
 | `--schema` | Output operation schema without executing |
+| `--session-provider <string>` | Session provider (default: native platform provider) |
 | `-s, --socket <string>` | Path to Unix socket (default: /tmp/agent-telegram.sock) |
 | `--summary` | Output a compact result summary |
 | `--verbosity <string>` | Output detail: minimal, compact, full, raw (default: full) |
@@ -90,6 +94,8 @@ Run `agent-telegram --help`, `agent-telegram <command> --help`, or `agent-telegr
 | `TELEGRAM_APP_HASH` | Telegram API app hash. Optional because a default is built in. |
 | `AGENT_TELEGRAM_PHONE` | Phone number for code login. Safer than passing it as an argument. |
 | `TELEGRAM_SESSION` | Base64 session for stateless/server deployments. |
+| `AGENT_TELEGRAM_SESSION_PROVIDER` | Session provider. Defaults to macOS Keychain on native macOS builds. |
+| `AGENT_TELEGRAM_PROFILE` | Named session profile. Defaults to `default`. |
 | `AGENT_TELEGRAM_API_SECRET` | Bearer token for `serve-api`. |
 | `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC timeout, for example `45s` or `2m`. |
 | `AGENT_TELEGRAM_RUN_ID` | Run ID shared across agent commands. |
@@ -121,7 +127,18 @@ For debugging, use `audit`, `logs`, `trace inspect`, and `run inspect`. Audit/lo
 CLI command -> Unix socket IPC server -> Telegram MTProto
 ```
 
-The daemon is explicit: start it with `agent-telegram server ensure` and stop it with `agent-telegram stop`. Stopping preserves the Telegram authorization; `agent-telegram auth logout --confirm` revokes it. A login performed before the daemon starts is transferred through a one-time owner-only session handoff. The default socket is `/tmp/agent-telegram.sock`; server state and rotating logs live under `~/.agent-telegram/`.
+The daemon is explicit: start it with `agent-telegram server ensure` and stop it with `agent-telegram stop`. Stopping preserves the Telegram authorization; `agent-telegram auth logout --confirm` revokes it. Native macOS builds persist the session in the user's Keychain by default. Other builds use the pluggable provider selected with `--session-provider` or `AGENT_TELEGRAM_SESSION_PROVIDER`; `TELEGRAM_SESSION` remains available for stateless deployments. The default socket is `/tmp/agent-telegram.sock`; server state and rotating logs live under `~/.agent-telegram/`.
+
+Session management commands:
+
+```bash
+agent-telegram session providers
+agent-telegram session status
+agent-telegram session use keychain default
+agent-telegram session export --confirm
+agent-telegram session import --confirm < session.base64
+agent-telegram session forget --confirm
+```
 
 `agent-telegram get updates --follow` advances a cursor using `next_offset` and
 `epoch`. If the daemon restarts or retained updates are evicted, the response

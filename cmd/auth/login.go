@@ -22,6 +22,7 @@ import (
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/ipc"
 	"agent-telegram/internal/paths"
+	"agent-telegram/internal/sessionstore"
 )
 
 // Default Telegram API credentials.
@@ -31,17 +32,18 @@ const (
 )
 
 var (
-	authAppID       string
-	authAppHash     string
-	authPhone       string
-	authStateDir    string
-	authStateTTL    time.Duration
-	authStateID     string
-	authCodeStdin   bool
-	authPassStdin   bool
-	authReload      bool
-	authStatusPhone string
-	authWebMock     bool
+	authAppID        string
+	authAppHash      string
+	authPhone        string
+	authStateDir     string
+	authStateTTL     time.Duration
+	authStateID      string
+	authCodeStdin    bool
+	authPassStdin    bool
+	authReload       bool
+	authStatusPhone  string
+	authWebMock      bool
+	authWebMockSaved bool
 )
 
 var newAuthBackend = func(cfg *config.Config) authflow.Backend {
@@ -49,36 +51,38 @@ var newAuthBackend = func(cfg *config.Config) authflow.Backend {
 }
 
 type authRuntimeConfig struct {
-	AppID       string
-	AppHash     string
-	Phone       string
-	StateDir    string
-	StateTTL    time.Duration
-	StateID     string
-	CodeStdin   bool
-	PassStdin   bool
-	Reload      bool
-	StatusPhone string
-	WebQR       bool
-	WebPort     int
-	WebMock     bool
+	AppID        string
+	AppHash      string
+	Phone        string
+	StateDir     string
+	StateTTL     time.Duration
+	StateID      string
+	CodeStdin    bool
+	PassStdin    bool
+	Reload       bool
+	StatusPhone  string
+	WebQR        bool
+	WebPort      int
+	WebMock      bool
+	WebMockSaved bool
 }
 
 func authRuntimeFromGlobals() authRuntimeConfig {
 	return authRuntimeConfig{
-		AppID:       authAppID,
-		AppHash:     authAppHash,
-		Phone:       authPhone,
-		StateDir:    authStateDir,
-		StateTTL:    authStateTTL,
-		StateID:     authStateID,
-		CodeStdin:   authCodeStdin,
-		PassStdin:   authPassStdin,
-		Reload:      authReload,
-		StatusPhone: authStatusPhone,
-		WebQR:       authWebQR,
-		WebPort:     authWebPort,
-		WebMock:     authWebMock,
+		AppID:        authAppID,
+		AppHash:      authAppHash,
+		Phone:        authPhone,
+		StateDir:     authStateDir,
+		StateTTL:     authStateTTL,
+		StateID:      authStateID,
+		CodeStdin:    authCodeStdin,
+		PassStdin:    authPassStdin,
+		Reload:       authReload,
+		StatusPhone:  authStatusPhone,
+		WebQR:        authWebQR,
+		WebPort:      authWebPort,
+		WebMock:      authWebMock,
+		WebMockSaved: authWebMockSaved,
 	}
 }
 
@@ -163,6 +167,7 @@ func AddAuthCommand(rootCmd *cobra.Command) {
 	AuthWebCmd.Flags().BoolVar(&authWebQR, "qr", true, "Use QR code authentication flow")
 	AuthWebCmd.Flags().IntVar(&authWebPort, "port", 0, "Local web auth port (0 chooses a free port)")
 	AuthWebCmd.Flags().BoolVar(&authWebMock, "mock", false, "Use mock web auth data without Telegram")
+	AuthWebCmd.Flags().BoolVar(&authWebMockSaved, "mock-saved-session", false, "Expose a saved session in mock web auth")
 }
 
 func addBeginFlags(cmd *cobra.Command) {
@@ -318,27 +323,48 @@ func runAuthPasswordWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 	completeAuth(cmd, runtime, state)
 }
 
-func runAuthStatus(_ *cobra.Command, _ []string) {
-	runAuthStatusWithRuntime(authRuntimeFromGlobals())
+func runAuthStatus(cmd *cobra.Command, _ []string) {
+	runAuthStatusWithRuntime(cmd, authRuntimeFromGlobals())
 }
 
-func runAuthStatusWithRuntime(runtime authRuntimeConfig) {
+func runAuthStatusWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 	configPath, configErr := config.ConfigPath()
 	configInfo, cfgErr := os.Stat(configPath)
 	serverAuthorized := false
+	storageProvider := sessionstore.DefaultProvider()
+	storageProfile := sessionstore.DefaultProfile
+	storagePersistent := false
+	provider, profile := authSessionSelection(cmd)
+	if storage, err := sessionstore.Open(provider, profile); err == nil {
+		selection := storage.Selection()
+		storageProvider = selection.Provider
+		storageProfile = selection.Profile
+		storagePersistent = selection.Persistent
+	}
 	if status, err := ipc.NewClient(paths.DefaultSocketPath).Status(); err == nil {
 		if authorized, ok := status["authorized"].(bool); ok {
 			serverAuthorized = authorized
 		}
+		if provider, ok := status["session_storage"].(string); ok {
+			storageProvider = provider
+		}
+		if profile, ok := status["session_profile"].(string); ok {
+			storageProfile = profile
+		}
+		if persistent, ok := status["session_persistent"].(bool); ok {
+			storagePersistent = persistent
+		}
 	}
 
 	writeJSON(map[string]any{
-		"ok":             true,
-		"authenticated":  serverAuthorized,
-		"sessionStorage": "memory",
-		"configPath":     configPath,
-		"configExists":   configErr == nil && cfgErr == nil && !configInfo.IsDir(),
-		"phone":          maskPhone(firstNonEmpty(runtime.StatusPhone, os.Getenv("AGENT_TELEGRAM_PHONE"))),
+		"ok":                true,
+		"authenticated":     serverAuthorized,
+		"sessionStorage":    storageProvider,
+		"sessionProfile":    storageProfile,
+		"sessionPersistent": storagePersistent,
+		"configPath":        configPath,
+		"configExists":      configErr == nil && cfgErr == nil && !configInfo.IsDir(),
+		"phone":             maskPhone(firstNonEmpty(runtime.StatusPhone, os.Getenv("AGENT_TELEGRAM_PHONE"))),
 	})
 }
 
@@ -351,7 +377,22 @@ func completeAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow
 }
 
 func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.State) (map[string]any, error) {
-	if err := config.SaveConfig(state.AppID, state.AppHash); err != nil {
+	sessionData, err := state.SessionData()
+	if err != nil {
+		return nil, err
+	}
+	provider, profile := authSessionSelection(cmd)
+	storage, err := sessionstore.Open(provider, profile)
+	if err != nil {
+		return nil, fmt.Errorf("open session storage: %w", err)
+	}
+	selection := storage.Selection()
+	if selection.Persistent {
+		if err := storage.StoreSession(context.Background(), sessionData); err != nil {
+			return nil, fmt.Errorf("save Telegram session to %s: %w", selection.Provider, err)
+		}
+	}
+	if err := config.SaveConfigForSession(state.AppID, state.AppHash, selection.Provider, selection.Profile); err != nil {
 		return nil, fmt.Errorf("failed to save config: %w", err)
 	}
 	serverReloaded := false
@@ -361,12 +402,8 @@ func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.S
 		if socketPath == "" {
 			socketPath, _ = cmd.Root().PersistentFlags().GetString("socket")
 		}
-		sessionData, err := state.SessionData()
-		if err != nil {
-			return nil, err
-		}
-		serverReloaded = reloadServerSession(socketPath, sessionData)
-		if !serverReloaded {
+		serverReloaded = reloadServerSession(socketPath, sessionData, selection)
+		if !serverReloaded && !selection.Persistent {
 			if err := config.SavePendingSession(sessionData); err != nil {
 				return nil, fmt.Errorf("save session for daemon startup: %w", err)
 			}
@@ -377,13 +414,46 @@ func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.S
 		return nil, err
 	}
 	return map[string]any{
-		"ok":             true,
-		"next":           "done",
-		"phone":          maskPhone(state.Phone),
-		"sessionStorage": "memory",
-		"serverReloaded": serverReloaded,
-		"sessionPending": sessionPending,
+		"ok":                true,
+		"next":              "done",
+		"phone":             maskPhone(state.Phone),
+		"sessionStorage":    selection.Provider,
+		"sessionProfile":    selection.Profile,
+		"sessionPersistent": selection.Persistent,
+		"serverReloaded":    serverReloaded,
+		"sessionPending":    sessionPending,
 	}, nil
+}
+
+func authSessionSelection(cmd *cobra.Command) (string, string) {
+	provider := commandStringFlag(cmd, "session-provider")
+	profile := commandStringFlag(cmd, "profile")
+	if provider != "" && profile != "" {
+		return provider, profile
+	}
+	if stored, err := config.LoadStoredConfig(); err == nil {
+		if provider == "" {
+			provider = stored.SessionProvider
+		}
+		if profile == "" {
+			profile = stored.SessionProfile
+		}
+	}
+	return provider, profile
+}
+
+func commandStringFlag(cmd *cobra.Command, name string) string {
+	if cmd == nil {
+		return ""
+	}
+	if value, err := cmd.Flags().GetString(name); err == nil {
+		return value
+	}
+	if root := cmd.Root(); root != nil {
+		value, _ := root.PersistentFlags().GetString(name)
+		return value
+	}
+	return ""
 }
 
 func loadStateOrExit(runtime authRuntimeConfig) *authflow.State {
@@ -466,7 +536,7 @@ func persistBackendSession(
 	return store.Save(state)
 }
 
-func reloadServerSession(socketPath string, sessionData []byte) bool {
+func reloadServerSession(socketPath string, sessionData []byte, selection sessionstore.Selection) bool {
 	if len(sessionData) == 0 {
 		fmt.Fprintln(os.Stderr, "warning: no in-memory session data to reload")
 		return false
@@ -478,8 +548,12 @@ func reloadServerSession(socketPath string, sessionData []byte) bool {
 	if _, err := client.Call("status", nil); err != nil {
 		return false
 	}
-	payload := map[string]any{
-		"session": base64.StdEncoding.EncodeToString(sessionData),
+	payload := map[string]any{}
+	if selection.Persistent {
+		payload["provider"] = selection.Provider
+		payload["profile"] = selection.Profile
+	} else {
+		payload["session"] = base64.StdEncoding.EncodeToString(sessionData)
 	}
 	if _, err := client.Call("reload_session", payload); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: failed to reload server session: %v\n", err)

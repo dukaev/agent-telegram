@@ -12,8 +12,9 @@ import (
 // EnvStorage implements session.Storage, keeping the session in memory.
 // Used when session data is loaded from an environment variable.
 type EnvStorage struct {
-	data []byte
-	mu   sync.Mutex
+	data     []byte
+	provider string
+	mu       sync.Mutex
 }
 
 // Compile-time check that EnvStorage implements session.Storage.
@@ -25,12 +26,14 @@ func NewEnvStorage(base64str string) (*EnvStorage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode TELEGRAM_SESSION: %w", err)
 	}
-	return NewMemoryStorage(data), nil
+	storage := NewMemoryStorage(data)
+	storage.provider = "environment"
+	return storage, nil
 }
 
 // NewMemoryStorage creates an in-memory session storage with optional initial data.
 func NewMemoryStorage(data []byte) *EnvStorage {
-	storage := &EnvStorage{}
+	storage := &EnvStorage{provider: "memory"}
 	if len(data) > 0 {
 		storage.data = make([]byte, len(data))
 		copy(storage.data, data)
@@ -79,3 +82,19 @@ func (s *EnvStorage) Clear() {
 	defer s.mu.Unlock()
 	s.data = nil
 }
+
+// ClearSession removes volatile bytes and matches persistent storage cleanup.
+func (s *EnvStorage) ClearSession(_ context.Context) error {
+	s.Clear()
+	return nil
+}
+
+func (s *EnvStorage) Provider() string {
+	if s.provider == "" {
+		return "memory"
+	}
+	return s.provider
+}
+
+func (s *EnvStorage) Profile() string  { return "default" }
+func (s *EnvStorage) Persistent() bool { return false }

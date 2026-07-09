@@ -3,7 +3,7 @@ import {Alert, Button, Input, Spinner} from "@heroui/react";
 
 import {postAuthState} from "../api";
 import {useCountdown} from "../hooks";
-import {AuthState} from "../types";
+import {AuthSession, AuthState} from "../types";
 import {CheckIcon, LockIcon} from "./Brand";
 
 type ScreenProps = {
@@ -63,9 +63,70 @@ function formatCountdown(seconds: number | null) {
   return `Code refreshes in ${minutes}:${rest.toString().padStart(2, "0")}`;
 }
 
+function sessionProviderLabel(provider: string) {
+  switch (provider) {
+    case "keychain":
+      return "macOS Keychain";
+    case "memory":
+      return "temporary memory";
+    default:
+      return provider;
+  }
+}
+
+function SessionSaveNote({session, replacing = false}: {session?: AuthSession; replacing?: boolean}) {
+  if (!session?.saveByDefault) {
+    return null;
+  }
+  const provider = sessionProviderLabel(session.provider);
+  return (
+    <div className="session-save-note">
+      <LockIcon />
+      <span>
+        {replacing
+          ? <>Signing in again will replace the saved session in <strong>{provider}</strong> for profile <strong>{session.profile}</strong>.</>
+          : <>Your session will be saved to <strong>{provider}</strong> under profile <strong>{session.profile}</strong>.</>}
+      </span>
+    </div>
+  );
+}
+
 function QRScreen({state, onState}: ScreenProps) {
   const countdown = useCountdown(state.expires);
   const {busy, error, run} = useAuthAction(onState);
+  const [signInAgain, setSignInAgain] = useState(false);
+
+  if (state.session?.available && !signInAgain) {
+    const provider = sessionProviderLabel(state.session.provider);
+    return (
+      <section className="auth-screen saved-session-screen">
+        <ErrorAlert message={error || state.error || ""} />
+        <div className="saved-session-card">
+          <div className="saved-session-icon"><LockIcon /></div>
+          <div className="saved-session-copy">
+            <span className="saved-session-eyebrow">Secure local session</span>
+            <h2>Saved session found</h2>
+            <p>
+              A Telegram session is available in <strong>{provider}</strong> for profile <strong>{state.session.profile}</strong>.
+              We will verify it with Telegram before continuing.
+            </p>
+          </div>
+          <div className="saved-session-actions">
+            <Button className="primary-action" isDisabled={busy} type="button" onClick={() => void run("/auth/session", {action: "use_saved"})}>
+              {busy ? "Checking session…" : "Continue with saved session"}
+            </Button>
+            <Button isDisabled={busy} type="button" variant="secondary" onClick={() => setSignInAgain(true)}>
+              Sign in again
+            </Button>
+          </div>
+        </div>
+        <div className="trust-note">
+          <LockIcon />
+          <span>The session stays in your selected local storage and is never sent to this web page.</span>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="auth-screen qr-screen">
@@ -94,6 +155,15 @@ function QRScreen({state, onState}: ScreenProps) {
 
       <ErrorAlert message={error || state.error || ""} />
 
+      {state.session?.error && !state.error && !error && (
+        <Alert className="state-alert" status="warning" role="status">
+          <Alert.Content>
+            <Alert.Title>Session storage needs attention</Alert.Title>
+            <Alert.Description>{state.session.error}</Alert.Description>
+          </Alert.Content>
+        </Alert>
+      )}
+
       {state.mock?.enabled && (
         <div className="mock-panel">
           <div>
@@ -109,6 +179,7 @@ function QRScreen({state, onState}: ScreenProps) {
       <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "phone"})}>
         Sign in with phone number
       </button>
+      <SessionSaveNote session={state.session} replacing={signInAgain} />
       <div className="trust-note">
         <LockIcon />
         <span>This page is only available on this computer and closes after sign-in.</span>
@@ -148,6 +219,7 @@ function PhoneScreen({state, onState}: ScreenProps) {
       <Button className="primary-action" isDisabled={busy || phone.trim().length < 7} type="submit">
         {busy ? "Sending code…" : "Get code"}
       </Button>
+      <SessionSaveNote session={state.session} />
       <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "qr"})}>
         Back to QR code
       </button>
@@ -201,6 +273,7 @@ function CodeScreen({state, onState}: ScreenProps) {
       <Button className="primary-action" isDisabled={busy || code.length < 4} type="submit">
         {busy ? "Verifying…" : "Continue"}
       </Button>
+      <SessionSaveNote session={state.session} />
       <div className="secondary-actions">
         <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "phone"})}>
           Change number
@@ -253,6 +326,7 @@ function PasswordScreen({state, onState}: ScreenProps) {
       <Button className="primary-action" isDisabled={busy || !password} type="submit">
         {busy ? "Verifying…" : "Sign in"}
       </Button>
+      <SessionSaveNote session={state.session} />
       <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "phone"})}>
         Start over
       </button>
