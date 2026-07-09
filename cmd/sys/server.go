@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -68,7 +67,7 @@ func runServerEnsure(cmd *cobra.Command, _ []string) {
 	args := []string{"serve", "--foreground", "--socket", socketPath}
 	//nolint:gosec,noctx // exe is the current binary and serve is intentionally detached.
 	start := exec.Command(exe, args...)
-	start.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	detachServerProcess(start)
 	devNull, devNullErr := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if devNullErr == nil {
 		defer func() { _ = devNull.Close() }()
