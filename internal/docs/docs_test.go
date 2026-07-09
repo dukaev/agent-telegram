@@ -42,9 +42,8 @@ old options
 	}
 	body := string(updated)
 	for _, want := range []string{
-		"`agent-telegram my-info`",
-		"`get_me`",
-		"`read`",
+		"Run `agent-telegram --help`",
+		"| Authentication Commands | `my-info` |",
 		"`--output <string>`",
 	} {
 		if !strings.Contains(body, want) {
