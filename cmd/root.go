@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -35,6 +36,33 @@ It provides commands to:
   - Query chats, messages, and user info
   - Send and receive Telegram messages`,
 	Version: version,
+	Args:    cobra.NoArgs,
+	RunE:    runRoot,
+}
+
+const rootWelcome = `Connect Telegram
+
+  agent-telegram auth web
+      Sign in with a QR code in your browser (recommended)
+
+  agent-telegram auth web --qr=false
+      Sign in with your phone number and Telegram code
+
+  agent-telegram auth status
+      Check authentication and session storage status
+
+After sign-in
+
+  agent-telegram server ensure    Start the local Telegram server
+  agent-telegram chats            List your chats
+  agent-telegram send @user hi    Send a message
+
+Run agent-telegram --help to see every command.
+`
+
+func runRoot(cmd *cobra.Command, _ []string) error {
+	_, err := fmt.Fprint(cmd.OutOrStdout(), rootWelcome)
+	return err
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

@@ -22,6 +22,9 @@ go build -o agent-telegram .
 ## Quick Start
 
 ```bash
+# Show the recommended sign-in options.
+agent-telegram
+
 # Login through a local browser.
 agent-telegram auth web --qr
 
