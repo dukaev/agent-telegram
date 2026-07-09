@@ -18,7 +18,7 @@ function ErrorAlert({message}: {message: string}) {
   return (
     <Alert className="state-alert" status="danger" role="alert">
       <Alert.Content>
-        <Alert.Title>Не удалось продолжить</Alert.Title>
+        <Alert.Title>Could not continue</Alert.Title>
         <Alert.Description>{message}</Alert.Description>
       </Alert.Content>
     </Alert>
@@ -36,12 +36,12 @@ function useAuthAction(onState: (state: AuthState) => void) {
       const result = await postAuthState(path, payload);
       onState(result.state);
       if (!result.ok) {
-        setError(result.state.error || "Не удалось продолжить.");
+        setError(result.state.error || "Could not continue.");
         return false;
       }
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось продолжить.");
+      setError(reason instanceof Error ? reason.message : "Could not continue.");
       return false;
     } finally {
       setBusy(false);
@@ -53,14 +53,14 @@ function useAuthAction(onState: (state: AuthState) => void) {
 
 function formatCountdown(seconds: number | null) {
   if (seconds === null) {
-    return "Код обновится автоматически";
+    return "The code refreshes automatically";
   }
   if (seconds <= 0) {
-    return "Обновляю QR-код…";
+    return "Refreshing the QR code…";
   }
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
-  return `Код обновится через ${minutes}:${rest.toString().padStart(2, "0")}`;
+  return `Code refreshes in ${minutes}:${rest.toString().padStart(2, "0")}`;
 }
 
 function QRScreen({state, onState}: ScreenProps) {
@@ -69,16 +69,16 @@ function QRScreen({state, onState}: ScreenProps) {
 
   return (
     <section className="auth-screen qr-screen">
-      <ol className="qr-instructions" aria-label="Как отсканировать QR-код">
-        <li><span>1</span><p>Открой Telegram на телефоне</p></li>
-        <li><span>2</span><p>Перейди в <strong>Настройки → Устройства</strong></p></li>
-        <li><span>3</span><p>Нажми <strong>Подключить устройство</strong> и наведи камеру на код</p></li>
+      <ol className="qr-instructions" aria-label="How to scan the QR code">
+        <li><span>1</span><p>Open Telegram on your phone</p></li>
+        <li><span>2</span><p>Go to <strong>Settings → Devices</strong></p></li>
+        <li><span>3</span><p>Tap <strong>Link Desktop Device</strong> and point the camera at the code</p></li>
       </ol>
 
       <div className="qr-stage" aria-live="polite" aria-busy={!state.qrImage}>
         {state.qrImage ? (
           <img
-            alt="QR-код для входа в Telegram"
+            alt="QR code for signing in to Telegram"
             className="qr-image"
             key={state.expires || state.qrImage.slice(-24)}
             src={state.qrImage}
@@ -86,7 +86,7 @@ function QRScreen({state, onState}: ScreenProps) {
         ) : (
           <div className="qr-placeholder">
             <Spinner size="lg" />
-            <span>Создаю защищённый QR-код…</span>
+            <span>Creating a secure QR code…</span>
           </div>
         )}
       </div>
@@ -97,21 +97,21 @@ function QRScreen({state, onState}: ScreenProps) {
       {state.mock?.enabled && (
         <div className="mock-panel">
           <div>
-            <strong>Тестовый режим</strong>
-            <span>Можно перейти к настройке доступа без Telegram.</span>
+            <strong>Mock mode</strong>
+            <span>Continue to access setup without Telegram.</span>
           </div>
           <Button isDisabled={busy} size="sm" type="button" onClick={() => void run("/auth/mock/advance", {action: "qr_scan"})}>
-            Имитировать сканирование
+            Simulate QR scan
           </Button>
         </div>
       )}
 
       <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "phone"})}>
-        Войти по номеру телефона
+        Sign in with phone number
       </button>
       <div className="trust-note">
         <LockIcon />
-        <span>Страница доступна только на этом компьютере и закроется после завершения входа.</span>
+        <span>This page is only available on this computer and closes after sign-in.</span>
       </div>
     </section>
   );
@@ -130,7 +130,7 @@ function PhoneScreen({state, onState}: ScreenProps) {
     <form className="auth-screen auth-form" onSubmit={submit}>
       <ErrorAlert message={error || state.error || ""} />
       <label className="field-label" htmlFor="phone-number">
-        Номер телефона
+        Phone number
         <Input
           autoComplete="tel"
           autoFocus
@@ -144,16 +144,16 @@ function PhoneScreen({state, onState}: ScreenProps) {
           onChange={(event) => setPhone(event.currentTarget.value)}
         />
       </label>
-      <p className="field-help">Используй международный формат с кодом страны. Telegram отправит код в приложение.</p>
+      <p className="field-help">Use international format with a country code. Telegram will send a code to the app.</p>
       <Button className="primary-action" isDisabled={busy || phone.trim().length < 7} type="submit">
-        {busy ? "Отправляю код…" : "Получить код"}
+        {busy ? "Sending code…" : "Get code"}
       </Button>
       <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "qr"})}>
-        Вернуться к QR-коду
+        Back to QR code
       </button>
       <div className="trust-note">
         <LockIcon />
-        <span>Номер используется только для входа в Telegram и не сохраняется после авторизации.</span>
+        <span>Your number is only used to sign in to Telegram and is not stored after authentication.</span>
       </div>
     </form>
   );
@@ -172,7 +172,7 @@ function CodeScreen({state, onState}: ScreenProps) {
     <form className="auth-screen auth-form" onSubmit={submit}>
       <ErrorAlert message={error || state.error || ""} />
       <label className="field-label" htmlFor="telegram-code">
-        Код из Telegram
+        Telegram code
         <Input
           aria-describedby="code-help"
           autoComplete="one-time-code"
@@ -187,26 +187,26 @@ function CodeScreen({state, onState}: ScreenProps) {
           onChange={(event) => setCode(event.currentTarget.value.replace(/\s/g, ""))}
         />
       </label>
-      <p className="field-help" id="code-help">Код отправлен для {state.phone}. Не сообщай его другим людям.</p>
+      <p className="field-help" id="code-help">The code was sent for {state.phone}. Never share it with anyone.</p>
 
       {state.mock?.code && (
         <div className="mock-panel">
-          <div><strong>Тестовый код</strong><span>{state.mock.code}</span></div>
+          <div><strong>Mock code</strong><span>{state.mock.code}</span></div>
           <Button isDisabled={busy} size="sm" type="button" variant="secondary" onClick={() => void run("/auth/verify", {code: state.mock?.code ?? ""})}>
-            Использовать
+            Use code
           </Button>
         </div>
       )}
 
       <Button className="primary-action" isDisabled={busy || code.length < 4} type="submit">
-        {busy ? "Проверяю…" : "Продолжить"}
+        {busy ? "Verifying…" : "Continue"}
       </Button>
       <div className="secondary-actions">
         <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "phone"})}>
-          Изменить номер
+          Change number
         </button>
         <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "qr"})}>
-          Войти по QR-коду
+          Sign in with QR code
         </button>
       </div>
     </form>
@@ -226,7 +226,7 @@ function PasswordScreen({state, onState}: ScreenProps) {
     <form className="auth-screen auth-form" onSubmit={submit}>
       <ErrorAlert message={error || state.error || ""} />
       <label className="field-label" htmlFor="telegram-password">
-        Облачный пароль
+        Cloud password
         <Input
           aria-describedby="password-help"
           autoComplete="current-password"
@@ -239,22 +239,22 @@ function PasswordScreen({state, onState}: ScreenProps) {
           onChange={(event) => setPassword(event.currentTarget.value)}
         />
       </label>
-      <p className="field-help" id="password-help">{state.hint || "Введи пароль двухэтапной аутентификации Telegram."}</p>
+      <p className="field-help" id="password-help">{state.hint || "Enter your Telegram two-step verification password."}</p>
 
       {state.mock?.password && (
         <div className="mock-panel">
-          <div><strong>Тестовый пароль</strong><span>{state.mock.password}</span></div>
+          <div><strong>Mock password</strong><span>{state.mock.password}</span></div>
           <Button isDisabled={busy} size="sm" type="button" variant="secondary" onClick={() => void run("/auth/password", {password: state.mock?.password ?? ""})}>
-            Использовать
+            Use password
           </Button>
         </div>
       )}
 
       <Button className="primary-action" isDisabled={busy || !password} type="submit">
-        {busy ? "Проверяю…" : "Войти"}
+        {busy ? "Verifying…" : "Sign in"}
       </Button>
       <button className="text-action" disabled={busy} type="button" onClick={() => void run("/auth/mode", {mode: "phone"})}>
-        Начать заново
+        Start over
       </button>
     </form>
   );
@@ -265,8 +265,8 @@ function DoneScreen() {
     <section className="auth-screen done-screen" aria-live="polite">
       <div className="success-mark"><CheckIcon /></div>
       <div>
-        <h2>Авторизация завершена</h2>
-        <p>Сессия сохранена. Эту страницу можно закрыть и вернуться в терминал.</p>
+        <h2>Authentication complete</h2>
+        <p>Your session has been saved. You can close this page and return to the terminal.</p>
       </div>
     </section>
   );

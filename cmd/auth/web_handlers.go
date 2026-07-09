@@ -86,7 +86,7 @@ func (s *webAuthSession) handleAPISettings(w http.ResponseWriter, r *http.Reques
 	phone := s.state.Phone
 	s.mu.Unlock()
 	if !qrMode && phone != "" {
-		writeAuthState(w, http.StatusBadRequest, s.clientState("Изменить API можно до отправки кода."))
+		writeAuthState(w, http.StatusBadRequest, s.clientState("API settings can only be changed before sending a code."))
 		return
 	}
 
@@ -125,7 +125,7 @@ func (s *webAuthSession) handleMode(w http.ResponseWriter, r *http.Request) {
 	}
 	mode, phone, err := parseAuthModeRequest(r)
 	if err != nil {
-		writeAuthState(w, http.StatusBadRequest, s.clientState("Не удалось изменить способ входа."))
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Could not change the sign-in method."))
 		return
 	}
 
@@ -134,7 +134,7 @@ func (s *webAuthSession) handleMode(w http.ResponseWriter, r *http.Request) {
 	doneSent := s.doneSent
 	s.mu.Unlock()
 	if completed || doneSent {
-		writeAuthState(w, http.StatusConflict, s.clientState("Вход уже завершён."))
+		writeAuthState(w, http.StatusConflict, s.clientState("Sign-in is already complete."))
 		return
 	}
 
@@ -142,7 +142,7 @@ func (s *webAuthSession) handleMode(w http.ResponseWriter, r *http.Request) {
 	case "phone":
 		s.cancelQRCodeFlow()
 		if err := s.resetAuthMode(false); err != nil {
-			writeAuthState(w, http.StatusInternalServerError, s.clientState("Не удалось подготовить вход по номеру."))
+			writeAuthState(w, http.StatusInternalServerError, s.clientState("Could not prepare phone sign-in."))
 			return
 		}
 	case "code":
@@ -153,18 +153,18 @@ func (s *webAuthSession) handleMode(w http.ResponseWriter, r *http.Request) {
 		}
 		s.cancelQRCodeFlow()
 		if err := s.beginPhoneCode(r.Context(), phone); err != nil {
-			writeAuthState(w, http.StatusBadRequest, s.clientState("Не удалось отправить код. Проверь номер и попробуй снова."))
+			writeAuthState(w, http.StatusBadRequest, s.clientState("Could not send the code. Check the number and try again."))
 			return
 		}
 	case "qr":
 		s.cancelQRCodeFlow()
 		if err := s.resetAuthMode(true); err != nil {
-			writeAuthState(w, http.StatusInternalServerError, s.clientState("Не удалось подготовить QR-код."))
+			writeAuthState(w, http.StatusInternalServerError, s.clientState("Could not prepare the QR code."))
 			return
 		}
 		s.startQRCodeFlow()
 	default:
-		writeAuthState(w, http.StatusBadRequest, s.clientState("Неизвестный способ входа."))
+		writeAuthState(w, http.StatusBadRequest, s.clientState("Unknown sign-in method."))
 		return
 	}
 
@@ -180,11 +180,11 @@ func normalizeAuthPhone(value string) (string, error) {
 			continue
 		}
 		if r != '+' && r != ' ' && r != '-' && r != '(' && r != ')' {
-			return "", fmt.Errorf("Введи номер телефона в международном формате.")
+			return "", fmt.Errorf("enter a phone number in international format")
 		}
 	}
 	if digits.Len() < 7 || digits.Len() > 15 {
-		return "", fmt.Errorf("Введи номер телефона в международном формате.")
+		return "", fmt.Errorf("enter a phone number in international format")
 	}
 	return "+" + digits.String(), nil
 }

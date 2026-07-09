@@ -82,7 +82,7 @@ func TestWebAuthVerifyThenPasswordCompletes2FA(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	authState := decodeAuthState(t, rec)
-	if authState.Mode != "password" || authState.Title != "Введите пароль" {
+	if authState.Mode != "password" || authState.Title != "Enter your password" {
 		t.Fatalf("verify should return password state, got: %+v", authState)
 	}
 	select {
@@ -352,7 +352,7 @@ func TestWebAuthQRCompletionWaitsForFilterSetup(t *testing.T) {
 	rec := httptest.NewRecorder()
 	session.handleState(rec, req)
 	authState := decodeAuthState(t, rec)
-	if !authState.Completed || authState.Mode != "setup" || authState.Title != "Настрой доступ" {
+	if !authState.Completed || authState.Mode != "setup" || authState.Title != "Set up access" {
 		t.Fatalf("unexpected setup state: %+v", authState)
 	}
 

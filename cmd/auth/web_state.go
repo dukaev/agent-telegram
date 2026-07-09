@@ -82,13 +82,13 @@ func (s webAuthSnapshot) baseClientState(errMsg string) authClientState {
 
 func (s webAuthSnapshot) completedClientState(data authClientState) authClientState {
 	if s.doneSent {
-		data.Title = "Всё готово"
-		data.Message = "Настройки сохранены."
+		data.Title = "You're all set"
+		data.Message = "Your settings have been saved."
 		data.Mode = "done"
 		return data
 	}
-	data.Title = "Настрой доступ"
-	data.Message = "Выбери диалоги, с которыми сможет работать агент."
+	data.Title = "Set up access"
+	data.Message = "Choose the chats your agent can work with."
 	data.Mode = "setup"
 	return data
 }
@@ -96,12 +96,12 @@ func (s webAuthSnapshot) completedClientState(data authClientState) authClientSt
 func (s webAuthSnapshot) qrClientState(data authClientState) authClientState {
 	data.Mode = "qr"
 	data.Refresh = 1
-	data.Message = "Отсканируй код в приложении Telegram."
+	data.Message = "Scan the code with the Telegram app."
 	if s.qrImage == "" {
-		data.Title = "Войдите в Telegram"
+		data.Title = "Sign in to Telegram"
 		return data
 	}
-	data.Title = "Войдите в Telegram"
+	data.Title = "Sign in to Telegram"
 	data.QRImage = s.qrImage
 	data.QRLink = s.qrTokenURL
 	data.Refresh = qrRefreshDelay(s.qrExpires)
@@ -112,26 +112,26 @@ func (s webAuthSnapshot) qrClientState(data authClientState) authClientState {
 }
 
 func (s webAuthSnapshot) passwordClientState(data authClientState) authClientState {
-	data.Title = "Введите пароль"
+	data.Title = "Enter your password"
 	data.Mode = "password"
-	data.Hint = "Введи пароль двухэтапной аутентификации Telegram."
+	data.Hint = "Enter your Telegram two-step verification password."
 	if s.hint != "" {
-		data.Hint = "Подсказка: " + s.hint
+		data.Hint = "Hint: " + s.hint
 	}
 	return data
 }
 
 func (s webAuthSnapshot) codeClientState(data authClientState) authClientState {
-	data.Title = "Войдите по номеру"
+	data.Title = "Sign in with your phone"
 	data.Phone = maskPhone(s.phone)
 	if s.phone == "" {
 		data.Mode = "phone"
-		data.Hint = "Укажи номер, к которому привязан аккаунт Telegram."
+		data.Hint = "Enter the phone number linked to your Telegram account."
 		return data
 	}
 	data.Mode = "code"
-	data.Title = "Введите код"
-	data.Hint = "Telegram отправил код для " + data.Phone + "."
+	data.Title = "Enter the code"
+	data.Hint = "Telegram sent a code for " + data.Phone + "."
 	return data
 }
 

@@ -14,27 +14,27 @@ import {AuthMode, AuthState} from "./types";
 function descriptionFor(state?: AuthState) {
   switch (state?.mode) {
     case "qr":
-      return "Подключи этот компьютер к своему аккаунту с помощью приложения Telegram.";
+      return "Connect this computer to your account using the Telegram app.";
     case "phone":
-      return "Получим одноразовый код в Telegram и продолжим настройку.";
+      return "Get a one-time code in Telegram, then continue setup.";
     case "code":
-      return state.hint || "Введи одноразовый код из Telegram.";
+      return state.hint || "Enter the one-time code from Telegram.";
     case "password":
-      return "Аккаунт защищён дополнительным облачным паролем.";
+      return "Your account is protected by an additional cloud password.";
     case "setup":
-      return "Реши, с какими диалогами сможет взаимодействовать локальный агент.";
+      return "Choose which chats the local agent can interact with.";
     case "done":
-      return "Telegram подключён, а локальные разрешения сохранены.";
+      return "Telegram is connected and your local permissions are saved.";
     default:
-      return "Готовлю безопасную локальную страницу авторизации.";
+      return "Preparing a secure local authentication page.";
   }
 }
 
 function titleFor(mode?: AuthMode, fallback?: string) {
   if (!mode) {
-    return "Telegram авторизация";
+    return "Telegram authentication";
   }
-  return fallback || "Telegram авторизация";
+  return fallback || "Telegram authentication";
 }
 
 function App() {
@@ -56,11 +56,11 @@ function App() {
           {loadError && (
             <Alert status="danger" role="alert">
               <Alert.Content>
-                <Alert.Title>Страница потеряла соединение</Alert.Title>
+                <Alert.Title>Connection lost</Alert.Title>
                 <Alert.Description>{loadError}</Alert.Description>
               </Alert.Content>
               <Button size="sm" type="button" variant="secondary" onClick={() => void retry()}>
-                Повторить
+                Retry
               </Button>
             </Alert>
           )}
@@ -79,7 +79,7 @@ function App() {
           ) : (
             <div className="page-loading" aria-live="polite">
               <Spinner size="lg" />
-              <span>Подготавливаю авторизацию…</span>
+              <span>Preparing authentication…</span>
             </div>
           )}
         </Card.Content>

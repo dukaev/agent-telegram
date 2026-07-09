@@ -11,13 +11,13 @@ export function useAuthState() {
     try {
       const result = await fetchAuthState();
       if (!result.ok) {
-        setLoadError(result.state.error || "Не удалось загрузить состояние авторизации.");
+        setLoadError(result.state.error || "Could not load the authentication state.");
         return;
       }
       setState(result.state);
       setLoadError("");
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Не удалось загрузить состояние авторизации.");
+      setLoadError(error instanceof Error ? error.message : "Could not load the authentication state.");
     }
   }, []);
 

@@ -86,9 +86,9 @@ export const defaultPolicy: Policy = {
 };
 
 export const peerTypeLabels: Record<string, string> = {
-  all: "Все",
-  user: "Личные",
-  group: "Группы",
-  channel: "Каналы",
-  bot: "Боты",
+  all: "All",
+  user: "People",
+  group: "Groups",
+  channel: "Channels",
+  bot: "Bots",
 };

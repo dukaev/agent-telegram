@@ -22,13 +22,13 @@ export function ApiSettingsPanel({api, onUpdated}: {api: AuthAPI; onUpdated: (st
       const result = await postAuthState("/auth/api", payload);
       onUpdated(result.state);
       if (!result.ok) {
-        setError(result.state.error || "Не удалось обновить настройки Telegram API.");
+        setError(result.state.error || "Could not update the Telegram API settings.");
         return;
       }
       setAppHash("");
       setOpen(false);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось обновить настройки Telegram API.");
+      setError(reason instanceof Error ? reason.message : "Could not update the Telegram API settings.");
     } finally {
       setSaving(false);
     }
@@ -49,12 +49,12 @@ export function ApiSettingsPanel({api, onUpdated}: {api: AuthAPI; onUpdated: (st
         onClick={() => setOpen((current) => !current)}
       >
         <span>
-          <span className="advanced-title">Расширенные настройки</span>
-          <span className="advanced-subtitle">Telegram API ID и Hash</span>
+          <span className="advanced-title">Advanced settings</span>
+          <span className="advanced-subtitle">Telegram API ID and Hash</span>
         </span>
         <span className="advanced-meta">
           <Chip color={api.default ? "default" : "accent"} size="sm" variant="soft">
-            {api.default ? "Стандартный API" : "Свой API"}
+            {api.default ? "Default API" : "Custom API"}
           </Chip>
           <span className={`disclosure-icon ${open ? "is-open" : ""}`} aria-hidden="true">⌄</span>
         </span>
@@ -63,12 +63,12 @@ export function ApiSettingsPanel({api, onUpdated}: {api: AuthAPI; onUpdated: (st
       {open && (
         <form className="advanced-content" onSubmit={submit}>
           <p className="field-help">
-            Большинству пользователей менять эти параметры не нужно. Собственные значения можно получить на my.telegram.org.
+            Most users do not need to change these settings. You can get custom credentials from my.telegram.org.
           </p>
           {error && (
             <Alert status="danger" role="alert">
               <Alert.Content>
-                <Alert.Title>Не удалось сохранить API</Alert.Title>
+                <Alert.Title>Could not save API settings</Alert.Title>
                 <Alert.Description>{error}</Alert.Description>
               </Alert.Content>
             </Alert>
@@ -100,11 +100,11 @@ export function ApiSettingsPanel({api, onUpdated}: {api: AuthAPI; onUpdated: (st
           </div>
           <div className="api-actions">
             <Button isDisabled={saving} size="sm" type="submit">
-              {saving ? "Сохраняю…" : "Применить"}
+              {saving ? "Saving…" : "Apply"}
             </Button>
             {!api.default && (
               <Button isDisabled={saving} size="sm" type="button" variant="secondary" onClick={() => void save({useDefault: true})}>
-                Вернуть стандартные
+                Restore defaults
               </Button>
             )}
           </div>

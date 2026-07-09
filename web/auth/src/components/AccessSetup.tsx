@@ -30,12 +30,12 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
       const result = await fetchPeers();
       setPeersState(result.state);
       if (!result.ok) {
-        setError(result.state.error || "Не удалось загрузить диалоги.");
+        setError(result.state.error || "Could not load your chats.");
       } else if (!result.state.error) {
         setError("");
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось загрузить диалоги.");
+      setError(reason instanceof Error ? reason.message : "Could not load your chats.");
     }
   }, []);
 
@@ -114,11 +114,11 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
 
   const finish = async () => {
     if (!preset) {
-      setError("Сначала выбери вариант доступа.");
+      setError("Choose an access option first.");
       return;
     }
     if (preset !== "all" && selected.size === 0) {
-      setError("Выбери хотя бы один диалог или разреши доступ ко всем.");
+      setError("Choose at least one chat or allow access to all chats.");
       return;
     }
 
@@ -139,66 +139,66 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
       const result = await postAuthState("/auth/finish", {policy: nextPolicy});
       onState(result.state);
       if (!result.ok) {
-        setError(result.state.error || "Не удалось сохранить доступ.");
+        setError(result.state.error || "Could not save access settings.");
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось сохранить доступ.");
+      setError(reason instanceof Error ? reason.message : "Could not save access settings.");
     } finally {
       setSaving(false);
     }
   };
 
   const selectionLabel = preset === "all"
-    ? "Все текущие и будущие диалоги"
+    ? "All current and future chats"
     : preset
-      ? `${selected.size} из ${peersState.count} диалогов`
-      : "Доступ ещё не выбран";
+      ? `${selected.size} of ${peersState.count} chats`
+      : "Access has not been selected";
 
   return (
     <section className="access-setup">
       {error && (
         <Alert status="danger" role="alert">
           <Alert.Content>
-            <Alert.Title>Проверь настройку доступа</Alert.Title>
+            <Alert.Title>Check your access settings</Alert.Title>
             <Alert.Description>{error}</Alert.Description>
           </Alert.Content>
         </Alert>
       )}
 
-      <div className="preset-grid" role="radiogroup" aria-label="Вариант доступа к диалогам">
+      <div className="preset-grid" role="radiogroup" aria-label="Chat access option">
         <button aria-checked={preset === "all"} className={`preset-card ${preset === "all" ? "is-selected" : ""}`} role="radio" type="button" onClick={() => choosePreset("all")}>
           <span className="preset-icon" aria-hidden="true">∞</span>
-          <span><strong>Все диалоги</strong><small>Текущие и новые чаты</small></span>
+          <span><strong>All chats</strong><small>Current and future chats</small></span>
           <span className="preset-radio" aria-hidden="true" />
         </button>
         <button aria-checked={preset === "bots"} className={`preset-card ${preset === "bots" ? "is-selected" : ""}`} role="radio" type="button" onClick={() => choosePreset("bots")}>
           <span className="preset-icon" aria-hidden="true">BOT</span>
-          <span><strong>Только боты</strong><small>Без личных чатов, групп и каналов</small></span>
+          <span><strong>Bots only</strong><small>No people, groups, or channels</small></span>
           <span className="preset-radio" aria-hidden="true" />
         </button>
         <button aria-checked={preset === "selected"} className={`preset-card ${preset === "selected" ? "is-selected" : ""}`} role="radio" type="button" onClick={() => choosePreset("selected")}>
           <span className="preset-icon" aria-hidden="true">✓</span>
-          <span><strong>Выбрать вручную</strong><small>Точный allowlist диалогов</small></span>
+          <span><strong>Choose manually</strong><small>Create an exact chat allowlist</small></span>
           <span className="preset-radio" aria-hidden="true" />
         </button>
       </div>
 
       {preset === "all" ? (
         <div className="access-summary">
-          <strong>Агент сможет работать со всеми диалогами</strong>
-          <p>Операции удаления и оплаты по-прежнему требуют отдельного подтверждения.</p>
+          <strong>The agent can work with all chats</strong>
+          <p>Destructive and paid actions will still require separate confirmation.</p>
         </div>
       ) : preset && (
         <div className="peer-picker">
           <div className="peer-toolbar">
             <Input
-              aria-label="Поиск диалогов"
+              aria-label="Search chats"
               fullWidth
-              placeholder="Поиск по названию или username"
+              placeholder="Search by name or username"
               value={query}
               onChange={(event) => setQuery(event.currentTarget.value)}
             />
-            <div className="type-filter" role="group" aria-label="Тип диалога">
+            <div className="type-filter" role="group" aria-label="Chat type">
               {Object.entries(peerTypeLabels).map(([value, label]) => (
                 <Button key={value} size="sm" type="button" variant={typeFilter === value ? "primary" : "secondary"} onClick={() => setTypeFilter(value)}>
                   {label}
@@ -208,15 +208,15 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
           </div>
 
           <div className="selection-toolbar">
-            <span>{peersState.loading ? "Загружаю диалоги…" : `${selected.size} из ${peersState.count} выбрано`}</span>
+            <span>{peersState.loading ? "Loading chats…" : `${selected.size} of ${peersState.count} selected`}</span>
             <div>
-              <button type="button" onClick={() => setVisible(true)}>Выбрать видимые</button>
-              <button type="button" onClick={() => setVisible(false)}>Снять видимые</button>
+              <button type="button" onClick={() => setVisible(true)}>Select visible</button>
+              <button type="button" onClick={() => setVisible(false)}>Clear visible</button>
             </div>
           </div>
 
           {peersState.loading && !peersState.loaded ? (
-            <div className="peer-loading"><Spinner size="lg" /><span>Получаю список диалогов…</span></div>
+            <div className="peer-loading"><Spinner size="lg" /><span>Loading your chat list…</span></div>
           ) : (
             <div className="peer-list">
               {filteredPeers.map((peer) => {
@@ -247,16 +247,16 @@ export function AccessSetup({state, onState}: {state: AuthState; onState: (state
                   </div>
                 );
               })}
-              {filteredPeers.length === 0 && <div className="empty-peers">По этому запросу ничего не найдено</div>}
+              {filteredPeers.length === 0 && <div className="empty-peers">No chats match this search</div>}
             </div>
           )}
         </div>
       )}
 
       <div className="finish-bar">
-        <div><small>Будет сохранено</small><strong>{selectionLabel}</strong></div>
+        <div><small>Ready to save</small><strong>{selectionLabel}</strong></div>
         <Button isDisabled={saving || !preset || (preset !== "all" && selected.size === 0)} type="button" onClick={() => void finish()}>
-          {saving ? "Сохраняю…" : "Сохранить и завершить"}
+          {saving ? "Saving…" : "Save and finish"}
         </Button>
       </div>
     </section>

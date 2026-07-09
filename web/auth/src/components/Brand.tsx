@@ -32,8 +32,8 @@ export function AuthHeader({mode, title, description}: {mode?: AuthMode; title: 
           <TelegramMark />
           <span>Agent Telegram</span>
         </div>
-        <div className="step-label" aria-label={complete ? "Авторизация завершена" : `Шаг ${step} из 2`}>
-          {complete ? "Готово" : `Шаг ${step} из 2`}
+        <div className="step-label" aria-label={complete ? "Authentication complete" : `Step ${step} of 2`}>
+          {complete ? "Done" : `Step ${step} of 2`}
         </div>
       </div>
       <div className="step-track" aria-hidden="true">
