@@ -63,6 +63,7 @@ Run `agent-telegram --help`, `agent-telegram <command> --help`, or `agent-telegr
 | Option | Description |
 |--------|-------------|
 | `--agent` | Enable agent-friendly compact JSON, receipts, run IDs, and structured errors |
+| `--confirm` | Confirm a destructive or paid operation |
 | `--dry-run` | Preview action without executing |
 | `--filter <strings>` | Filter results (e.g., 'stars>1000', 'type=channel') |
 | `--include <strings>` | Include output fields (comma-separated, supports dot paths) |
@@ -103,8 +104,14 @@ agent-telegram msg list @user --verbosity compact --max-items 5 --max-text-chars
 agent-telegram send @user "hi" --dry-run --agent
 agent-telegram <command> --schema
 agent-telegram manifest
-agent-telegram serve-api --secret "$AGENT_TELEGRAM_API_SECRET"
+agent-telegram serve-api --secret "$AGENT_TELEGRAM_API_SECRET" --listen 127.0.0.1:8080
 ```
+
+Destructive and paid operations require explicit confirmation with `--confirm`.
+The HTTP API is loopback-only by default; use `--listen` to expose it deliberately.
+Local file parameters are rejected over HTTP unless their directory is allowed
+with `--file-root`. Uploads can instead use `multipart/form-data` with `params`
+and `file` parts.
 
 For debugging, use `audit`, `logs`, `trace inspect`, and `run inspect`. Audit/log output is redacted by default.
 
@@ -114,7 +121,11 @@ For debugging, use `audit`, `logs`, `trace inspect`, and `run inspect`. Audit/lo
 CLI command -> Unix socket IPC server -> Telegram MTProto
 ```
 
-The daemon is explicit: start it with `agent-telegram server ensure` and stop it with `agent-telegram stop`. The default socket is `/tmp/agent-telegram.sock`; server state and logs live under `~/.agent-telegram/`.
+The daemon is explicit: start it with `agent-telegram server ensure` and stop it with `agent-telegram stop`. Stopping preserves the Telegram authorization; `agent-telegram auth logout --confirm` revokes it. A login performed before the daemon starts is transferred through a one-time owner-only session handoff. The default socket is `/tmp/agent-telegram.sock`; server state and rotating logs live under `~/.agent-telegram/`.
+
+`agent-telegram get updates --follow` advances a cursor using `next_offset` and
+`epoch`. If the daemon restarts or retained updates are evicted, the response
+sets `gap` so consumers can resynchronize explicitly.
 
 ## Development
 

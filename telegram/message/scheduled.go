@@ -19,7 +19,7 @@ func (c *Client) GetScheduledMessages(
 		return nil, err
 	}
 
-	result, err := c.API.MessagesGetScheduledHistory(ctx, &tg.MessagesGetScheduledHistoryRequest{
+	result, err := c.API().MessagesGetScheduledHistory(ctx, &tg.MessagesGetScheduledHistoryRequest{
 		Peer: inputPeer,
 		Hash: 0,
 	})

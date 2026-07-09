@@ -21,6 +21,7 @@ type runnerFlagOptions struct {
 	summary      bool
 	receipt      bool
 	dryRun       bool
+	confirm      bool
 	agentMode    bool
 	runID        string
 }
@@ -38,6 +39,7 @@ func runnerFlagOptionsFromCmd(cmd *cobra.Command) runnerFlagOptions {
 		summary:    flagBool(cmd, "summary"),
 		receipt:    flagBool(cmd, "receipt"),
 		dryRun:     flagBool(cmd, "dry-run"),
+		confirm:    flagBool(cmd, "confirm"),
 		agentMode:  flagBool(cmd, "agent"),
 		runID:      flagString(cmd, "run-id"),
 	}

@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"sync"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,11 +17,13 @@ import (
 )
 
 var (
-	serveAPIPort   int
-	serveAPISecret string
-	serveAPICORS   string
-	serveAPIUnsafe bool
-	serveAPILogout bool
+	serveAPIPort      int
+	serveAPIListen    string
+	serveAPISecret    string
+	serveAPICORS      string
+	serveAPIFileRoots []string
+	serveAPIUnsafe    bool
+	serveAPILogout    bool
 )
 
 var serveAPICmd = &cobra.Command{
@@ -47,11 +49,18 @@ func init() {
 	RootCmd.AddCommand(serveAPICmd)
 
 	serveAPICmd.Flags().IntVar(&serveAPIPort, "port", 8080, "HTTP API server port")
+	serveAPICmd.Flags().StringVar(&serveAPIListen, "listen", "127.0.0.1", "HTTP listen address")
 	serveAPICmd.Flags().StringVar(&serveAPISecret, "secret", "",
 		"Bearer token for auth (or AGENT_TELEGRAM_API_SECRET env)")
 	serveAPICmd.Flags().StringVar(&serveAPICORS, "cors", "", "CORS allowed origins (comma-separated, empty disables CORS)")
+	serveAPICmd.Flags().StringSliceVar(
+		&serveAPIFileRoots,
+		"file-root",
+		nil,
+		"Allow HTTP file parameters only below these server directories (repeatable)",
+	)
 	serveAPICmd.Flags().BoolVar(&serveAPIUnsafe, "unsafe-no-auth", false, "Allow HTTP API without auth")
-	serveAPICmd.Flags().BoolVar(&serveAPILogout, "logout-on-stop", true, "Logout from Telegram when the server stops")
+	serveAPICmd.Flags().BoolVar(&serveAPILogout, "logout-on-stop", false, "Logout from Telegram when the server stops")
 }
 
 func runServeAPI(_ *cobra.Command, _ []string) {
@@ -85,9 +94,10 @@ func runServeAPI(_ *cobra.Command, _ []string) {
 	startTelegramClient(ctx, tgClient)
 	go waitForTelegramReady(ctx, tgClient)
 
-	srv := createHTTPAPIServer(serveAPIPort, secret, serveAPICORS, tgClient, cancel, logout)
+	address := net.JoinHostPort(serveAPIListen, strconv.Itoa(serveAPIPort))
+	srv := createHTTPAPIServer(address, secret, serveAPICORS, serveAPIFileRoots, tgClient, cancel)
 	srv.SetPolicyChecker(loadPolicyChecker(tgClient))
-	fmt.Fprintf(os.Stderr, "REST API on http://localhost:%d\n", serveAPIPort)
+	fmt.Fprintf(os.Stderr, "REST API on http://%s\n", address)
 
 	if err := srv.Start(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
@@ -101,61 +111,16 @@ func runServeAPI(_ *cobra.Command, _ []string) {
 }
 
 func createHTTPAPIServer(
-	port int, secret, cors string,
+	address, secret, cors string,
+	fileRoots []string,
 	tgClient *telegram.Client, cancel context.CancelFunc,
-	logout func(),
 ) *ipc.HTTPServer {
-	srv := ipc.NewHTTPServer(port, secret, cors)
+	srv := ipc.NewHTTPServerOnAddress(address, secret, cors)
+	srv.SetFileRoots(fileRoots)
 	ipc.RegisterPingPong(srv)
 	telegramipc.RegisterHandlers(srv, tgClient)
 
-	srv.Register("status", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
-		ctx, statusCancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer statusCancel()
-
-		tgStatus := tgClient.GetStatus(ctx)
-
-		return map[string]any{
-			"status":          "running",
-			"pid":             os.Getpid(),
-			"session_storage": "memory",
-			"initialized":     tgStatus.Initialized,
-			"authorized":      tgStatus.Authorized,
-			"telegram_state":  tgStatus.State,
-			"username":        tgStatus.Username,
-			"first_name":      tgStatus.FirstName,
-			"user_id":         tgStatus.UserID,
-		}, nil
-	})
-
-	srv.Register("shutdown", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			if logout != nil {
-				logout()
-			}
-			cancel()
-		}()
-		return map[string]any{
-			"success": true,
-			"message": "Shutting down...",
-		}, nil
-	})
-
-	srv.Register("reload_session", func(params json.RawMessage) (any, *ipc.ErrorObject) {
-		sessionData, err := parseReloadSessionData(params)
-		if err != nil {
-			return nil, ipc.NewTypedError(ipc.ErrCodeInvalidParams, ipc.ErrorTypeValidation, err.Error(), nil)
-		}
-		if err := importSessionForMemoryStorage(tgClient, sessionData); err != nil {
-			return nil, ipc.NewTypedError(ipc.ErrCodeInternalError, ipc.ErrorTypeInternal, err.Error(), nil)
-		}
-		tgClient.Reload()
-		return map[string]any{
-			"success": true,
-			"message": "Session reload initiated",
-		}, nil
-	})
+	registerControlHandlers(srv, tgClient, cancel)
 
 	return srv
 }

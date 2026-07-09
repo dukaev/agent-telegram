@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // Join joins a chat or channel using an invite link.
@@ -22,7 +22,7 @@ func (c *Client) Join(ctx context.Context, inviteLink string) (tg.UpdatesClass, 
 	}
 
 	// Use messages.ImportChatInvite to join
-	result, err := c.API.MessagesImportChatInvite(ctx, hash)
+	result, err := c.API().MessagesImportChatInvite(ctx, hash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to join chat: %w", err)
 	}
@@ -112,7 +112,7 @@ func (c *Client) Subscribe(ctx context.Context, channel string) (tg.UpdatesClass
 	}
 
 	// Join the channel
-	result, err := c.API.ChannelsJoinChannel(ctx, inputChannel)
+	result, err := c.API().ChannelsJoinChannel(ctx, inputChannel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to subscribe to channel: %w", err)
 	}

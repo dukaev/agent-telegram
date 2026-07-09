@@ -38,6 +38,9 @@ func TestTelegramHandlersHaveResultSchemas(t *testing.T) {
 
 func TestOperationMethodsHaveHandlers(t *testing.T) {
 	handlerMethods := stringSet(telegramipc.RegisteredMethods())
+	for _, method := range []string{"ping", "echo", "status", "shutdown", "logout", "reload_session"} {
+		handlerMethods[method] = struct{}{}
+	}
 
 	for _, method := range operations.Methods() {
 		if _, ok := handlerMethods[method]; !ok {

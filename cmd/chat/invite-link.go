@@ -14,8 +14,8 @@ var (
 
 // InviteLinkCmd represents the invite-link command.
 var InviteLinkCmd = &cobra.Command{
-	Use:     "invite-link",
-	Short:   "Get or create an invite link for a chat or channel",
+	Use:   "invite-link",
+	Short: "Get or create an invite link for a chat or channel",
 	Long: `Get an existing invite link or create a new one for a Telegram chat or channel.
 
 Use --to @username or --to username to specify the chat/channel.

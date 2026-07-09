@@ -35,6 +35,15 @@ jobs:
       - name: Run Go tests
         run: go test ./...
 
+      - name: Run Go race tests
+        run: go test -race ./...
+
+      - name: Run contract tests
+        run: go test -tags=contracts ./...
+
+      - name: Check generated documentation
+        run: go run . docs check --target README.md
+
       - name: Check auth web app
         run: npm run check:web:auth
 

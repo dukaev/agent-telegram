@@ -9,8 +9,8 @@ import (
 
 // InviteCmd represents the invite command.
 var InviteCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:    "invite",
-	Short:  "Invite users to a chat or channel",
+	Use:   "invite",
+	Short: "Invite users to a chat or channel",
 	Long: `Invite users to a Telegram chat or channel.
 
 Example:

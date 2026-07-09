@@ -1,8 +1,10 @@
 package ipc
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -31,7 +33,7 @@ func TestMain(m *testing.M) {
 
 func TestHTTPServerRequiresBearerForRPC(t *testing.T) {
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("ok", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("ok", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		return map[string]any{"ok": true}, nil
 	})
 
@@ -53,10 +55,70 @@ func TestHTTPServerRequiresBearerForRPC(t *testing.T) {
 	}
 }
 
+func TestHTTPServerDefaultsToLoopback(t *testing.T) {
+	srv := NewHTTPServer(8080, "secret", "")
+	if srv.srv.Addr != "127.0.0.1:8080" {
+		t.Fatalf("address = %q, want loopback", srv.srv.Addr)
+	}
+}
+
+func TestHTTPServerMultipartUploadIsTemporary(t *testing.T) {
+	srv := NewHTTPServer(0, "secret", "")
+	var uploadedPath string
+	srv.Register("send_photo", func(_ context.Context, params json.RawMessage) (interface{}, *ErrorObject) {
+		var payload struct {
+			Peer string `json:"peer"`
+			File string `json:"file"`
+		}
+		if err := json.Unmarshal(params, &payload); err != nil {
+			t.Fatal(err)
+		}
+		uploadedPath = payload.File
+		if payload.Peer != "@user" {
+			t.Fatalf("peer = %q", payload.Peer)
+		}
+		if _, err := os.Stat(payload.File); err != nil {
+			t.Fatalf("uploaded file unavailable during handler: %v", err)
+		}
+		return map[string]any{"ok": true}, nil
+	})
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("params", `{"peer":"@user"}`); err != nil {
+		t.Fatal(err)
+	}
+	part, err := writer.CreateFormFile("file", "photo.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte("image")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/rpc/send_photo", &body)
+	req.Header.Set("Authorization", "Bearer secret")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	srv.srv.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if uploadedPath == "" {
+		t.Fatal("handler did not receive uploaded path")
+	}
+	if _, err := os.Stat(uploadedPath); !os.IsNotExist(err) {
+		t.Fatalf("temporary upload was not removed: %v", err)
+	}
+}
+
 func TestHTTPServerDryRunValidatesWithoutExecuting(t *testing.T) {
 	called := false
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		called = true
 		return map[string]any{"ok": true}, nil
 	})
@@ -81,7 +143,7 @@ func TestHTTPServerDryRunValidatesWithoutExecuting(t *testing.T) {
 func TestHTTPServerDryRunEnvelope(t *testing.T) {
 	called := false
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		called = true
 		return map[string]any{"ok": true}, nil
 	})
@@ -117,7 +179,7 @@ func TestHTTPServerDryRunEnvelope(t *testing.T) {
 
 func TestHTTPServerDryRunReturnsValidationError(t *testing.T) {
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		t.Fatal("handler should not execute on validation failure")
 		return nil, nil
 	})
@@ -146,7 +208,7 @@ func TestHTTPServerDryRunReturnsValidationError(t *testing.T) {
 func TestHTTPServerDryRunHonorsPolicy(t *testing.T) {
 	srv := NewHTTPServer(0, "secret", "")
 	srv.SetPolicyChecker(denyPolicyChecker{})
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		t.Fatal("handler should not execute when policy denies")
 		return nil, nil
 	})
@@ -178,7 +240,7 @@ func TestHTTPServerDryRunHonorsPolicy(t *testing.T) {
 
 func TestHTTPServerRejectsInvalidJSON(t *testing.T) {
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		t.Fatal("handler should not execute on invalid JSON")
 		return nil, nil
 	})
@@ -219,7 +281,7 @@ func TestHTTPServerUnknownMethodTypedError(t *testing.T) {
 
 func TestHTTPServerRejectsOversizedBody(t *testing.T) {
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		t.Fatal("handler should not execute on oversized body")
 		return nil, nil
 	})
@@ -237,7 +299,7 @@ func TestHTTPServerRejectsOversizedBody(t *testing.T) {
 func TestHTTPServerValidateOnlyQuery(t *testing.T) {
 	called := false
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		called = true
 		return map[string]any{"ok": true}, nil
 	})
@@ -273,7 +335,7 @@ func TestHTTPServerValidateOnlyQuery(t *testing.T) {
 
 func TestHTTPServerIncludesTypedErrorData(t *testing.T) {
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		return nil, NewTypedError(ErrCodePeerNotFound, ErrorTypePeerNotFound, "not found", nil)
 	})
 
@@ -300,7 +362,7 @@ func TestHTTPServerIncludesTypedErrorData(t *testing.T) {
 
 func TestHTTPServerTraceIDAndAudit(t *testing.T) {
 	srv := NewHTTPServer(0, "secret", "")
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		return map[string]any{"messageId": 123, "message": "hello"}, nil
 	})
 

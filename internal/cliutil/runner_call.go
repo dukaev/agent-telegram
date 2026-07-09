@@ -32,7 +32,13 @@ func (r *Runner) callRPC(method string, params any) (any, *ipc.ErrorObject, time
 
 	var result any
 	var err *ipc.ErrorObject
-	if runAware, ok := client.(runRPCClient); ok {
+	if optionAware, ok := client.(optionsRPCClient); ok {
+		result, err = optionAware.CallWithOptions(method, params, ipc.CallOptions{
+			TraceID: r.traceID,
+			RunID:   r.runID,
+			Confirm: r.confirm,
+		})
+	} else if runAware, ok := client.(runRPCClient); ok {
 		result, err = runAware.CallWithTraceAndRun(method, params, r.traceID, r.runID)
 	} else if traced, ok := client.(traceRPCClient); ok {
 		result, err = traced.CallWithTrace(method, params, r.traceID)

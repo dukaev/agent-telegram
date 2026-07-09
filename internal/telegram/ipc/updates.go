@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"agent-telegram/internal/strictjson"
 	"agent-telegram/telegram/types"
 )
 
@@ -16,7 +17,7 @@ func GetUpdatesHandler(client Client) HandlerFunc {
 	return func(_ context.Context, params json.RawMessage) (interface{}, error) {
 		var p types.GetUpdatesParams
 		if len(params) > 0 {
-			if err := json.Unmarshal(params, &p); err != nil {
+			if err := strictjson.Decode(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
@@ -34,7 +35,8 @@ func GetUpdatesHandler(client Client) HandlerFunc {
 		if p.Peer != "" || p.Username != "" {
 			fetchLimit = 100 // Get more to filter from
 		}
-		updates := client.GetUpdates(fetchLimit, p.Offset)
+		page := client.GetUpdatePage(fetchLimit, p.Offset, p.Epoch)
+		updates := page.Updates
 
 		// Filter by peer if specified
 		if p.Peer != "" || p.Username != "" {
@@ -46,8 +48,11 @@ func GetUpdatesHandler(client Client) HandlerFunc {
 		}
 
 		return types.GetUpdatesResult{
-			Updates: updates,
-			Count:   len(updates),
+			Updates:    updates,
+			Count:      len(updates),
+			NextOffset: page.NextOffset,
+			Epoch:      page.Epoch,
+			Gap:        page.Gap,
 		}, nil
 	}
 }
@@ -117,4 +122,3 @@ func isNumeric(s string) bool {
 	_, err := strconv.ParseInt(s, 10, 64)
 	return err == nil
 }
-

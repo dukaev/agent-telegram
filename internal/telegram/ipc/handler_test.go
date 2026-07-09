@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
+	"strconv"
 	"testing"
 
+	baseipc "agent-telegram/internal/ipc"
 	"agent-telegram/telegram/types"
 )
 
@@ -33,6 +37,9 @@ func TestHandlerValidationAndCall(t *testing.T) {
 	}
 	if _, err := handler(context.Background(), json.RawMessage(`{}`)); err == nil {
 		t.Fatal("missing required field should fail")
+	}
+	if _, err := handler(context.Background(), json.RawMessage(`{"name":"ada","typo":true}`)); err == nil {
+		t.Fatal("unknown fields should fail")
 	}
 
 	want := errors.New("boom")
@@ -64,5 +71,26 @@ func TestFilterUpdatesByPeer(t *testing.T) {
 	}
 	if !isNumeric("42") || isNumeric("abc") {
 		t.Fatal("isNumeric mismatch")
+	}
+}
+
+func TestValidateFileParamsRequiresHTTPAllowlist(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "photo.jpg")
+	if err := os.WriteFile(file, []byte("image"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	params := json.RawMessage(`{"file":` + strconv.Quote(file) + `}`)
+	httpCtx := baseipc.WithSurface(context.Background(), baseipc.SurfaceHTTP)
+	if err := ValidateFileParams(httpCtx, params); err == nil {
+		t.Fatal("HTTP path without roots should be denied")
+	}
+	allowed := baseipc.WithFileRoots(httpCtx, []string{root})
+	if err := ValidateFileParams(allowed, params); err != nil {
+		t.Fatalf("allowed file denied: %v", err)
+	}
+	outside := baseipc.WithFileRoots(httpCtx, []string{t.TempDir()})
+	if err := ValidateFileParams(outside, params); err == nil {
+		t.Fatal("file outside roots should be denied")
 	}
 }

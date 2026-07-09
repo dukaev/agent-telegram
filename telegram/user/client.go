@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/client"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // Client provides user operations.
@@ -43,7 +43,7 @@ func (c *Client) GetContacts(ctx context.Context, params types.GetContactsParams
 	}
 
 	// Get all contacts (hash 0 means get all)
-	contactsClass, err := c.API.ContactsGetContacts(ctx, 0)
+	contactsClass, err := c.API().ContactsGetContacts(ctx, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contacts: %w", err)
 	}
@@ -146,7 +146,7 @@ func (c *Client) AddContact(ctx context.Context, params types.AddContactParams) 
 	}
 
 	// Import contact using phone number
-	contactClass, err := c.API.ContactsImportContacts(ctx, []tg.InputPhoneContact{
+	contactClass, err := c.API().ContactsImportContacts(ctx, []tg.InputPhoneContact{
 		{
 			ClientID:  0,
 			Phone:     params.Phone,
@@ -186,7 +186,7 @@ func (c *Client) DeleteContact(
 	} else if params.Username != "" {
 		// Resolve username to get user ID
 		username := trimUsernamePrefix(params.Username)
-		peerClass, err := c.API.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
+		peerClass, err := c.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve username: %w", err)
 		}
@@ -200,7 +200,7 @@ func (c *Client) DeleteContact(
 	}
 
 	// Delete the contact using the ID
-	_, err := c.API.ContactsDeleteByPhones(ctx, []string{fmt.Sprintf("%d", userID)})
+	_, err := c.API().ContactsDeleteByPhones(ctx, []string{fmt.Sprintf("%d", userID)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete contact: %w", err)
 	}

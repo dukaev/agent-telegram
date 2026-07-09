@@ -13,8 +13,8 @@ var chatInfoTo cliutil.Recipient
 
 // InfoCmd represents the chat info command.
 var InfoCmd = &cobra.Command{
-	Use:     "info",
-	Short:   "Get information about a chat or channel",
+	Use:   "info",
+	Short: "Get information about a chat or channel",
 	Long: `Get detailed information about a Telegram chat or channel.
 
 This returns chat ID, title, username, member count, type, etc.

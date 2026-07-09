@@ -9,8 +9,8 @@ import (
 
 // DemoteAdminCmd represents the demote-admin command.
 var DemoteAdminCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:     "demote-admin",
-	Short:   "Demote an admin to regular user",
+	Use:   "demote-admin",
+	Short: "Demote an admin to regular user",
 	Long: `Demote an administrator to a regular user.
 
 Example:

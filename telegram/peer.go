@@ -19,8 +19,12 @@ import (
 //   - -123456789 - negative number = chat ID
 //   - -100XXXXXXXXX - channel ID (common Telegram format)
 func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClass, error) {
+	cacheKey := peer
+	if strings.HasPrefix(cacheKey, "@") {
+		cacheKey = "@" + strings.ToLower(strings.TrimPrefix(cacheKey, "@"))
+	}
 	// Check cache first
-	if cached, ok := c.peerCache.Load(peer); ok {
+	if cached, ok := c.peerCache.Load(cacheKey); ok {
 		if inputPeer, ok := cached.(tg.InputPeerClass); ok {
 			return inputPeer, nil
 		}
@@ -32,12 +36,11 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 		c.peerCache.Store(peer, inputPeer)
 		return inputPeer, nil
 	}
-
 	// Use singleflight to deduplicate concurrent resolutions of the same peer.
 	// This prevents thundering herd when multiple handlers resolve the same peer.
-	result, err, _ := c.peerFlight.Do(peer, func() (interface{}, error) {
+	result, err, _ := c.peerFlight.Do(cacheKey, func() (interface{}, error) {
 		// Double-check cache inside singleflight (another goroutine may have populated it)
-		if cached, ok := c.peerCache.Load(peer); ok {
+		if cached, ok := c.peerCache.Load(cacheKey); ok {
 			if inputPeer, ok := cached.(tg.InputPeerClass); ok {
 				return inputPeer, nil
 			}
@@ -56,7 +59,7 @@ func (c *Client) ResolvePeer(ctx context.Context, peer string) (tg.InputPeerClas
 			return nil, err
 		}
 
-		c.peerCache.Store(peer, inputPeer)
+		c.peerCache.Store(cacheKey, inputPeer)
 		return inputPeer, nil
 	})
 
@@ -90,12 +93,19 @@ func (c *Client) ResolvePeerID(ctx context.Context, peer string) (string, error)
 // This allows domain clients to populate the cache from API responses
 // (e.g., discussion group peers discovered via messages.getDiscussionMessage).
 func (c *Client) CachePeer(peer string, inputPeer tg.InputPeerClass) {
+	if strings.HasPrefix(peer, "@") {
+		peer = "@" + strings.ToLower(strings.TrimPrefix(peer, "@"))
+	}
 	c.peerCache.Store(peer, inputPeer)
 }
 
 // resolveUsername resolves a username via Telegram API.
 func (c *Client) resolveUsername(ctx context.Context, username string) (tg.InputPeerClass, error) {
-	peerClass, err := c.client.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
+	tgClient := c.currentTelegramClient()
+	if tgClient == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+	peerClass, err := tgClient.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{Username: username})
 	if err != nil {
 		return nil, err
 	}
@@ -151,67 +161,143 @@ func (c *Client) resolveNumericPeer(ctx context.Context, peer string) (tg.InputP
 
 // resolveUserByID finds a user by ID from dialogs.
 func (c *Client) resolveUserByID(ctx context.Context, userID int64) (tg.InputPeerClass, error) {
-	// Get dialogs to find the user with access hash
-	result, err := c.client.API().MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
-		OffsetPeer: &tg.InputPeerEmpty{},
-		Limit:      100,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get dialogs: %w", err)
-	}
-
-	// Extract users from dialogs
-	var users []tg.UserClass
-	switch r := result.(type) {
-	case *tg.MessagesDialogs:
-		users = r.Users
-	case *tg.MessagesDialogsSlice:
-		users = r.Users
-	}
-
-	// Find the user
-	for _, u := range users {
-		if user, ok := u.(*tg.User); ok && user.ID == userID {
-			return &tg.InputPeerUser{
-				UserID:     user.ID,
-				AccessHash: user.AccessHash,
-			}, nil
+	if peer, err := c.findPeerInDialogs(ctx, func(page dialogPage) tg.InputPeerClass {
+		for _, item := range page.users {
+			if user, ok := item.(*tg.User); ok && user.ID == userID {
+				return &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
+			}
 		}
+		return nil
+	}); err != nil {
+		return nil, err
+	} else if peer != nil {
+		return peer, nil
 	}
-
 	return nil, fmt.Errorf("user %d not found in dialogs", userID)
 }
 
 // resolveChannelByID finds a channel by ID from dialogs.
 func (c *Client) resolveChannelByID(ctx context.Context, channelID int64) (tg.InputPeerClass, error) {
-	// Get dialogs to find the channel with access hash
-	result, err := c.client.API().MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
-		OffsetPeer: &tg.InputPeerEmpty{},
-		Limit:      100,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get dialogs: %w", err)
-	}
-
-	// Extract chats from dialogs
-	var chats []tg.ChatClass
-	switch r := result.(type) {
-	case *tg.MessagesDialogs:
-		chats = r.Chats
-	case *tg.MessagesDialogsSlice:
-		chats = r.Chats
-	}
-
-	// Find the channel
-	for _, ch := range chats {
-		if channel, ok := ch.(*tg.Channel); ok && channel.ID == channelID {
-			return &tg.InputPeerChannel{
-				ChannelID:  channel.ID,
-				AccessHash: channel.AccessHash,
-			}, nil
+	if peer, err := c.findPeerInDialogs(ctx, func(page dialogPage) tg.InputPeerClass {
+		for _, item := range page.chats {
+			if channel, ok := item.(*tg.Channel); ok && channel.ID == channelID {
+				return &tg.InputPeerChannel{ChannelID: channel.ID, AccessHash: channel.AccessHash}
+			}
 		}
+		return nil
+	}); err != nil {
+		return nil, err
+	} else if peer != nil {
+		return peer, nil
 	}
-
 	return nil, fmt.Errorf("channel %d not found in dialogs", channelID)
 }
 
+type dialogPage struct {
+	dialogs  []tg.DialogClass
+	messages []tg.MessageClass
+	chats    []tg.ChatClass
+	users    []tg.UserClass
+	complete bool
+}
+
+func (c *Client) findPeerInDialogs(
+	ctx context.Context,
+	match func(dialogPage) tg.InputPeerClass,
+) (tg.InputPeerClass, error) {
+	request := &tg.MessagesGetDialogsRequest{Limit: 100, OffsetPeer: &tg.InputPeerEmpty{}}
+	tgClient := c.currentTelegramClient()
+	if tgClient == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+	for range 100 {
+		result, err := tgClient.API().MessagesGetDialogs(ctx, request)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get dialogs: %w", err)
+		}
+		page := unpackDialogPage(result)
+		c.cacheDialogPage(page)
+		if peer := match(page); peer != nil {
+			return peer, nil
+		}
+		if page.complete || len(page.dialogs) < request.Limit {
+			return nil, nil
+		}
+		last, ok := page.dialogs[len(page.dialogs)-1].(*tg.Dialog)
+		if !ok {
+			return nil, nil
+		}
+		offsetPeer := inputPeerFromPage(last.Peer, page)
+		if offsetPeer == nil || last.TopMessage == request.OffsetID {
+			return nil, nil
+		}
+		request.OffsetID = last.TopMessage
+		request.OffsetDate = messageDate(page.messages, last.TopMessage)
+		request.OffsetPeer = offsetPeer
+	}
+	return nil, fmt.Errorf("dialog lookup exceeded pagination limit")
+}
+
+func unpackDialogPage(result tg.MessagesDialogsClass) dialogPage {
+	switch page := result.(type) {
+	case *tg.MessagesDialogs:
+		return dialogPage{page.Dialogs, page.Messages, page.Chats, page.Users, true}
+	case *tg.MessagesDialogsSlice:
+		return dialogPage{page.Dialogs, page.Messages, page.Chats, page.Users, false}
+	default:
+		return dialogPage{complete: true}
+	}
+}
+
+func inputPeerFromPage(peer tg.PeerClass, page dialogPage) tg.InputPeerClass {
+	switch value := peer.(type) {
+	case *tg.PeerUser:
+		for _, item := range page.users {
+			if user, ok := item.(*tg.User); ok && user.ID == value.UserID {
+				return &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
+			}
+		}
+	case *tg.PeerChat:
+		return &tg.InputPeerChat{ChatID: value.ChatID}
+	case *tg.PeerChannel:
+		for _, item := range page.chats {
+			if channel, ok := item.(*tg.Channel); ok && channel.ID == value.ChannelID {
+				return &tg.InputPeerChannel{ChannelID: channel.ID, AccessHash: channel.AccessHash}
+			}
+		}
+	}
+	return nil
+}
+
+func messageDate(messages []tg.MessageClass, id int) int {
+	for _, message := range messages {
+		if message.GetID() != id {
+			continue
+		}
+		if value, ok := message.AsNotEmpty(); ok {
+			return value.GetDate()
+		}
+	}
+	return 0
+}
+
+func (c *Client) cacheDialogPage(page dialogPage) {
+	for _, item := range page.users {
+		if user, ok := item.(*tg.User); ok {
+			peer := &tg.InputPeerUser{UserID: user.ID, AccessHash: user.AccessHash}
+			c.peerCache.Store(strconv.FormatInt(user.ID, 10), peer)
+			if user.Username != "" {
+				c.peerCache.Store("@"+strings.ToLower(user.Username), peer)
+			}
+		}
+	}
+	for _, item := range page.chats {
+		if channel, ok := item.(*tg.Channel); ok {
+			peer := &tg.InputPeerChannel{ChannelID: channel.ID, AccessHash: channel.AccessHash}
+			c.peerCache.Store(fmt.Sprintf("-100%d", channel.ID), peer)
+			if channel.Username != "" {
+				c.peerCache.Store("@"+strings.ToLower(channel.Username), peer)
+			}
+		}
+	}
+}

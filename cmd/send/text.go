@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	textFlags         SendFlags
-	textReplyToMsgID  int64
+	textFlags        SendFlags
+	textReplyToMsgID int64
 )
 
 // TextCmd represents the send text subcommand.

@@ -18,8 +18,8 @@ var (
 
 // AddContactCmd represents the contact add command.
 var AddContactCmd = &cobra.Command{
-	Use:     "add",
-	Short:   "Add a new contact to your Telegram account",
+	Use:   "add",
+	Short: "Add a new contact to your Telegram account",
 	Long: `Add a new contact to your Telegram account using their phone number.
 
 The phone number must include the country code (e.g., +1234567890).

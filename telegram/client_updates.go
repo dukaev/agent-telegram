@@ -159,4 +159,3 @@ var giftNamesFallback = map[int64]string{
 	5170145012310081615: "Heart",
 	5170233102089322756: "Bear",
 }
-

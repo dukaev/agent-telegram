@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // privacyKeyMap maps string keys to InputPrivacyKey types.
@@ -34,7 +34,7 @@ func (c *Client) GetPrivacy(ctx context.Context, params types.GetPrivacyParams) 
 		return nil, fmt.Errorf("unknown privacy key: %s", params.Key)
 	}
 
-	result, err := c.API.AccountGetPrivacy(ctx, key)
+	result, err := c.API().AccountGetPrivacy(ctx, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get privacy: %w", err)
 	}
@@ -124,7 +124,7 @@ func (c *Client) SetPrivacy(ctx context.Context, params types.SetPrivacyParams) 
 		rules = append(rules, rule)
 	}
 
-	_, err := c.API.AccountSetPrivacy(ctx, &tg.AccountSetPrivacyRequest{
+	_, err := c.API().AccountSetPrivacy(ctx, &tg.AccountSetPrivacyRequest{
 		Key:   key,
 		Rules: rules,
 	})

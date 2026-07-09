@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // GetInviteLink gets or creates an invite link for a chat or channel.
@@ -25,7 +25,7 @@ func (c *Client) GetInviteLink(
 		var result tg.ExportedChatInviteClass
 		if params.CreateNew {
 			// Create new invite link
-			result, err = c.API.MessagesExportChatInvite(ctx, &tg.MessagesExportChatInviteRequest{
+			result, err = c.API().MessagesExportChatInvite(ctx, &tg.MessagesExportChatInviteRequest{
 				Peer: &tg.InputPeerChannel{
 					ChannelID:  p.ChannelID,
 					AccessHash: p.AccessHash,
@@ -37,7 +37,7 @@ func (c *Client) GetInviteLink(
 				return existing, nil
 			}
 			// No existing link, create one
-			result, err = c.API.MessagesExportChatInvite(ctx, &tg.MessagesExportChatInviteRequest{
+			result, err = c.API().MessagesExportChatInvite(ctx, &tg.MessagesExportChatInviteRequest{
 				Peer: &tg.InputPeerChannel{
 					ChannelID:  p.ChannelID,
 					AccessHash: p.AccessHash,
@@ -60,7 +60,7 @@ func (c *Client) GetInviteLink(
 		}
 	case *tg.InputPeerChat:
 		// For chats, use MessagesExportChatInvite
-		result, err := c.API.MessagesExportChatInvite(ctx, &tg.MessagesExportChatInviteRequest{
+		result, err := c.API().MessagesExportChatInvite(ctx, &tg.MessagesExportChatInviteRequest{
 			Peer: p,
 		})
 		if err != nil {
@@ -86,7 +86,7 @@ func (c *Client) tryGetExistingChannelInvite(
 	channelID int64,
 	accessHash int64,
 ) (*types.GetInviteLinkResult, bool) {
-	fullInfo, err := c.API.ChannelsGetFullChannel(ctx, &tg.InputChannel{
+	fullInfo, err := c.API().ChannelsGetFullChannel(ctx, &tg.InputChannel{
 		ChannelID:  channelID,
 		AccessHash: accessHash,
 	})

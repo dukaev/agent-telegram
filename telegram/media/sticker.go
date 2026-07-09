@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // SendSticker sends a sticker to a peer.
@@ -22,7 +22,7 @@ func (c *Client) SendSticker(ctx context.Context, params types.SendStickerParams
 
 	if params.File != "" {
 		// Upload sticker file
-		uploadedFile, err := uploadFile(ctx, c.API, params.File)
+		uploadedFile, err := uploadFile(ctx, c.API(), params.File)
 		if err != nil {
 			return nil, fmt.Errorf("failed to upload sticker: %w", err)
 		}
@@ -42,7 +42,7 @@ func (c *Client) SendSticker(ctx context.Context, params types.SendStickerParams
 		return nil, fmt.Errorf("sticker file is required")
 	}
 
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
 		RandomID: time.Now().UnixNano(),
@@ -68,7 +68,7 @@ func (c *Client) GetStickerPacks(
 		return nil, err
 	}
 
-	result, err := c.API.MessagesGetAllStickers(ctx, 0)
+	result, err := c.API().MessagesGetAllStickers(ctx, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sticker packs: %w", err)
 	}
@@ -99,7 +99,7 @@ func (c *Client) SendGIF(ctx context.Context, params types.SendGIFParams) (*type
 		return nil, err
 	}
 
-	uploadedFile, err := uploadFile(ctx, c.API, params.File)
+	uploadedFile, err := uploadFile(ctx, c.API(), params.File)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload GIF: %w", err)
 	}
@@ -125,7 +125,7 @@ func (c *Client) SendGIF(ctx context.Context, params types.SendGIFParams) (*type
 	if len(entities) > 0 {
 		req.SetEntities(entities)
 	}
-	result, err := c.API.MessagesSendMedia(ctx, req)
+	result, err := c.API().MessagesSendMedia(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send GIF: %w", err)
 	}

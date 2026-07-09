@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/client"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // Client provides search operations.
@@ -35,7 +35,7 @@ func (c *Client) SearchGlobal(ctx context.Context, params types.SearchGlobalPara
 	}
 
 	// Search globally - use ContactsSearch for finding users/channels/bots globally
-	result, err := c.API.ContactsSearch(ctx, &tg.ContactsSearchRequest{
+	result, err := c.API().ContactsSearch(ctx, &tg.ContactsSearchRequest{
 		Q:     params.Query,
 		Limit: limit,
 	})
@@ -109,7 +109,7 @@ func (c *Client) SearchInChat(ctx context.Context, params types.SearchInChatPara
 	}
 
 	// Search in chat - use InputMessagesFilterEmpty to search all messages
-	result, err := c.API.MessagesSearch(ctx, &tg.MessagesSearchRequest{
+	result, err := c.API().MessagesSearch(ctx, &tg.MessagesSearchRequest{
 		Peer:     inputPeer,
 		Q:        params.Query,
 		Filter:   &tg.InputMessagesFilterEmpty{},

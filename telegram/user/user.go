@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // resolvedUser holds a resolved user with its access hash.
@@ -35,7 +35,7 @@ func (c *Client) GetUserInfo(ctx context.Context, params types.GetUserInfoParams
 	}
 
 	// Get full user info to get bio
-	fullUser, err := c.API.UsersGetFullUser(ctx, &tg.InputUser{
+	fullUser, err := c.API().UsersGetFullUser(ctx, &tg.InputUser{
 		UserID:     resolved.user.ID,
 		AccessHash: resolved.accessHash,
 	})
@@ -66,7 +66,7 @@ func (c *Client) resolveUserByNumericID(ctx context.Context, userID int64) (reso
 		return resolvedUser{}, fmt.Errorf("peer %d is not a user", userID)
 	}
 
-	users, err := c.API.UsersGetUsers(ctx, []tg.InputUserClass{
+	users, err := c.API().UsersGetUsers(ctx, []tg.InputUserClass{
 		&tg.InputUser{UserID: userID, AccessHash: peerUser.AccessHash},
 	})
 	if err != nil {
@@ -83,7 +83,7 @@ func (c *Client) resolveUserByNumericID(ctx context.Context, userID int64) (reso
 // resolveUserByUsername resolves a user by username via ContactsResolveUsername.
 func (c *Client) resolveUserByUsername(ctx context.Context, username string) (resolvedUser, error) {
 	username = trimUsernamePrefix(username)
-	resolvedPeer, err := c.API.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+	resolvedPeer, err := c.API().ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 		Username: username,
 	})
 	if err != nil {

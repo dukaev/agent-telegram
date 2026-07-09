@@ -158,7 +158,7 @@ func getStopSocketPath() string {
 		socketPath = stopSocket
 	}
 	if socketPath == "" {
-		socketPath = "/tmp/agent-telegram.sock"
+		socketPath = paths.DefaultSocketPath
 	}
 	return socketPath
 }

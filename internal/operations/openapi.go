@@ -55,11 +55,19 @@ func OpenAPI(title, version string) map[string]any {
 					headerParam("X-Run-Id", "Optional caller-supplied run ID for multi-command agent correlation."),
 					boolQueryParam("dryRun", "Validate and preview without executing."),
 					boolQueryParam("validateOnly", "Validate params without executing."),
+					boolQueryParam("confirm", "Explicitly confirm a destructive or paid operation."),
 				},
 				"requestBody": map[string]any{
 					"required": true,
 					"content": map[string]any{
 						"application/json": map[string]any{"schema": manifest.InputSchema},
+						"multipart/form-data": map[string]any{"schema": JSONSchema{
+							"type": "object",
+							"properties": map[string]any{
+								"params": JSONSchema{"type": "string", "description": "JSON object containing non-file parameters"},
+								"file":   JSONSchema{"type": "string", "format": "binary"},
+							},
+						}},
 					},
 				},
 				"responses": map[string]any{

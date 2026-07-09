@@ -15,6 +15,13 @@ type Client struct {
 	timeout time.Duration
 }
 
+// CallOptions carries request metadata that is independent from method params.
+type CallOptions struct {
+	TraceID string
+	RunID   string
+	Confirm bool
+}
+
 // NewClient creates a new JSON-RPC client.
 func NewClient(path string) *Client {
 	if path == "" {
@@ -52,13 +59,19 @@ func (c *Client) CallWithTrace(method string, params interface{}, traceID string
 
 // CallWithTraceAndRun calls a JSON-RPC method with caller-supplied trace and run IDs.
 func (c *Client) CallWithTraceAndRun(method string, params interface{}, traceID, runID string) (interface{}, *ErrorObject) {
+	return c.CallWithOptions(method, params, CallOptions{TraceID: traceID, RunID: runID})
+}
+
+// CallWithOptions calls a JSON-RPC method with transport-level metadata.
+func (c *Client) CallWithOptions(method string, params interface{}, opts CallOptions) (interface{}, *ErrorObject) {
 	// Create request
 	req := Request{
 		JSONRPC: "2.0",
 		Method:  method,
 		ID:      1,
-		RunID:   runID,
-		TraceID: traceID,
+		RunID:   opts.RunID,
+		TraceID: opts.TraceID,
+		Confirm: opts.Confirm,
 	}
 	if params != nil {
 		data, err := json.Marshal(params)

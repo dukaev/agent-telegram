@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // SendVoice sends a voice message to a peer.
@@ -18,7 +18,7 @@ func (c *Client) SendVoice(ctx context.Context, params types.SendVoiceParams) (*
 		return nil, err
 	}
 
-	uploadedFile, err := uploadFile(ctx, c.API, params.File)
+	uploadedFile, err := uploadFile(ctx, c.API(), params.File)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload voice: %w", err)
 	}
@@ -47,7 +47,7 @@ func (c *Client) SendVoice(ctx context.Context, params types.SendVoiceParams) (*
 	if len(entities) > 0 {
 		req.SetEntities(entities)
 	}
-	result, err := c.API.MessagesSendMedia(ctx, req)
+	result, err := c.API().MessagesSendMedia(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send voice: %w", err)
 	}
@@ -70,7 +70,7 @@ func (c *Client) SendVideoNote(
 		return nil, err
 	}
 
-	uploadedFile, err := uploadFile(ctx, c.API, params.File)
+	uploadedFile, err := uploadFile(ctx, c.API(), params.File)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload video note: %w", err)
 	}
@@ -97,7 +97,7 @@ func (c *Client) SendVideoNote(
 		Attributes: attributes,
 	}
 
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
 		RandomID: time.Now().UnixNano(),

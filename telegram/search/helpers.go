@@ -1,9 +1,9 @@
 package search
 
 import (
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // buildSearchResult builds a search result from a peer class.

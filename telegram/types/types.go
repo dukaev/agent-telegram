@@ -133,12 +133,19 @@ type GetMessagesResult struct {
 // GetUpdatesParams holds parameters for GetUpdates.
 type GetUpdatesParams struct {
 	PeerInfo
-	Limit  int   `json:"limit"`
-	Offset int64 `json:"offset,omitempty"` // Return updates with ID > offset (for polling)
+	Limit  int    `json:"limit"`
+	Offset int64  `json:"offset,omitempty"` // Return updates with ID > offset (for polling)
+	Epoch  string `json:"epoch,omitempty"`  // Detect daemon restarts and cursor resets.
 }
+
+// AllowEmptyPeer marks peer/username as optional update filters.
+func (GetUpdatesParams) AllowEmptyPeer() bool { return true }
 
 // GetUpdatesResult is the result of GetUpdates.
 type GetUpdatesResult struct {
-	Updates []StoredUpdate `json:"updates"`
-	Count   int            `json:"count"`
+	Updates    []StoredUpdate `json:"updates"`
+	Count      int            `json:"count"`
+	NextOffset int64          `json:"nextOffset"`
+	Epoch      string         `json:"epoch"`
+	Gap        bool           `json:"gap,omitempty"`
 }

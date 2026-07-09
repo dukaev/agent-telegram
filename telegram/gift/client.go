@@ -41,7 +41,7 @@ func (c *Client) resolveGiftByName(ctx context.Context, name string) (int64, err
 	}
 
 	// Fallback: fetch catalog and match by title
-	result, err := c.API.PaymentsGetStarGifts(ctx, 0)
+	result, err := c.API().PaymentsGetStarGifts(ctx, 0)
 	if err != nil {
 		return 0, fmt.Errorf("failed to resolve gift name: %w", err)
 	}
@@ -85,7 +85,7 @@ func (c *Client) GetStarGifts(ctx context.Context, params types.GetStarGiftsPara
 		return nil, err
 	}
 
-	result, err := c.API.PaymentsGetStarGifts(ctx, 0)
+	result, err := c.API().PaymentsGetStarGifts(ctx, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get star gifts: %w", err)
 	}
@@ -167,7 +167,7 @@ func (c *Client) SendStarGift(ctx context.Context, params types.SendStarGiftPara
 	}
 
 	// Get payment form
-	paymentForm, err := c.API.PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
+	paymentForm, err := c.API().PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
 		Invoice: invoice,
 	})
 	if err != nil {
@@ -181,7 +181,7 @@ func (c *Client) SendStarGift(ctx context.Context, params types.SendStarGiftPara
 	}
 
 	// Send stars payment
-	_, err = c.API.PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
+	_, err = c.API().PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
 		FormID:  starGiftForm.FormID,
 		Invoice: invoice,
 	})
@@ -216,7 +216,7 @@ func (c *Client) GetSavedGifts(ctx context.Context, params types.GetSavedGiftsPa
 		limit = 50
 	}
 
-	result, err := c.API.PaymentsGetSavedStarGifts(ctx, &tg.PaymentsGetSavedStarGiftsRequest{
+	result, err := c.API().PaymentsGetSavedStarGifts(ctx, &tg.PaymentsGetSavedStarGiftsRequest{
 		Peer:   inputPeer,
 		Offset: params.Offset,
 		Limit:  limit,
@@ -288,7 +288,7 @@ func (c *Client) TransferStarGift(ctx context.Context, params types.TransferStar
 	}
 
 	// Get payment form
-	paymentForm, err := c.API.PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
+	paymentForm, err := c.API().PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
 		Invoice: invoice,
 	})
 	if err != nil {
@@ -302,7 +302,7 @@ func (c *Client) TransferStarGift(ctx context.Context, params types.TransferStar
 	}
 
 	// Send stars payment to complete the transfer
-	_, err = c.API.PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
+	_, err = c.API().PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
 		FormID:  starGiftForm.FormID,
 		Invoice: invoice,
 	})
@@ -340,7 +340,7 @@ func (c *Client) BuyResaleGift(ctx context.Context, params types.BuyResaleGiftPa
 	}
 
 	// Get payment form
-	paymentForm, err := c.API.PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
+	paymentForm, err := c.API().PaymentsGetPaymentForm(ctx, &tg.PaymentsGetPaymentFormRequest{
 		Invoice: invoice,
 	})
 	if err != nil {
@@ -354,7 +354,7 @@ func (c *Client) BuyResaleGift(ctx context.Context, params types.BuyResaleGiftPa
 	}
 
 	// Send stars payment to complete the purchase
-	_, err = c.API.PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
+	_, err = c.API().PaymentsSendStarsForm(ctx, &tg.PaymentsSendStarsFormRequest{
 		FormID:  starGiftForm.FormID,
 		Invoice: invoice,
 	})
@@ -375,7 +375,7 @@ func (c *Client) ConvertStarGift(ctx context.Context, params types.ConvertStarGi
 
 	giftInput := resolveGiftInput(params.MsgID, params.Slug)
 
-	_, err := c.API.PaymentsConvertStarGift(ctx, giftInput)
+	_, err := c.API().PaymentsConvertStarGift(ctx, giftInput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert star gift: %w", err)
 	}
@@ -393,7 +393,7 @@ func (c *Client) UpdateGiftPrice(ctx context.Context, params types.UpdateGiftPri
 
 	giftInput := resolveGiftInput(params.MsgID, params.Slug)
 
-	_, err := c.API.PaymentsUpdateStarGiftPrice(ctx, &tg.PaymentsUpdateStarGiftPriceRequest{
+	_, err := c.API().PaymentsUpdateStarGiftPrice(ctx, &tg.PaymentsUpdateStarGiftPriceRequest{
 		Stargift:     giftInput,
 		ResellAmount: &tg.StarsAmount{Amount: params.Price},
 	})
@@ -413,7 +413,7 @@ func (c *Client) GetBalance(ctx context.Context, _ types.GetBalanceParams) (*typ
 	result := &types.GetBalanceResult{}
 
 	// Get stars balance
-	starsStatus, err := c.API.PaymentsGetStarsStatus(ctx, &tg.PaymentsGetStarsStatusRequest{
+	starsStatus, err := c.API().PaymentsGetStarsStatus(ctx, &tg.PaymentsGetStarsStatusRequest{
 		Peer: &tg.InputPeerSelf{},
 	})
 	if err != nil {
@@ -427,7 +427,7 @@ func (c *Client) GetBalance(ctx context.Context, _ types.GetBalanceParams) (*typ
 	}
 
 	// Get TON balance
-	tonStatus, err := c.API.PaymentsGetStarsStatus(ctx, &tg.PaymentsGetStarsStatusRequest{
+	tonStatus, err := c.API().PaymentsGetStarsStatus(ctx, &tg.PaymentsGetStarsStatusRequest{
 		Peer: &tg.InputPeerSelf{},
 		Ton:  true,
 	})
@@ -445,7 +445,7 @@ func (c *Client) OfferGift(ctx context.Context, params types.OfferGiftParams) (*
 		return nil, err
 	}
 
-	_, err = c.API.PaymentsSendStarGiftOffer(ctx, &tg.PaymentsSendStarGiftOfferRequest{
+	_, err = c.API().PaymentsSendStarGiftOffer(ctx, &tg.PaymentsSendStarGiftOfferRequest{
 		Peer:     inputPeer,
 		Slug:     params.Slug,
 		Price:    &tg.StarsAmount{Amount: params.Price},
@@ -467,7 +467,7 @@ func (c *Client) AcceptGiftOffer(ctx context.Context, params types.AcceptGiftOff
 		return nil, err
 	}
 
-	_, err := c.API.PaymentsResolveStarGiftOffer(ctx, &tg.PaymentsResolveStarGiftOfferRequest{
+	_, err := c.API().PaymentsResolveStarGiftOffer(ctx, &tg.PaymentsResolveStarGiftOfferRequest{
 		OfferMsgID: params.OfferMsgID,
 	})
 	if err != nil {
@@ -485,7 +485,7 @@ func (c *Client) DeclineGiftOffer(ctx context.Context, params types.DeclineGiftO
 		return nil, err
 	}
 
-	_, err := c.API.PaymentsResolveStarGiftOffer(ctx, &tg.PaymentsResolveStarGiftOfferRequest{
+	_, err := c.API().PaymentsResolveStarGiftOffer(ctx, &tg.PaymentsResolveStarGiftOfferRequest{
 		Decline:    true,
 		OfferMsgID: params.OfferMsgID,
 	})
@@ -511,7 +511,7 @@ func (c *Client) GetGiftAttrs(ctx context.Context, params types.GetGiftAttrsPara
 		}
 	}
 
-	attrResult, err := c.API.PaymentsGetResaleStarGifts(ctx, &tg.PaymentsGetResaleStarGiftsRequest{
+	attrResult, err := c.API().PaymentsGetResaleStarGifts(ctx, &tg.PaymentsGetResaleStarGiftsRequest{
 		GiftID: giftID,
 		Limit:  1,
 	})
@@ -552,7 +552,7 @@ func (c *Client) GetGiftAttrs(ctx context.Context, params types.GetGiftAttrsPara
 //
 //nolint:lll // Long function signature due to multiple filter parameters
 func (c *Client) resolveAttributeFilters(ctx context.Context, giftID int64, model, pattern, backdrop string) ([]tg.StarGiftAttributeIDClass, error) {
-	attrResult, err := c.API.PaymentsGetResaleStarGifts(ctx, &tg.PaymentsGetResaleStarGiftsRequest{
+	attrResult, err := c.API().PaymentsGetResaleStarGifts(ctx, &tg.PaymentsGetResaleStarGiftsRequest{
 		GiftID: giftID,
 		Limit:  1,
 	})
@@ -585,8 +585,9 @@ func (c *Client) resolveAttributeFilters(ctx context.Context, giftID int64, mode
 	return filters, nil
 }
 
-//nolint:funlen,lll // Maps many Telegram resale gift fields to result struct
 // GetResaleGifts returns gifts listed for resale for a given gift type.
+//
+//nolint:funlen,lll // Maps many Telegram resale gift fields to result struct
 func (c *Client) GetResaleGifts(ctx context.Context, params types.GetResaleGiftsParams) (*types.GetResaleGiftsResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -630,7 +631,7 @@ func (c *Client) GetResaleGifts(ctx context.Context, params types.GetResaleGifts
 		}
 	}
 
-	result, err := c.API.PaymentsGetResaleStarGifts(ctx, req)
+	result, err := c.API().PaymentsGetResaleStarGifts(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resale gifts: %w", err)
 	}
@@ -690,7 +691,7 @@ func (c *Client) GetGiftValue(ctx context.Context, params types.GetGiftValuePara
 		return nil, err
 	}
 
-	result, err := c.API.PaymentsGetUniqueStarGiftValueInfo(ctx, params.Slug)
+	result, err := c.API().PaymentsGetUniqueStarGiftValueInfo(ctx, params.Slug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gift value info: %w", err)
 	}
@@ -730,14 +731,15 @@ func (c *Client) GetGiftValue(ctx context.Context, params types.GetGiftValuePara
 	return info, nil
 }
 
-//nolint:funlen,nestif // Maps many Telegram gift info fields to result struct
 // GetGiftInfo returns detailed info about a unique star gift by slug.
+//
+//nolint:funlen,nestif // Maps many Telegram gift info fields to result struct
 func (c *Client) GetGiftInfo(ctx context.Context, params types.GetGiftInfoParams) (*types.GetGiftInfoResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
 	}
 
-	result, err := c.API.PaymentsGetUniqueStarGift(ctx, params.Slug)
+	result, err := c.API().PaymentsGetUniqueStarGift(ctx, params.Slug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get gift info: %w", err)
 	}

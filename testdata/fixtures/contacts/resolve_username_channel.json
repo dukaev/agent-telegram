@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "method": "contacts.resolveUsername",
+    "recorded_at": "2026-01-01T00:00:00Z",
+    "telegram_layer": 0,
+    "notes": "Sanitized contract fixture",
+    "sanitized": true
+  },
+  "request": {"username": "testchannel"},
+  "response": {
+    "_": "contacts.resolvedPeer",
+    "peer": {"_": "peerChannel", "channel_id": 300000001},
+    "users": [],
+    "chats": [
+      {
+        "_": "channel",
+        "id": 300000001,
+        "access_hash": 1000000000000000002,
+        "title": "Test Channel",
+        "username": "testchannel",
+        "broadcast": true
+      }
+    ]
+  }
+}

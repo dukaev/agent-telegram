@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // SendPoll sends a poll to a peer.
@@ -49,7 +49,7 @@ func (c *Client) SendPoll(ctx context.Context, params types.SendPollParams) (*ty
 	}
 
 	// Send the poll
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    poll,
 		RandomID: time.Now().UnixNano(),

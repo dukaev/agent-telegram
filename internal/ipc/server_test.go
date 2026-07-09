@@ -7,18 +7,40 @@ import (
 )
 
 type testPolicyChecker struct {
-	calls int
-	err   error
+	calls     int
+	err       error
+	confirmed bool
 }
 
-func (p *testPolicyChecker) Check(_ context.Context, _ string, _ json.RawMessage) error {
+func (p *testPolicyChecker) Check(ctx context.Context, _ string, _ json.RawMessage) error {
 	p.calls++
+	p.confirmed = IsConfirmed(ctx)
 	return p.err
+}
+
+func TestServerPropagatesConfirmationToPolicyAndHandler(t *testing.T) {
+	checker := &testPolicyChecker{}
+	srv := NewServer()
+	srv.SetPolicyChecker(checker)
+	handlerConfirmed := false
+	srv.Register("ok", func(ctx context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
+		handlerConfirmed = IsConfirmed(ctx)
+		return map[string]any{"ok": true}, nil
+	})
+	resp := srv.handleRequest(context.Background(), &Request{
+		JSONRPC: "2.0",
+		Method:  "ok",
+		ID:      1,
+		Confirm: true,
+	})
+	if resp.Error != nil || !checker.confirmed || !handlerConfirmed {
+		t.Fatalf("confirmation was not propagated: response=%+v policy=%v handler=%v", resp, checker.confirmed, handlerConfirmed)
+	}
 }
 
 func TestServerPropagatesTraceID(t *testing.T) {
 	srv := NewServer()
-	srv.Register("ok", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("ok", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		return map[string]any{"ok": true}, nil
 	})
 
@@ -71,7 +93,7 @@ func TestServerPolicyCheckerBlocksBeforeHandler(t *testing.T) {
 	srv := NewServer()
 	srv.SetPolicyChecker(checker)
 	called := false
-	srv.Register("send_message", func(_ json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("send_message", func(_ context.Context, _ json.RawMessage) (interface{}, *ErrorObject) {
 		called = true
 		return map[string]any{"ok": true}, nil
 	})

@@ -50,6 +50,10 @@ func (p SendStarGiftParams) Validate() error {
 	return nil
 }
 
+func (SendStarGiftParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("giftId", "name")
+}
+
 // SendStarGiftResult is the result of SendStarGift.
 type SendStarGiftResult struct {
 	Success bool `json:"success"`
@@ -107,6 +111,10 @@ func (p TransferStarGiftParams) Validate() error {
 	return nil
 }
 
+func (TransferStarGiftParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("msgId", "slug")
+}
+
 // TransferStarGiftResult is the result of TransferStarGift.
 type TransferStarGiftResult struct {
 	Success bool `json:"success"`
@@ -124,6 +132,10 @@ func (p ConvertStarGiftParams) Validate() error {
 		return fmt.Errorf("either msgId or slug is required")
 	}
 	return nil
+}
+
+func (ConvertStarGiftParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("msgId", "slug")
 }
 
 // ConvertStarGiftResult is the result of ConvertStarGift.
@@ -144,6 +156,10 @@ func (p UpdateGiftPriceParams) Validate() error {
 		return fmt.Errorf("either msgId or slug is required")
 	}
 	return ValidateStruct(p)
+}
+
+func (UpdateGiftPriceParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("msgId", "slug")
 }
 
 // UpdateGiftPriceResult is the result of UpdateGiftPrice.
@@ -196,6 +212,10 @@ func (p GetResaleGiftsParams) Validate() error {
 		return fmt.Errorf("either giftId or name is required")
 	}
 	return nil
+}
+
+func (GetResaleGiftsParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("giftId", "name")
 }
 
 // ResaleGiftItem represents a gift listed for resale.
@@ -280,6 +300,10 @@ func (p GetGiftAttrsParams) Validate() error {
 		return fmt.Errorf("either giftId or name is required")
 	}
 	return nil
+}
+
+func (GetGiftAttrsParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("giftId", "name")
 }
 
 // GetGiftAttrsResult is the result of GetGiftAttrs.

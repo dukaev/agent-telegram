@@ -12,6 +12,7 @@ import (
 )
 
 // SendFlags holds common flags for all send commands.
+//
 //revive:disable:exported stutter
 type SendFlags struct {
 	To          cliutil.Recipient

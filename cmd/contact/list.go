@@ -18,8 +18,8 @@ var (
 
 // ListContactsCmd represents the contact list command.
 var ListContactsCmd = &cobra.Command{
-	Use:     "list",
-	Short:   "List contacts from your Telegram account",
+	Use:   "list",
+	Short: "List contacts from your Telegram account",
 	Long: `List all contacts from your Telegram account with optional search filter.
 
 Search matches against:

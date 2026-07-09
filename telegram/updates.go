@@ -2,6 +2,8 @@
 package telegram
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -18,7 +20,7 @@ type UpdateStore struct {
 	nextID   int64
 	limit    int
 	onUpdate func(types.StoredUpdate)
-	wg       sync.WaitGroup // tracks in-flight onUpdate callbacks
+	epoch    string
 }
 
 // NewUpdateStore creates a new UpdateStore with the given limit.
@@ -30,6 +32,7 @@ func NewUpdateStore(limit int) *UpdateStore {
 		updates: make([]types.StoredUpdate, 0, limit),
 		nextID:  1,
 		limit:   limit,
+		epoch:   newUpdateEpoch(),
 	}
 }
 
@@ -61,16 +64,84 @@ func (s *UpdateStore) Add(update types.StoredUpdate) {
 	s.mu.Unlock()
 
 	if onUpdate != nil {
-		s.wg.Go(func() {
-			onUpdate(update)
-		})
+		onUpdate(update)
 	}
 }
 
 // Wait blocks until all in-flight onUpdate callbacks complete.
 // Call this during shutdown to prevent goroutine leaks.
 func (s *UpdateStore) Wait() {
-	s.wg.Wait()
+	// Callbacks run synchronously with backpressure, so there is nothing to drain.
+}
+
+// UpdatePage is a cursor-safe page of updates.
+type UpdatePage struct {
+	Updates    []types.StoredUpdate
+	NextOffset int64
+	Epoch      string
+	Gap        bool
+}
+
+// Page returns updates in oldest-first delivery order. Offset zero starts at
+// the latest page. A non-zero offset resumes without skipping intermediate
+// events. Gap is set when the cursor belongs to another daemon epoch or points
+// before events already evicted from the bounded store.
+func (s *UpdateStore) Page(limit int, offset int64, epoch string) UpdatePage {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	page := UpdatePage{NextOffset: offset, Epoch: s.epoch}
+	if epoch != "" && epoch != s.epoch {
+		page.Gap = true
+		offset = 0
+		page.NextOffset = 0
+	}
+	if len(s.updates) == 0 {
+		return page
+	}
+
+	start := len(s.updates) - limit
+	if start < 0 {
+		start = 0
+	}
+	if offset > 0 {
+		oldest := s.updates[0].ID
+		if offset < oldest-1 {
+			page.Gap = true
+		}
+		start = len(s.updates)
+		for i, update := range s.updates {
+			if update.ID > offset {
+				start = i
+				break
+			}
+		}
+	}
+	end := start + limit
+	if end > len(s.updates) {
+		end = len(s.updates)
+	}
+	if start < end {
+		page.Updates = append([]types.StoredUpdate(nil), s.updates[start:end]...)
+		page.NextOffset = page.Updates[len(page.Updates)-1].ID
+	} else {
+		page.Updates = []types.StoredUpdate{}
+	}
+	return page
+}
+
+func newUpdateEpoch() string {
+	var value [8]byte
+	if _, err := rand.Read(value[:]); err == nil {
+		return hex.EncodeToString(value[:])
+	}
+	return fmt.Sprintf("epoch-%d", time.Now().UnixNano())
 }
 
 // Get returns updates (newest first) without removing them from the store.

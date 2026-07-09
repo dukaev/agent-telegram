@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // CreateGroup creates a new group chat.
@@ -34,7 +34,7 @@ func (c *Client) CreateGroup(ctx context.Context, params types.CreateGroupParams
 	}
 
 	// Create group
-	result, err := c.API.MessagesCreateChat(ctx, &tg.MessagesCreateChatRequest{
+	result, err := c.API().MessagesCreateChat(ctx, &tg.MessagesCreateChatRequest{
 		Users: users,
 		Title: params.Title,
 	})
@@ -76,7 +76,7 @@ func (c *Client) CreateChannel(
 	}
 
 	// Create channel
-	result, err := c.API.ChannelsCreateChannel(ctx, &tg.ChannelsCreateChannelRequest{
+	result, err := c.API().ChannelsCreateChannel(ctx, &tg.ChannelsCreateChannelRequest{
 		Title:     params.Title,
 		About:     params.Description,
 		ForImport: false,
@@ -118,7 +118,7 @@ func (c *Client) CreateChannel(
 
 	// Set username if provided
 	if params.Username != "" && inputChannel != nil {
-		_, err = c.API.ChannelsUpdateUsername(ctx, &tg.ChannelsUpdateUsernameRequest{
+		_, err = c.API().ChannelsUpdateUsername(ctx, &tg.ChannelsUpdateUsernameRequest{
 			Channel:  inputChannel,
 			Username: params.Username,
 		})

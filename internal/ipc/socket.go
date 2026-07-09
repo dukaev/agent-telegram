@@ -9,10 +9,12 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"agent-telegram/internal/paths"
 )
 
 const (
-	defaultSocketPath = "/tmp/agent-telegram.sock"
+	defaultSocketPath = paths.DefaultSocketPath
 )
 
 // DefaultSocketPath returns the default socket path.
@@ -22,12 +24,13 @@ func DefaultSocketPath() string {
 
 // SocketServer represents a Unix socket JSON-RPC server.
 type SocketServer struct {
-	server   *Server
-	path     string
-	listener net.Listener
-	mu       sync.Mutex
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
+	server      *Server
+	path        string
+	listener    net.Listener
+	mu          sync.Mutex
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
+	connections map[net.Conn]struct{}
 }
 
 // NewSocketServer creates a new Unix socket server.
@@ -36,8 +39,9 @@ func NewSocketServer(path string) *SocketServer {
 		path = defaultSocketPath
 	}
 	return &SocketServer{
-		server: NewServer(),
-		path:   path,
+		server:      NewServer(),
+		path:        path,
+		connections: make(map[net.Conn]struct{}),
 	}
 }
 
@@ -124,9 +128,17 @@ func (s *SocketServer) acceptLoop(ctx context.Context) {
 
 // handleConnection handles a single connection.
 func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
-	defer func() { _ = conn.Close() }()
+	s.mu.Lock()
+	s.connections[conn] = struct{}{}
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.connections, conn)
+		s.mu.Unlock()
+		_ = conn.Close()
+	}()
 
-	if err := s.server.Serve(ctx, conn); err != nil {
+	if err := s.server.Serve(WithSurface(ctx, SurfaceIPC), conn); err != nil {
 		slog.Debug("connection error", "error", err)
 	}
 }
@@ -141,6 +153,9 @@ func (s *SocketServer) Shutdown() error {
 	s.mu.Lock()
 	if s.listener != nil {
 		_ = s.listener.Close()
+	}
+	for conn := range s.connections {
+		_ = conn.Close()
 	}
 	s.mu.Unlock()
 

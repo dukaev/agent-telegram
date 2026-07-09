@@ -25,16 +25,20 @@ var (
 	GetUpdatesType string
 	// GetUpdatesInterval is the polling interval in seconds.
 	GetUpdatesInterval int
+	// GetUpdatesOffset resumes update delivery after a stored update ID.
+	GetUpdatesOffset int64
+	// GetUpdatesEpoch detects cursors from a previous daemon instance.
+	GetUpdatesEpoch string
 )
 
 // UpdatesCmd represents the get-updates command.
 var UpdatesCmd = &cobra.Command{
 	GroupID: "chat",
 	Use:     "updates",
-	Short:   "Get Telegram updates (pops from store)",
-	Long: `Retrieve Telegram updates from the update store. This removes them from the store.
+	Short:   "Get Telegram updates",
+	Long: `Retrieve Telegram updates from the bounded update store without removing them.
 
-Use --follow to continuously poll for updates (JSON Lines output).
+Use --follow to continuously poll with a cursor (JSON Lines output).
 Use --type to filter by update type (e.g., new_message, edit_message).`,
 }
 
@@ -47,6 +51,8 @@ func AddUpdatesCommand(rootCmd *cobra.Command) {
 	UpdatesCmd.Flags().BoolVarP(&GetUpdatesFollow, "follow", "f", false, "Continuously poll for updates (JSON Lines)")
 	UpdatesCmd.Flags().StringVar(&GetUpdatesType, "type", "", "Filter by update type (e.g., new_message, edit_message)")
 	UpdatesCmd.Flags().IntVar(&GetUpdatesInterval, "interval", 2, "Polling interval in seconds (with --follow)")
+	UpdatesCmd.Flags().Int64Var(&GetUpdatesOffset, "offset", 0, "Return updates after this update ID")
+	UpdatesCmd.Flags().StringVar(&GetUpdatesEpoch, "epoch", "", "Daemon epoch returned by an earlier updates call")
 	UpdatesCmd.Run = func(*cobra.Command, []string) {
 		pag := cliutil.NewPagination(GetUpdatesLimit, 0, cliutil.PaginationConfig{
 			MaxLimit: cliutil.MaxLimitStandard,
@@ -54,7 +60,13 @@ func AddUpdatesCommand(rootCmd *cobra.Command) {
 
 		runner := cliutil.NewRunnerFromCmd(UpdatesCmd, true) // Always JSON
 		params := map[string]any{}
-		pag.ToParams(params, false) // updates API doesn't support offset
+		pag.ToParams(params, false)
+		if GetUpdatesOffset > 0 {
+			params["offset"] = GetUpdatesOffset
+		}
+		if GetUpdatesEpoch != "" {
+			params["epoch"] = GetUpdatesEpoch
+		}
 		GetUpdatesTo.AddToParams(params)
 
 		if GetUpdatesFollow {
@@ -63,7 +75,21 @@ func AddUpdatesCommand(rootCmd *cobra.Command) {
 		}
 
 		result := runner.CallWithParams("get_updates", params)
+		updateCursor(params, result)
 		runner.PrintResult(result, nil)
+	}
+}
+
+func updateCursor(params map[string]any, result any) {
+	body, ok := result.(map[string]any)
+	if !ok {
+		return
+	}
+	if next := cliutil.ExtractInt64(body, "nextOffset"); next > 0 {
+		params["offset"] = next
+	}
+	if epoch, ok := body["epoch"].(string); ok && epoch != "" {
+		params["epoch"] = epoch
 	}
 }
 
@@ -87,6 +113,16 @@ func runFollowMode(runner *cliutil.Runner, params map[string]any) {
 		}
 
 		result := runner.CallWithParams("get_updates", params)
+		updateCursor(params, result)
+		if body, ok := result.(map[string]any); ok {
+			if gap, _ := body["gap"].(bool); gap {
+				_ = encoder.Encode(map[string]any{
+					"type":       "cursor_gap",
+					"epoch":      body["epoch"],
+					"nextOffset": body["nextOffset"],
+				})
+			}
+		}
 
 		// Extract updates from result
 		updates := extractUpdates(result)

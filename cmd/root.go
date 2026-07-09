@@ -7,21 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
-
-	// Import subpackages to trigger their init() registration
-	_ "agent-telegram/cmd/auth"
-	_ "agent-telegram/cmd/bot"
-	_ "agent-telegram/cmd/chat"
-	_ "agent-telegram/cmd/contact"
-	_ "agent-telegram/cmd/get"
-	_ "agent-telegram/cmd/gift"
-	_ "agent-telegram/cmd/message"
-	_ "agent-telegram/cmd/open"
-	_ "agent-telegram/cmd/search"
-	_ "agent-telegram/cmd/send"
-	_ "agent-telegram/cmd/session"
-	_ "agent-telegram/cmd/sys"
-	_ "agent-telegram/cmd/user"
+	"agent-telegram/internal/paths"
 )
 
 var (
@@ -89,7 +75,7 @@ func init() {
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDServer, Title: "Server"})
 
 	// Global flags
-	RootCmd.PersistentFlags().StringP("socket", "s", "/tmp/agent-telegram.sock", "Path to Unix socket")
+	RootCmd.PersistentFlags().StringP("socket", "s", paths.DefaultSocketPath, "Path to Unix socket")
 	RootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress status messages (data still goes to stdout)")
 	RootCmd.PersistentFlags().String("output", "", "Output format: json or ids")
 	RootCmd.PersistentFlags().StringSlice("filter", nil, "Filter results (e.g., 'stars>1000', 'type=channel')")
@@ -101,6 +87,7 @@ func init() {
 	RootCmd.PersistentFlags().Bool("summary", false, "Output a compact result summary")
 	RootCmd.PersistentFlags().Bool("receipt", false, "Wrap JSON output with trace/action receipt metadata")
 	RootCmd.PersistentFlags().Bool("dry-run", false, "Preview action without executing")
+	RootCmd.PersistentFlags().Bool("confirm", false, "Confirm a destructive or paid operation")
 	RootCmd.PersistentFlags().Bool("schema", false, "Output operation schema without executing")
 	RootCmd.PersistentFlags().Bool("agent", false, "Enable agent-friendly compact JSON, receipts, run IDs, and structured errors")
 	RootCmd.PersistentFlags().String("run-id", "", "Agent run ID for correlating multiple commands")

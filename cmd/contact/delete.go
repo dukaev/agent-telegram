@@ -16,8 +16,8 @@ var (
 
 // DeleteContactCmd represents the contact delete command.
 var DeleteContactCmd = &cobra.Command{
-	Use:     "delete",
-	Short:   "Delete a contact from your Telegram account",
+	Use:   "delete",
+	Short: "Delete a contact from your Telegram account",
 	Long: `Delete a contact from your Telegram account by username.
 
 You can specify the username with or without the @ prefix.

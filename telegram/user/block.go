@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // BlockPeer blocks a peer.
@@ -37,9 +37,9 @@ func (c *Client) setBlocked(ctx context.Context, peer string, block bool) error 
 	}
 
 	if block {
-		_, err = c.API.ContactsBlock(ctx, &tg.ContactsBlockRequest{ID: inputPeer})
+		_, err = c.API().ContactsBlock(ctx, &tg.ContactsBlockRequest{ID: inputPeer})
 	} else {
-		_, err = c.API.ContactsUnblock(ctx, &tg.ContactsUnblockRequest{ID: inputPeer})
+		_, err = c.API().ContactsUnblock(ctx, &tg.ContactsUnblockRequest{ID: inputPeer})
 	}
 	if err != nil {
 		action := "block"

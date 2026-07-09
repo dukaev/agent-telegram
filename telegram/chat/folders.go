@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // GetFolders retrieves all chat folders.
@@ -15,7 +15,7 @@ func (c *Client) GetFolders(ctx context.Context, _ types.GetFoldersParams) (*typ
 		return nil, err
 	}
 
-	result, err := c.API.MessagesGetDialogFilters(ctx)
+	result, err := c.API().MessagesGetDialogFilters(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get folders: %w", err)
 	}
@@ -50,7 +50,7 @@ func (c *Client) CreateFolder(ctx context.Context, params types.CreateFolderPara
 	}
 
 	// Get existing filters to find next ID
-	existing, err := c.API.MessagesGetDialogFilters(ctx)
+	existing, err := c.API().MessagesGetDialogFilters(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing folders: %w", err)
 	}
@@ -98,7 +98,7 @@ func (c *Client) CreateFolder(ctx context.Context, params types.CreateFolderPara
 		PinnedPeers:  []tg.InputPeerClass{},
 	}
 
-	_, err = c.API.MessagesUpdateDialogFilter(ctx, &tg.MessagesUpdateDialogFilterRequest{
+	_, err = c.API().MessagesUpdateDialogFilter(ctx, &tg.MessagesUpdateDialogFilterRequest{
 		ID:     maxID,
 		Filter: filter,
 	})
@@ -118,7 +118,7 @@ func (c *Client) DeleteFolder(ctx context.Context, params types.DeleteFolderPara
 		return nil, err
 	}
 
-	_, err := c.API.MessagesUpdateDialogFilter(ctx, &tg.MessagesUpdateDialogFilterRequest{
+	_, err := c.API().MessagesUpdateDialogFilter(ctx, &tg.MessagesUpdateDialogFilterRequest{
 		ID: params.ID,
 		// No filter = delete
 	})

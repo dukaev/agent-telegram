@@ -59,6 +59,9 @@ func TestSendParamValidation(t *testing.T) {
 	if err := (SendPollParams{Options: []PollOption{{Text: "A"}}}).Validate(); err == nil {
 		t.Fatal("poll with one option should fail")
 	}
+	if err := ValidateStruct(&SendPollParams{Question: "Q", Options: []PollOption{{Text: ""}, {Text: "B"}}}); err == nil {
+		t.Fatal("poll option with empty text should fail struct validation")
+	}
 	if err := (SendPollParams{Options: make([]PollOption, 11)}).Validate(); err == nil {
 		t.Fatal("poll with eleven options should fail")
 	}

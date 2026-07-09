@@ -41,7 +41,7 @@ var (
 	sendFirstName string
 	sendLastName  string
 	// Dice
-	sendDice bool
+	sendDice     bool
 	diceEmoticon string
 )
 

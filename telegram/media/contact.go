@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // SendContact sends a contact to a peer.
@@ -23,7 +23,7 @@ func (c *Client) SendContact(ctx context.Context, params types.SendContactParams
 		LastName:    params.LastName,
 	}
 
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    contact,
 		RandomID: time.Now().UnixNano(),

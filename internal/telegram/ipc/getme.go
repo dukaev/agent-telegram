@@ -36,6 +36,7 @@ func GetMeHandler(client Client) HandlerFunc {
 type Client interface {
 	GetMe(ctx context.Context) (*tg.User, error)
 	GetUpdates(limit int, offset ...int64) []types.StoredUpdate
+	GetUpdatePage(limit int, offset int64, epoch string) telegram.UpdatePage
 	Chat() telegram.ChatClient
 	Message() telegram.MessageClient
 	Media() telegram.MediaClient

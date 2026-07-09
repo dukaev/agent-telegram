@@ -29,6 +29,10 @@ type runRPCClient interface {
 	CallWithTraceAndRun(method string, params any, traceID, runID string) (any, *ipc.ErrorObject)
 }
 
+type optionsRPCClient interface {
+	CallWithOptions(method string, params any, opts ipc.CallOptions) (any, *ipc.ErrorObject)
+}
+
 var (
 	cliLoggerMu sync.Mutex
 	cliLoggers  = map[string]*slog.Logger{}
@@ -50,14 +54,13 @@ func getCLILogger(socketPath string) *slog.Logger {
 		cliLoggers[socketPath] = logger
 		return logger
 	}
-	//nolint:gosec // logPath is from trusted CLILogFilePathForSocket()
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	writer, err := observability.NewRotatingWriter(logPath)
 	if err != nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 		cliLoggers[socketPath] = logger
 		return logger
 	}
-	logger = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{
+	logger = slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	cliLoggers[socketPath] = logger
@@ -75,6 +78,7 @@ type Runner struct {
 	fieldSelector *FieldSelector
 	filterExprs   FilterExpressions
 	dryRun        bool
+	confirm       bool
 	agentMode     bool
 	runID         string
 	traceID       string
@@ -112,6 +116,7 @@ func NewRunnerFromCmd(cmd *cobra.Command, _ bool) *Runner {
 		fieldSelector: NewFieldSelector(opts.fields),
 		filterExprs:   opts.filterExpressions(),
 		dryRun:        opts.dryRun,
+		confirm:       opts.confirm,
 		agentMode:     opts.agentMode,
 		runID:         resolveRunID(opts.runID),
 		traceID:       observability.NewTraceID(),

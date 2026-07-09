@@ -2,8 +2,8 @@
 package user
 
 import (
-	"github.com/spf13/cobra"
 	"agent-telegram/cmd/mute"
+	"github.com/spf13/cobra"
 )
 
 // UserCmd represents the parent user command.

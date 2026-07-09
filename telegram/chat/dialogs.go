@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // GetChats returns the list of dialogs/chats with pagination.
@@ -15,7 +15,7 @@ func (c *Client) GetChats(ctx context.Context, params *types.GetChatsParams) (*t
 		return nil, err
 	}
 
-	dialogsClass, err := c.API.MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
+	dialogsClass, err := c.API().MessagesGetDialogs(ctx, &tg.MessagesGetDialogsRequest{
 		Limit:      params.Limit,
 		OffsetDate: 0,
 		OffsetID:   0,
@@ -106,8 +106,8 @@ func convertDialogsToResult(
 		}
 
 		chatInfo := map[string]any{
-			"unread_count":      dialog.UnreadCount,
-			"read_inbox_max_id": dialog.ReadInboxMaxID,
+			"unread_count":       dialog.UnreadCount,
+			"read_inbox_max_id":  dialog.ReadInboxMaxID,
 			"read_outbox_max_id": dialog.ReadOutboxMaxID,
 		}
 

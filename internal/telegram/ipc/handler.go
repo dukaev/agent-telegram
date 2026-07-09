@@ -6,7 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
+	baseipc "agent-telegram/internal/ipc"
+	"agent-telegram/internal/strictjson"
 	"agent-telegram/telegram/types"
 )
 
@@ -29,7 +33,7 @@ func Handler[T Params, R any](
 	return func(ctx context.Context, params json.RawMessage) (any, error) {
 		var p T
 		if len(params) > 0 {
-			if err := json.Unmarshal(params, &p); err != nil {
+			if err := strictjson.Decode(params, &p); err != nil {
 				return nil, fmt.Errorf("invalid params: %w", err)
 			}
 		}
@@ -50,6 +54,47 @@ func Handler[T Params, R any](
 
 		return result, nil
 	}
+}
+
+// ValidateFileParams enforces the HTTP server-side file allowlist before a
+// Telegram handler can open a path supplied by a remote caller.
+func ValidateFileParams(ctx context.Context, params json.RawMessage) error {
+	if baseipc.SurfaceFromContext(ctx) != baseipc.SurfaceHTTP || len(params) == 0 {
+		return nil
+	}
+	var payload struct {
+		File string `json:"file"`
+	}
+	if err := json.Unmarshal(params, &payload); err != nil || payload.File == "" {
+		return nil
+	}
+	roots := baseipc.FileRootsFromContext(ctx)
+	if len(roots) == 0 {
+		return fmt.Errorf("server-side file paths are disabled over HTTP")
+	}
+	file, err := filepath.EvalSymlinks(payload.File)
+	if err != nil {
+		return fmt.Errorf("resolve file path: %w", err)
+	}
+	file, err = filepath.Abs(file)
+	if err != nil {
+		return fmt.Errorf("resolve absolute file path: %w", err)
+	}
+	for _, root := range roots {
+		resolvedRoot, rootErr := filepath.EvalSymlinks(root)
+		if rootErr != nil {
+			continue
+		}
+		resolvedRoot, rootErr = filepath.Abs(resolvedRoot)
+		if rootErr != nil {
+			continue
+		}
+		rel, relErr := filepath.Rel(resolvedRoot, file)
+		if relErr == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return nil
+		}
+	}
+	return fmt.Errorf("file path is outside configured HTTP file roots")
 }
 
 // FileHandler returns a handler that validates file existence before calling the method.

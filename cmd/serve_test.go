@@ -8,6 +8,7 @@ import (
 )
 
 func TestCreateTelegramClientDefaultsToMemory(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envTelegramSession, "")
 
 	tgClient := createTelegramClient(123, "app-hash", telegramClientOptions{})
@@ -24,6 +25,7 @@ func TestCreateTelegramClientDefaultsToMemory(t *testing.T) {
 }
 
 func TestCreateTelegramClientUsesEnvSession(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envTelegramSession, base64.StdEncoding.EncodeToString([]byte("env-session")))
 
 	tgClient := createTelegramClient(123, "app-hash", telegramClientOptions{})
@@ -33,6 +35,7 @@ func TestCreateTelegramClientUsesEnvSession(t *testing.T) {
 }
 
 func TestImportSessionForMemoryStorage(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv(envTelegramSession, "")
 	tgClient := createTelegramClient(123, "app-hash", telegramClientOptions{})
 

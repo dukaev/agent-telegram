@@ -68,6 +68,32 @@ func TestValidateParams(t *testing.T) {
 	if err := ValidateParams("send_message", missingPeer); err == nil {
 		t.Fatal("missing peer/username should be rejected")
 	}
+
+	unknown := json.RawMessage(`{"peer":"@user","message":"hello","mesage":"typo"}`)
+	if err := ValidateParams("send_message", unknown); err == nil {
+		t.Fatal("unknown fields should be rejected")
+	}
+}
+
+func TestSchemaIncludesCustomValidationHints(t *testing.T) {
+	location, _ := Get("send_location")
+	properties := ManifestFor(location).InputSchema["properties"].(map[string]any)
+	latitude := properties["latitude"].(JSONSchema)
+	if latitude["minimum"] != -90 || latitude["maximum"] != 90 {
+		t.Fatalf("latitude schema = %+v", latitude)
+	}
+
+	poll, _ := Get("send_poll")
+	pollProperties := ManifestFor(poll).InputSchema["properties"].(map[string]any)
+	options := pollProperties["options"].(JSONSchema)
+	if options["minItems"] != 2 || options["maxItems"] != 10 {
+		t.Fatalf("poll options schema = %+v", options)
+	}
+
+	sticker, _ := Get("send_sticker")
+	if _, ok := ManifestFor(sticker).InputSchema["anyOf"]; !ok {
+		t.Fatal("sticker schema should require stickerId or file")
+	}
 }
 
 func TestOpenAPIIncludesRPCOperation(t *testing.T) {

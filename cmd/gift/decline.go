@@ -13,11 +13,11 @@ import (
 
 // DeclineCmd represents the gift decline command.
 var DeclineCmd = &cobra.Command{
-	Use:   "decline <msgId>",
-	Short: "Decline an incoming gift offer",
-	Long:  `Decline a gift offer by specifying the message ID of the offer.`,
+	Use:     "decline <msgId>",
+	Short:   "Decline an incoming gift offer",
+	Long:    `Decline a gift offer by specifying the message ID of the offer.`,
 	Example: `  agent-telegram gift decline 12345`,
-	Args: cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 }
 
 // AddDeclineCommand adds the decline command to the parent command.

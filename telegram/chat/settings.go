@@ -6,9 +6,9 @@ import (
 	"math"
 	"os"
 
+	"agent-telegram/telegram/types"
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
-	"agent-telegram/telegram/types"
 )
 
 // Archive moves a chat to the archive folder.
@@ -19,7 +19,7 @@ func (c *Client) Archive(ctx context.Context, params types.ArchiveParams) (*type
 	}
 
 	// Archive folder has ID 1
-	_, err = c.API.FoldersEditPeerFolders(ctx, []tg.InputFolderPeer{
+	_, err = c.API().FoldersEditPeerFolders(ctx, []tg.InputFolderPeer{
 		{Peer: peer, FolderID: 1},
 	})
 	if err != nil {
@@ -37,7 +37,7 @@ func (c *Client) Unarchive(ctx context.Context, params types.UnarchiveParams) (*
 	}
 
 	// Main folder has ID 0
-	_, err = c.API.FoldersEditPeerFolders(ctx, []tg.InputFolderPeer{
+	_, err = c.API().FoldersEditPeerFolders(ctx, []tg.InputFolderPeer{
 		{Peer: peer, FolderID: 0},
 	})
 	if err != nil {
@@ -55,7 +55,7 @@ func (c *Client) Mute(ctx context.Context, params types.MuteParams) (*types.Mute
 	}
 
 	// Mute until max int32 (forever)
-	_, err = c.API.AccountUpdateNotifySettings(ctx, &tg.AccountUpdateNotifySettingsRequest{
+	_, err = c.API().AccountUpdateNotifySettings(ctx, &tg.AccountUpdateNotifySettingsRequest{
 		Peer: &tg.InputNotifyPeer{Peer: peer},
 		Settings: tg.InputPeerNotifySettings{
 			MuteUntil: math.MaxInt32,
@@ -76,7 +76,7 @@ func (c *Client) Unmute(ctx context.Context, params types.UnmuteParams) (*types.
 	}
 
 	// Unmute by setting mute_until to 0
-	_, err = c.API.AccountUpdateNotifySettings(ctx, &tg.AccountUpdateNotifySettingsRequest{
+	_, err = c.API().AccountUpdateNotifySettings(ctx, &tg.AccountUpdateNotifySettingsRequest{
 		Peer: &tg.InputNotifyPeer{Peer: peer},
 		Settings: tg.InputPeerNotifySettings{
 			MuteUntil: 0,
@@ -98,7 +98,7 @@ func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*
 
 	switch p := peer.(type) {
 	case *tg.InputPeerChannel:
-		_, err := c.API.ChannelsEditTitle(ctx, &tg.ChannelsEditTitleRequest{
+		_, err := c.API().ChannelsEditTitle(ctx, &tg.ChannelsEditTitleRequest{
 			Channel: &tg.InputChannel{
 				ChannelID:  p.ChannelID,
 				AccessHash: p.AccessHash,
@@ -109,7 +109,7 @@ func (c *Client) EditTitle(ctx context.Context, params types.EditTitleParams) (*
 			return nil, fmt.Errorf("failed to edit channel title: %w", err)
 		}
 	case *tg.InputPeerChat:
-		_, err := c.API.MessagesEditChatTitle(ctx, &tg.MessagesEditChatTitleRequest{
+		_, err := c.API().MessagesEditChatTitle(ctx, &tg.MessagesEditChatTitleRequest{
 			ChatID: p.ChatID,
 			Title:  params.Title,
 		})
@@ -146,7 +146,7 @@ func (c *Client) SetPhoto(ctx context.Context, params types.SetPhotoParams) (*ty
 		return nil, fmt.Errorf("failed to get file info: %w", err)
 	}
 
-	u := uploader.NewUploader(c.API)
+	u := uploader.NewUploader(c.API())
 	upload := uploader.NewUpload(fileInfo.Name(), file, fileInfo.Size())
 	uploadedFile, err := u.Upload(ctx, upload)
 	if err != nil {
@@ -159,7 +159,7 @@ func (c *Client) SetPhoto(ctx context.Context, params types.SetPhotoParams) (*ty
 
 	switch p := peer.(type) {
 	case *tg.InputPeerChannel:
-		_, err := c.API.ChannelsEditPhoto(ctx, &tg.ChannelsEditPhotoRequest{
+		_, err := c.API().ChannelsEditPhoto(ctx, &tg.ChannelsEditPhotoRequest{
 			Channel: &tg.InputChannel{
 				ChannelID:  p.ChannelID,
 				AccessHash: p.AccessHash,
@@ -170,7 +170,7 @@ func (c *Client) SetPhoto(ctx context.Context, params types.SetPhotoParams) (*ty
 			return nil, fmt.Errorf("failed to set channel photo: %w", err)
 		}
 	case *tg.InputPeerChat:
-		_, err := c.API.MessagesEditChatPhoto(ctx, &tg.MessagesEditChatPhotoRequest{
+		_, err := c.API().MessagesEditChatPhoto(ctx, &tg.MessagesEditChatPhotoRequest{
 			ChatID: p.ChatID,
 			Photo:  photo,
 		})
@@ -193,7 +193,7 @@ func (c *Client) DeletePhoto(ctx context.Context, params types.DeletePhotoParams
 
 	switch p := peer.(type) {
 	case *tg.InputPeerChannel:
-		_, err := c.API.ChannelsEditPhoto(ctx, &tg.ChannelsEditPhotoRequest{
+		_, err := c.API().ChannelsEditPhoto(ctx, &tg.ChannelsEditPhotoRequest{
 			Channel: &tg.InputChannel{
 				ChannelID:  p.ChannelID,
 				AccessHash: p.AccessHash,
@@ -204,7 +204,7 @@ func (c *Client) DeletePhoto(ctx context.Context, params types.DeletePhotoParams
 			return nil, fmt.Errorf("failed to delete channel photo: %w", err)
 		}
 	case *tg.InputPeerChat:
-		_, err := c.API.MessagesEditChatPhoto(ctx, &tg.MessagesEditChatPhotoRequest{
+		_, err := c.API().MessagesEditChatPhoto(ctx, &tg.MessagesEditChatPhotoRequest{
 			ChatID: p.ChatID,
 			Photo:  &tg.InputChatPhotoEmpty{},
 		})
@@ -230,7 +230,7 @@ func (c *Client) SetSlowMode(ctx context.Context, params types.SetSlowModeParams
 		return nil, fmt.Errorf("peer must be a channel or supergroup")
 	}
 
-	_, err = c.API.ChannelsToggleSlowMode(ctx, &tg.ChannelsToggleSlowModeRequest{
+	_, err = c.API().ChannelsToggleSlowMode(ctx, &tg.ChannelsToggleSlowModeRequest{
 		Channel: &tg.InputChannel{
 			ChannelID:  inputChannel.ChannelID,
 			AccessHash: inputChannel.AccessHash,
@@ -248,7 +248,6 @@ func (c *Client) SetSlowMode(ctx context.Context, params types.SetSlowModeParams
 }
 
 // SetChatPermissions sets default permissions for a chat/channel.
-//
 func (c *Client) SetChatPermissions(
 	ctx context.Context,
 	params types.SetChatPermissionsParams,
@@ -260,37 +259,37 @@ func (c *Client) SetChatPermissions(
 
 	// Build banned rights (inverted - true means banned)
 	rights := &tg.ChatBannedRights{
-		UntilDate:    0, // Permanent
-		ViewMessages: false,
-		SendMessages: !params.SendMessages,
-		SendMedia:    !params.SendMedia,
-		SendStickers: !params.SendStickers,
-		SendGifs:     !params.SendGifs,
-		SendGames:    !params.SendGames,
-		SendInline:   !params.SendInline,
-		EmbedLinks:   !params.EmbedLinks,
-		SendPolls:    !params.SendPolls,
-		ChangeInfo:   !params.ChangeInfo,
-		InviteUsers:  !params.InviteUsers,
-		PinMessages:  !params.PinMessages,
-		ManageTopics: !params.ManageTopics,
-		SendPhotos:   !params.SendPhotos,
-		SendVideos:   !params.SendVideos,
+		UntilDate:       0, // Permanent
+		ViewMessages:    false,
+		SendMessages:    !params.SendMessages,
+		SendMedia:       !params.SendMedia,
+		SendStickers:    !params.SendStickers,
+		SendGifs:        !params.SendGifs,
+		SendGames:       !params.SendGames,
+		SendInline:      !params.SendInline,
+		EmbedLinks:      !params.EmbedLinks,
+		SendPolls:       !params.SendPolls,
+		ChangeInfo:      !params.ChangeInfo,
+		InviteUsers:     !params.InviteUsers,
+		PinMessages:     !params.PinMessages,
+		ManageTopics:    !params.ManageTopics,
+		SendPhotos:      !params.SendPhotos,
+		SendVideos:      !params.SendVideos,
 		SendRoundvideos: !params.SendRoundvideos,
-		SendAudios:   !params.SendAudios,
-		SendVoices:   !params.SendVoices,
-		SendDocs:     !params.SendDocs,
-		SendPlain:    !params.SendPlain,
+		SendAudios:      !params.SendAudios,
+		SendVoices:      !params.SendVoices,
+		SendDocs:        !params.SendDocs,
+		SendPlain:       !params.SendPlain,
 	}
 
 	switch p := peer.(type) {
 	case *tg.InputPeerChannel:
-		_, err = c.API.MessagesEditChatDefaultBannedRights(ctx, &tg.MessagesEditChatDefaultBannedRightsRequest{
+		_, err = c.API().MessagesEditChatDefaultBannedRights(ctx, &tg.MessagesEditChatDefaultBannedRightsRequest{
 			Peer:         p,
 			BannedRights: *rights,
 		})
 	case *tg.InputPeerChat:
-		_, err = c.API.MessagesEditChatDefaultBannedRights(ctx, &tg.MessagesEditChatDefaultBannedRightsRequest{
+		_, err = c.API().MessagesEditChatDefaultBannedRights(ctx, &tg.MessagesEditChatDefaultBannedRightsRequest{
 			Peer:         p,
 			BannedRights: *rights,
 		})

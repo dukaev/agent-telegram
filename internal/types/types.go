@@ -1,4 +1,5 @@
 // Package types provides shared types and interfaces for the agent-telegram application.
+//
 //revive:disable:var-naming
 package types
 

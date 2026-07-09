@@ -57,6 +57,32 @@ func TestUpdateStoreAddGetLimitOffsetAndCallback(t *testing.T) {
 	})
 }
 
+func TestUpdateStorePageCursorOrderEpochAndGap(t *testing.T) {
+	store := NewUpdateStore(3)
+	for i := range 5 {
+		store.Add(NewStoredUpdate(types.UpdateTypeNewMessage, map[string]any{"n": i + 1}))
+	}
+
+	initial := store.Page(2, 0, "")
+	if len(initial.Updates) != 2 || initial.Updates[0].ID != 4 || initial.Updates[1].ID != 5 {
+		t.Fatalf("initial page = %+v", initial)
+	}
+	if initial.NextOffset != 5 || initial.Epoch == "" || initial.Gap {
+		t.Fatalf("initial cursor = %+v", initial)
+	}
+
+	store.Add(NewStoredUpdate(types.UpdateTypeEditMessage, map[string]any{"n": 6}))
+	resumed := store.Page(2, initial.NextOffset, initial.Epoch)
+	if len(resumed.Updates) != 1 || resumed.Updates[0].ID != 6 || resumed.NextOffset != 6 {
+		t.Fatalf("resumed page = %+v", resumed)
+	}
+
+	stale := store.Page(2, 1, "another-epoch")
+	if !stale.Gap || stale.Epoch != initial.Epoch {
+		t.Fatalf("stale cursor should report gap: %+v", stale)
+	}
+}
+
 func TestMessageDataAndHelpers(t *testing.T) {
 	msg := &tg.Message{
 		ID:      7,
@@ -222,7 +248,12 @@ func TestClientAccessorsAndPeerCache(t *testing.T) {
 	if updates := empty.GetUpdates(1); len(updates) != 0 {
 		t.Fatalf("nil store updates = %+v", updates)
 	}
+	messageClient := client.Message()
+	chatClient := client.Chat()
 	client.Reload()
+	if client.Message() != messageClient || client.Chat() != chatClient {
+		t.Fatal("domain clients must remain stable across reload")
+	}
 	select {
 	case <-client.ReloadCh():
 	case <-time.After(time.Second):

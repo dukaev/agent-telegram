@@ -7,8 +7,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // normalizePeer normalizes a peer string for ResolvePeer.
@@ -54,12 +54,12 @@ func (c *Client) GetMessage(ctx context.Context, params types.GetMessageParams) 
 
 	var messagesClass tg.MessagesMessagesClass
 	if ch, ok := inputPeer.(*tg.InputPeerChannel); ok {
-		messagesClass, err = c.API.ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
+		messagesClass, err = c.API().ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
 			Channel: &tg.InputChannel{ChannelID: ch.ChannelID, AccessHash: ch.AccessHash},
 			ID:      msgIDs,
 		})
 	} else {
-		messagesClass, err = c.API.MessagesGetMessages(ctx, msgIDs)
+		messagesClass, err = c.API().MessagesGetMessages(ctx, msgIDs)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get message: %w", err)
@@ -111,7 +111,7 @@ func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams
 	}
 
 	// Get messages from the peer
-	messagesClass, err := c.API.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+	messagesClass, err := c.API().MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
 		Peer:      inputPeer,
 		Limit:     params.Limit,
 		OffsetID:  params.Offset,

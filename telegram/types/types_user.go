@@ -28,6 +28,10 @@ func (p GetUserInfoParams) Validate() error {
 	return nil
 }
 
+func (GetUserInfoParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("username", "userId")
+}
+
 // ErrUsernameOrIDRequired is returned when neither username nor userId is provided.
 var ErrUsernameOrIDRequired = fmt.Errorf("username or userId is required")
 

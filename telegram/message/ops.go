@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // UpdateMessage edits a message.
@@ -29,7 +29,7 @@ func (c *Client) UpdateMessage(
 	if len(entities) > 0 {
 		req.SetEntities(entities)
 	}
-	_, err = c.API.MessagesEditMessage(ctx, req)
+	_, err = c.API().MessagesEditMessage(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update message: %w", err)
 	}
@@ -48,7 +48,7 @@ func (c *Client) DeleteMessage(
 		return nil, err
 	}
 
-	_, err := c.API.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
+	_, err := c.API().MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
 		ID:     []int{int(params.MessageID)},
 		Revoke: true,
 	})
@@ -80,7 +80,7 @@ func (c *Client) ForwardMessage(
 		return nil, fmt.Errorf("failed to resolve toPeer: %w", err)
 	}
 
-	result, err := c.API.MessagesForwardMessages(ctx, &tg.MessagesForwardMessagesRequest{
+	result, err := c.API().MessagesForwardMessages(ctx, &tg.MessagesForwardMessagesRequest{
 		FromPeer: fromPeer,
 		ID:       []int{int(params.MessageID)},
 		ToPeer:   toPeer,

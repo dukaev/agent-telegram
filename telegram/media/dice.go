@@ -39,7 +39,7 @@ func (c *Client) SendDice(ctx context.Context, params types.SendDiceParams) (*ty
 		req.ReplyTo = &tg.InputReplyToMessage{ReplyToMsgID: int(params.ReplyTo)}
 	}
 
-	result, err := c.API.MessagesSendMedia(ctx, req)
+	result, err := c.API().MessagesSendMedia(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send dice: %w", err)
 	}
@@ -72,12 +72,12 @@ func (c *Client) waitForDiceValue(ctx context.Context, peer tg.InputPeerClass, m
 		var err error
 
 		if ch, ok := peer.(*tg.InputPeerChannel); ok {
-			msgs, err = c.API.ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
+			msgs, err = c.API().ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
 				Channel: &tg.InputChannel{ChannelID: ch.ChannelID, AccessHash: ch.AccessHash},
 				ID:      []tg.InputMessageClass{&tg.InputMessageID{ID: msgID}},
 			})
 		} else {
-			msgs, err = c.API.MessagesGetMessages(ctx, []tg.InputMessageClass{
+			msgs, err = c.API().MessagesGetMessages(ctx, []tg.InputMessageClass{
 				&tg.InputMessageID{ID: msgID},
 			})
 		}

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gotd/td/tg"
-	"github.com/gotd/td/telegram/uploader"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/telegram/uploader"
+	"github.com/gotd/td/tg"
 )
 
 // UpdateProfile updates the user's profile.
@@ -19,7 +19,7 @@ func (c *Client) UpdateProfile(
 		return nil, err
 	}
 
-	_, err := c.API.AccountUpdateProfile(ctx, &tg.AccountUpdateProfileRequest{
+	_, err := c.API().AccountUpdateProfile(ctx, &tg.AccountUpdateProfileRequest{
 		FirstName: params.FirstName,
 		LastName:  params.LastName,
 		About:     params.Bio,
@@ -51,7 +51,7 @@ func (c *Client) UpdateAvatar(ctx context.Context, params types.UpdateAvatarPara
 		return nil, fmt.Errorf("failed to get file info: %w", err)
 	}
 
-	u := uploader.NewUploader(c.API)
+	u := uploader.NewUploader(c.API())
 	upload := uploader.NewUpload(fileInfo.Name(), file, fileInfo.Size())
 
 	uploadedFile, err := u.Upload(ctx, upload)
@@ -59,7 +59,7 @@ func (c *Client) UpdateAvatar(ctx context.Context, params types.UpdateAvatarPara
 		return nil, fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	_, err = c.API.PhotosUploadProfilePhoto(ctx, &tg.PhotosUploadProfilePhotoRequest{
+	_, err = c.API().PhotosUploadProfilePhoto(ctx, &tg.PhotosUploadProfilePhotoRequest{
 		File: uploadedFile,
 	})
 	if err != nil {

@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // ClearMessages clears specific messages.
@@ -23,7 +23,7 @@ func (c *Client) ClearMessages(
 		ids[i] = int(id)
 	}
 
-	_, err := c.API.MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
+	_, err := c.API().MessagesDeleteMessages(ctx, &tg.MessagesDeleteMessagesRequest{
 		ID:     ids,
 		Revoke: true,
 	})
@@ -45,7 +45,7 @@ func (c *Client) ClearHistory(ctx context.Context, params types.ClearHistoryPara
 		return nil, err
 	}
 
-	_, err = c.API.MessagesDeleteHistory(ctx, &tg.MessagesDeleteHistoryRequest{
+	_, err = c.API().MessagesDeleteHistory(ctx, &tg.MessagesDeleteHistoryRequest{
 		Peer:   inputPeer,
 		Revoke: params.Revoke,
 	})
@@ -72,7 +72,7 @@ func (c *Client) PinChat(ctx context.Context, params types.PinChatParams) (*type
 		Peer: inputPeer,
 	}
 
-	_, err = c.API.MessagesToggleDialogPin(ctx, &tg.MessagesToggleDialogPinRequest{
+	_, err = c.API().MessagesToggleDialogPin(ctx, &tg.MessagesToggleDialogPinRequest{
 		Pinned: !params.Disable,
 		Peer:   dialogPeer,
 	})

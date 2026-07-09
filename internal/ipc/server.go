@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"agent-telegram/internal/observability"
+	"agent-telegram/internal/operations"
 )
 
 // Error codes for JSON-RPC errors.
@@ -106,10 +107,13 @@ func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
 			}
 			slog.Warn("ipc: failed to decode request", "error", err)
 			s.sendError(encoder, nil, ErrParseError)
-			continue
+			return nil
 		}
 
 		resp := s.handleRequest(ctx, &req)
+		if req.ID == nil {
+			continue
+		}
 
 		if err := encoder.Encode(resp); err != nil {
 			return fmt.Errorf("encode response: %w", err)
@@ -128,6 +132,7 @@ func (s *Server) ServeStdinStdout(ctx context.Context) error {
 
 func (s *Server) handleRequest(ctx context.Context, req *Request) (resp *Response) {
 	start := time.Now()
+	ctx = WithConfirmation(ctx, req.Confirm)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -145,6 +150,15 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (resp *Respons
 		}
 		s.logRequest(req, resp, time.Since(start))
 	}()
+	if req.JSONRPC != "2.0" || req.Method == "" {
+		return &Response{
+			JSONRPC: "2.0",
+			Error:   ErrInvalidRequest,
+			ID:      req.ID,
+			RunID:   req.RunID,
+			TraceID: req.TraceID,
+		}
+	}
 
 	s.mu.RLock()
 	handler, ok := s.methods[req.Method]
@@ -158,6 +172,17 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (resp *Respons
 			ID:      req.ID,
 			RunID:   req.RunID,
 			TraceID: req.TraceID,
+		}
+	}
+	if operations.HasSchema(req.Method) {
+		if err := operations.ValidateParams(req.Method, req.Params); err != nil {
+			return &Response{
+				JSONRPC: "2.0",
+				Error:   NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, err.Error(), nil),
+				ID:      req.ID,
+				RunID:   req.RunID,
+				TraceID: req.TraceID,
+			}
 		}
 	}
 
@@ -179,7 +204,7 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (resp *Respons
 		}
 	}
 
-	result, err := handler(req.Params)
+	result, err := handler(ctx, req.Params)
 	if err != nil {
 		return &Response{
 			JSONRPC: "2.0",

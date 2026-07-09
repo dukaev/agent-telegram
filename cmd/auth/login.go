@@ -21,6 +21,7 @@ import (
 	"agent-telegram/internal/cliutil"
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/paths"
 )
 
 // Default Telegram API credentials.
@@ -325,7 +326,7 @@ func runAuthStatusWithRuntime(runtime authRuntimeConfig) {
 	configPath, configErr := config.ConfigPath()
 	configInfo, cfgErr := os.Stat(configPath)
 	serverAuthorized := false
-	if status, err := ipc.NewClient("/tmp/agent-telegram.sock").Status(); err == nil {
+	if status, err := ipc.NewClient(paths.DefaultSocketPath).Status(); err == nil {
 		if authorized, ok := status["authorized"].(bool); ok {
 			serverAuthorized = authorized
 		}
@@ -354,6 +355,7 @@ func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.S
 		return nil, fmt.Errorf("failed to save config: %w", err)
 	}
 	serverReloaded := false
+	sessionPending := false
 	if runtime.Reload {
 		socketPath, _ := cmd.Flags().GetString("socket")
 		if socketPath == "" {
@@ -365,7 +367,10 @@ func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.S
 		}
 		serverReloaded = reloadServerSession(socketPath, sessionData)
 		if !serverReloaded {
-			return nil, fmt.Errorf("login completed, but the running IPC server did not accept the in-memory session")
+			if err := config.SavePendingSession(sessionData); err != nil {
+				return nil, fmt.Errorf("save session for daemon startup: %w", err)
+			}
+			sessionPending = true
 		}
 	}
 	if err := runtime.stateStore().Delete(state.ID); err != nil {
@@ -377,6 +382,7 @@ func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.S
 		"phone":          maskPhone(state.Phone),
 		"sessionStorage": "memory",
 		"serverReloaded": serverReloaded,
+		"sessionPending": sessionPending,
 	}, nil
 }
 
@@ -466,7 +472,7 @@ func reloadServerSession(socketPath string, sessionData []byte) bool {
 		return false
 	}
 	if socketPath == "" {
-		socketPath = "/tmp/agent-telegram.sock"
+		socketPath = paths.DefaultSocketPath
 	}
 	client := ipc.NewClient(socketPath)
 	if _, err := client.Call("status", nil); err != nil {

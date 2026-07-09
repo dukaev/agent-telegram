@@ -128,3 +128,21 @@ func TestFileAndStoredConfig(t *testing.T) {
 		t.Fatal("missing HOME should fail")
 	}
 }
+
+func TestPendingSessionIsConsumedOnce(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := SavePendingSession([]byte("one-time-session")); err != nil {
+		t.Fatal(err)
+	}
+	data, err := ConsumePendingSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "one-time-session" {
+		t.Fatalf("session = %q", data)
+	}
+	data, err = ConsumePendingSession()
+	if err != nil || data != nil {
+		t.Fatalf("second consume = %q, %v", data, err)
+	}
+}

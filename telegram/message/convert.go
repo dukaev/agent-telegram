@@ -3,9 +3,9 @@ package message
 import (
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // buildUserDisplayName builds a display name from a user.

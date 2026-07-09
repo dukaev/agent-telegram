@@ -6,7 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"agent-telegram/internal/cliutil"
 	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/paths"
 )
 
 // LogoutCmd represents the logout command.
@@ -31,10 +33,17 @@ func AddLogoutCommand(rootCmd *cobra.Command) {
 func runLogout(cmd *cobra.Command, _ []string) {
 	socketPath, _ := cmd.Root().PersistentFlags().GetString("socket")
 	if socketPath == "" {
-		socketPath = "/tmp/agent-telegram.sock"
+		socketPath = paths.DefaultSocketPath
 	}
-	if _, err := ipc.NewClient(socketPath).Call("shutdown", nil); err != nil {
-		fmt.Println("No active in-memory session found. You are already logged out.")
+	confirmed, _ := cmd.Flags().GetBool("confirm")
+	if !confirmed {
+		fmt.Println("Logout requires explicit confirmation: agent-telegram logout --confirm")
+		cliutil.Exit(1)
+		return
+	}
+	if _, err := ipc.NewClient(socketPath).CallWithOptions("logout", nil, ipc.CallOptions{Confirm: true}); err != nil {
+		fmt.Printf("Logout failed: %s\n", err.Message)
+		cliutil.Exit(1)
 		return
 	}
 	fmt.Println("Logout requested. The server will logout from Telegram and stop.")

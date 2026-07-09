@@ -47,9 +47,8 @@ test-contracts: ## Run contract tests with fixtures
 
 validate-fixtures: ## Validate fixture files structure
 	@echo "Validating fixtures..."
-	@for f in testdata/fixtures/**/*.json; do \
-		jq empty "$$f" 2>/dev/null || echo "Invalid JSON: $$f"; \
-	done
+	@find testdata/fixtures -type f -name '*.json' -print0 | \
+		xargs -0 -n1 jq empty
 	@echo "Fixtures validated"
 
 record-fixture: ## Record a fixture (use: make record-fixture METHOD=messages.getHistory PEER=@username)

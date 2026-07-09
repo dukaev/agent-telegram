@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // InspectReplyKeyboard inspects the reply keyboard from a chat.
@@ -30,7 +30,7 @@ func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo
 	}
 
 	// Get recent messages to find reply keyboard
-	messagesClass, err := c.API.MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+	messagesClass, err := c.API().MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
 		Peer:      inputPeer,
 		Limit:     50,
 		OffsetID:  0,
@@ -53,19 +53,19 @@ func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo
 			if rm, ok := msg.ReplyMarkup.(*tg.ReplyKeyboardMarkup); ok {
 				// Found reply keyboard markup
 				return &types.ReplyKeyboardResult{
-					Peer:         peer,
-					MessageID:    int64(msg.ID),
-					Keyboard:     convertReplyKeyboardMarkup(rm),
-					Found:        true,
+					Peer:      peer,
+					MessageID: int64(msg.ID),
+					Keyboard:  convertReplyKeyboardMarkup(rm),
+					Found:     true,
 				}, nil
 			}
 			if _, ok := msg.ReplyMarkup.(*tg.ReplyKeyboardForceReply); ok {
 				// Force reply keyboard
 				return &types.ReplyKeyboardResult{
-					Peer:      peer,
-					MessageID: int64(msg.ID),
+					Peer:       peer,
+					MessageID:  int64(msg.ID),
 					ForceReply: true,
-					Found:     true,
+					Found:      true,
 				}, nil
 			}
 			if _, ok := msg.ReplyMarkup.(*tg.ReplyKeyboardHide); ok {
@@ -90,12 +90,12 @@ func (c *Client) InspectReplyKeyboard(ctx context.Context, params types.PeerInfo
 // convertReplyKeyboardMarkup converts tg.ReplyKeyboardMarkup to our format.
 func convertReplyKeyboardMarkup(rm *tg.ReplyKeyboardMarkup) types.ReplyKeyboard {
 	keyboard := types.ReplyKeyboard{
-		Resize:     rm.Resize,
-		SingleUse:  rm.SingleUse,
-		Selective:  rm.Selective,
-		Persistent: rm.Persistent,
+		Resize:      rm.Resize,
+		SingleUse:   rm.SingleUse,
+		Selective:   rm.Selective,
+		Persistent:  rm.Persistent,
 		Placeholder: rm.Placeholder,
-		Rows:       make([][]types.KeyboardButton, 0, len(rm.Rows)),
+		Rows:        make([][]types.KeyboardButton, 0, len(rm.Rows)),
 	}
 
 	for _, row := range rm.Rows {

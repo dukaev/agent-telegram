@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/helpers"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // SendMessage sends a message to a peer.
@@ -33,7 +33,7 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 	if len(entities) > 0 {
 		req.SetEntities(entities)
 	}
-	result, err := c.API.MessagesSendMessage(ctx, req)
+	result, err := c.API().MessagesSendMessage(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
@@ -66,7 +66,7 @@ func (c *Client) SendReply(ctx context.Context, params types.SendReplyParams) (*
 	if len(entities) > 0 {
 		req.SetEntities(entities)
 	}
-	result, err := c.API.MessagesSendMessage(ctx, req)
+	result, err := c.API().MessagesSendMessage(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send reply: %w", err)
 	}

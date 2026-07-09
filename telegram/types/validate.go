@@ -57,11 +57,32 @@ func validateField(field reflect.Value, fieldType reflect.StructField) error {
 
 	// Get validate tag
 	tag := fieldType.Tag.Get("validate")
-	if tag == "" {
-		return nil
+	if tag != "" {
+		if err := processValidateTag(field, fieldType.Name, tag); err != nil {
+			return err
+		}
 	}
+	return validateNested(field)
+}
 
-	return processValidateTag(field, fieldType.Name, tag)
+func validateNested(field reflect.Value) error {
+	if field.Kind() == reflect.Ptr {
+		if field.IsNil() {
+			return nil
+		}
+		field = field.Elem()
+	}
+	switch field.Kind() {
+	case reflect.Struct:
+		return ValidateStruct(field.Interface())
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < field.Len(); i++ {
+			if err := validateNested(field.Index(i)); err != nil {
+				return fmt.Errorf("item %d: %w", i, err)
+			}
+		}
+	}
+	return nil
 }
 
 // validateEmbedded validates an embedded struct if it has a Validate method.
@@ -153,6 +174,15 @@ func RequiredSlice[T any](slice []T, name string) error {
 		return fmt.Errorf("%s is required", name)
 	}
 	return nil
+}
+
+func eitherRequiredSchema(first, second string) map[string]any {
+	return map[string]any{
+		"anyOf": []map[string][]string{
+			{"required": []string{first}},
+			{"required": []string{second}},
+		},
+	}
 }
 
 // ValidateLatitude returns an error if latitude is out of range.

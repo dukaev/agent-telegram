@@ -17,6 +17,7 @@ import (
 
 	"agent-telegram/internal/config"
 	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/observability"
 	"agent-telegram/internal/paths"
 	"agent-telegram/internal/policy"
 	telegramipc "agent-telegram/internal/telegram/ipc"
@@ -51,7 +52,7 @@ func init() {
 		"Path to Unix socket (default: /tmp/agent-telegram.sock)")
 	serveCmd.Flags().BoolVarP(&serveForeground, "foreground", "f", false,
 		"Run in foreground (default: background)")
-	serveCmd.Flags().BoolVar(&serveLogoutOnStop, "logout-on-stop", true,
+	serveCmd.Flags().BoolVar(&serveLogoutOnStop, "logout-on-stop", false,
 		"Logout from Telegram when the server stops")
 }
 
@@ -123,7 +124,7 @@ func runServe(_ *cobra.Command, _ []string) {
 	startTelegramClient(ctx, tgClient)
 	go waitForTelegramReady(ctx, tgClient)
 
-	srv := createIPCServer(socketPath, tgClient, cancel, logout)
+	srv := createIPCServer(socketPath, tgClient, cancel)
 	if err := srv.Start(ctx); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
@@ -147,8 +148,7 @@ func setupLoggerForSocket(socketPath string) {
 		return
 	}
 
-	//nolint:gosec // logPath is from trusted paths.LogFilePath()
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	logWriter, err := observability.NewRotatingWriter(logPath)
 	if err != nil {
 		// Fallback to stderr if file cannot be opened
 		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
@@ -156,7 +156,7 @@ func setupLoggerForSocket(socketPath string) {
 		return
 	}
 
-	logger := slog.New(slog.NewJSONHandler(logFile, &slog.HandlerOptions{
+	logger := slog.New(slog.NewJSONHandler(logWriter, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
@@ -186,7 +186,7 @@ func getSocketPath() string {
 		socketPath = serveSocket
 	}
 	if socketPath == "" {
-		socketPath = "/tmp/agent-telegram.sock"
+		socketPath = paths.DefaultSocketPath
 	}
 	return socketPath
 }
@@ -200,7 +200,17 @@ type telegramClientOptions struct {
 // in-memory; no session file is read or written.
 func createTelegramClient(appID int, appHash string, opts telegramClientOptions) *telegram.Client {
 	tgClient := telegram.NewClient(appID, appHash)
-	storage := telegram.NewMemoryStorage(opts.SessionData)
+	sessionData := opts.SessionData
+	if len(sessionData) == 0 && os.Getenv(envTelegramSession) == "" {
+		pending, err := config.ConsumePendingSession()
+		if err != nil {
+			slog.Warn("Failed to consume pending Telegram session", "error", err)
+		} else if len(pending) > 0 {
+			sessionData = pending
+			slog.Info("Using one-time Telegram session handoff")
+		}
+	}
+	storage := telegram.NewMemoryStorage(sessionData)
 
 	if envSession := os.Getenv(envTelegramSession); envSession != "" {
 		envStorage, err := telegram.NewEnvStorage(envSession)
@@ -313,7 +323,6 @@ func createIPCServer(
 	socketPath string,
 	tgClient *telegram.Client,
 	cancel context.CancelFunc,
-	logout func(),
 ) *ipc.SocketServer {
 	srv := ipc.NewSocketServer(socketPath)
 	ipc.RegisterPingPong(srv)
@@ -321,9 +330,14 @@ func createIPCServer(
 	srv.SetPolicyChecker(policyChecker)
 	telegramipc.RegisterHandlers(srv, tgClient)
 
-	srv.Register("status", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
+	registerControlHandlers(srv, tgClient, cancel)
+	return srv
+}
+
+func registerControlHandlers(srv ipc.MethodRegistrar, tgClient *telegram.Client, cancel context.CancelFunc) {
+	srv.Register("status", func(parent context.Context, _ json.RawMessage) (any, *ipc.ErrorObject) {
 		// Create a short-lived context for the status check
-		ctx, statusCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, statusCancel := context.WithTimeout(parent, 2*time.Second)
 		defer statusCancel()
 
 		tgStatus := tgClient.GetStatus(ctx)
@@ -341,13 +355,10 @@ func createIPCServer(
 		}, nil
 	})
 
-	srv.Register("shutdown", func(_ json.RawMessage) (any, *ipc.ErrorObject) {
+	srv.Register("shutdown", func(_ context.Context, _ json.RawMessage) (any, *ipc.ErrorObject) {
 		// Trigger graceful shutdown by canceling context
 		go func() {
 			time.Sleep(100 * time.Millisecond) // Small delay to send response first
-			if logout != nil {
-				logout()
-			}
 			cancel()
 		}()
 		return map[string]any{
@@ -356,7 +367,19 @@ func createIPCServer(
 		}, nil
 	})
 
-	srv.Register("reload_session", func(params json.RawMessage) (any, *ipc.ErrorObject) {
+	srv.Register("logout", func(_ context.Context, _ json.RawMessage) (any, *ipc.ErrorObject) {
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			logoutTelegramClient(tgClient, true)
+			cancel()
+		}()
+		return map[string]any{
+			"success": true,
+			"message": "Logging out and shutting down...",
+		}, nil
+	})
+
+	srv.Register("reload_session", func(_ context.Context, params json.RawMessage) (any, *ipc.ErrorObject) {
 		slog.Info("Reload session requested via IPC")
 		sessionData, err := parseReloadSessionData(params)
 		if err != nil {
@@ -372,7 +395,6 @@ func createIPCServer(
 		}, nil
 	})
 
-	return srv
 }
 
 func parseReloadSessionData(params json.RawMessage) ([]byte, error) {

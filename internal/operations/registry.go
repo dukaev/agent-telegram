@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"slices"
 
+	"agent-telegram/internal/strictjson"
 	"agent-telegram/telegram/types"
 )
 
@@ -22,6 +23,25 @@ type NoParams struct{}
 
 // Validate implements the IPC params contract.
 func (NoParams) Validate() error { return nil }
+
+// Control operation contracts are shared by the local IPC and HTTP surfaces.
+type PingParams struct {
+	Message string `json:"message,omitempty"`
+}
+
+type PingResult struct {
+	Message string `json:"message"`
+	Pong    bool   `json:"pong"`
+}
+
+type ReloadSessionParams struct {
+	Session string `json:"session" validate:"required"`
+}
+
+type ControlResult struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+}
 
 // Operation describes one IPC/HTTP operation for agents and documentation.
 type Operation struct {
@@ -134,7 +154,7 @@ func ValidateParams(method string, raw json.RawMessage) error {
 	if len(raw) == 0 {
 		raw = json.RawMessage(`{}`)
 	}
-	if err := json.Unmarshal(raw, params); err != nil {
+	if err := strictjson.Decode(raw, params); err != nil {
 		return fmt.Errorf("invalid params: %w", err)
 	}
 	if err := types.ValidateStruct(params); err != nil {
@@ -150,6 +170,9 @@ func ValidateParams(method string, raw json.RawMessage) error {
 }
 
 func validatePeerInfo(params any) error {
+	if optional, ok := params.(interface{ AllowEmptyPeer() bool }); ok && optional.AllowEmptyPeer() {
+		return nil
+	}
 	v := reflect.ValueOf(params)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -215,6 +238,10 @@ func write(method, summary, category string, params any, result any, examples ..
 	Register(op(method, summary, category, SafetyWrite, params, result, false, false, false, examples...))
 }
 
+func confirmedWrite(method, summary, category string, params any, result any, examples ...map[string]any) {
+	Register(op(method, summary, category, SafetyWrite, params, result, false, false, true, examples...))
+}
+
 func destructive(method, summary, category string, params any, result any, examples ...map[string]any) {
 	Register(op(method, summary, category, SafetyDestructive, params, result, false, false, true, examples...))
 }
@@ -224,6 +251,12 @@ func paid(method, summary, category string, params any, result any, examples ...
 }
 
 func registerCore() {
+	read("ping", "Check local RPC availability", "system", PingParams{}, PingResult{})
+	read("echo", "Echo a local RPC message", "system", PingParams{}, map[string]any{})
+	read("status", "Get local daemon and Telegram status", "system", NoParams{}, map[string]any{})
+	write("shutdown", "Stop the local daemon", "system", NoParams{}, ControlResult{})
+	confirmedWrite("logout", "Invalidate the Telegram session and stop the daemon", "system", NoParams{}, ControlResult{})
+	write("reload_session", "Replace the in-memory Telegram session", "system", ReloadSessionParams{}, ControlResult{})
 	read("get_me", "Get the authorized account profile", "account", NoParams{}, types.GetMeResult{})
 	read("get_updates", "Get pending Telegram updates", "updates", types.GetUpdatesParams{}, types.GetUpdatesResult{})
 	read("get_balance", "Get Stars and TON balance", "gifts", types.GetBalanceParams{}, types.GetBalanceResult{})
@@ -294,7 +327,7 @@ func registerChats() {
 	read("get_banned", "List banned users", "chats", types.GetBannedParams{}, types.GetBannedResult{})
 	write("promote_admin", "Promote a chat admin", "chats", types.PromoteAdminParams{}, types.PromoteAdminResult{})
 	write("demote_admin", "Demote a chat admin", "chats", types.DemoteAdminParams{}, types.DemoteAdminResult{})
-	read("get_invite_link", "Get or create an invite link", "chats", types.GetInviteLinkParams{}, types.GetInviteLinkResult{})
+	write("get_invite_link", "Get or create an invite link", "chats", types.GetInviteLinkParams{}, types.GetInviteLinkResult{})
 	write("set_slow_mode", "Set chat slow mode", "chats", types.SetSlowModeParams{}, types.SetSlowModeResult{})
 	write("set_chat_permissions", "Set default chat permissions", "chats", types.SetChatPermissionsParams{}, types.SetChatPermissionsResult{})
 	read("get_folders", "List chat folders", "folders", types.GetFoldersParams{}, types.GetFoldersResult{})

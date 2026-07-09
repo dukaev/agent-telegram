@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // ReadMessages marks messages as read in a chat.
@@ -21,7 +21,7 @@ func (c *Client) ReadMessages(ctx context.Context, params types.ReadMessagesPara
 	// Handle channels differently
 	switch p := inputPeer.(type) {
 	case *tg.InputPeerChannel:
-		_, err = c.API.ChannelsReadHistory(ctx, &tg.ChannelsReadHistoryRequest{
+		_, err = c.API().ChannelsReadHistory(ctx, &tg.ChannelsReadHistoryRequest{
 			Channel: &tg.InputChannel{
 				ChannelID:  p.ChannelID,
 				AccessHash: p.AccessHash,
@@ -29,7 +29,7 @@ func (c *Client) ReadMessages(ctx context.Context, params types.ReadMessagesPara
 			MaxID: maxID,
 		})
 	default:
-		_, err = c.API.MessagesReadHistory(ctx, &tg.MessagesReadHistoryRequest{
+		_, err = c.API().MessagesReadHistory(ctx, &tg.MessagesReadHistoryRequest{
 			Peer:  inputPeer,
 			MaxID: maxID,
 		})
@@ -85,7 +85,7 @@ func (c *Client) SetTyping(ctx context.Context, params types.SetTypingParams) (*
 		action = &tg.SendMessageTypingAction{}
 	}
 
-	_, err = c.API.MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
+	_, err = c.API().MessagesSetTyping(ctx, &tg.MessagesSetTypingRequest{
 		Peer:   inputPeer,
 		Action: action,
 	})

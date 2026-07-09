@@ -113,9 +113,27 @@ func structSchema(t reflect.Type, input bool) JSONSchema {
 	}
 
 	schema := objectSchema(properties, required)
+	if provider, ok := reflect.New(t).Interface().(interface {
+		SchemaPropertyHints() map[string]map[string]any
+	}); input && ok {
+		for property, hints := range provider.SchemaPropertyHints() {
+			propertySchema, exists := properties[property].(JSONSchema)
+			if !exists {
+				continue
+			}
+			for key, value := range hints {
+				propertySchema[key] = value
+			}
+		}
+	}
+	if provider, ok := reflect.New(t).Interface().(interface{ SchemaRules() map[string]any }); input && ok {
+		for key, value := range provider.SchemaRules() {
+			schema[key] = value
+		}
+	}
 	if input {
 		if _, hasPeer := properties["peer"]; hasPeer && !slices.Contains(required, "peer") {
-			if _, hasUsername := properties["username"]; hasUsername && !slices.Contains(required, "username") {
+			if _, hasUsername := properties["username"]; hasUsername && !slices.Contains(required, "username") && !allowsEmptyPeer(t) {
 				schema["anyOf"] = []map[string][]string{
 					{"required": []string{"peer"}},
 					{"required": []string{"username"}},
@@ -124,6 +142,11 @@ func structSchema(t reflect.Type, input bool) JSONSchema {
 		}
 	}
 	return schema
+}
+
+func allowsEmptyPeer(t reflect.Type) bool {
+	provider, ok := reflect.New(t).Interface().(interface{ AllowEmptyPeer() bool })
+	return ok && provider.AllowEmptyPeer()
 }
 
 func objectSchema(properties map[string]any, required []string) JSONSchema {

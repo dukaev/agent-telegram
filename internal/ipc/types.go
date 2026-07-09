@@ -14,6 +14,7 @@ type Request struct {
 	ID      interface{}     `json:"id"`
 	RunID   string          `json:"runId,omitempty"`
 	TraceID string          `json:"traceId,omitempty"`
+	Confirm bool            `json:"confirm,omitempty"`
 }
 
 // Response represents a JSON-RPC 2.0 response.
@@ -33,8 +34,9 @@ type ErrorObject struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// Handler handles JSON-RPC method calls.
-type Handler func(params json.RawMessage) (interface{}, *ErrorObject)
+// Handler handles JSON-RPC method calls. The context is owned by the transport
+// and is cancelled when the request, connection, or server is cancelled.
+type Handler func(ctx context.Context, params json.RawMessage) (interface{}, *ErrorObject)
 
 // MethodRegistrar is an interface for registering RPC methods.
 type MethodRegistrar interface {

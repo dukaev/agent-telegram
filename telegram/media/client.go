@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"agent-telegram/telegram/client"
 	"github.com/gotd/td/telegram/uploader"
 	"github.com/gotd/td/tg"
-	"agent-telegram/telegram/client"
 )
 
 // Client provides media operations.

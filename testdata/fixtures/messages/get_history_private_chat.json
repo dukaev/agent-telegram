@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "method": "messages.getHistory",
+    "recorded_at": "2026-01-01T00:00:00Z",
+    "telegram_layer": 0,
+    "notes": "Sanitized contract fixture",
+    "sanitized": true
+  },
+  "request": {"peer": {"_": "inputPeerUser", "user_id": 100000001}, "limit": 2},
+  "response": {
+    "_": "messages.messages",
+    "messages": [
+      {
+        "_": "message",
+        "id": 102,
+        "message": "Test message 2",
+        "date": 1767225660,
+        "out": false,
+        "peer_id": {"_": "peerUser", "user_id": 100000001},
+        "from_id": {"_": "peerUser", "user_id": 100000001}
+      },
+      {
+        "_": "message",
+        "id": 101,
+        "message": "Test message 1",
+        "date": 1767225600,
+        "out": true,
+        "peer_id": {"_": "peerUser", "user_id": 100000001},
+        "from_id": {"_": "peerUser", "user_id": 200000001}
+      }
+    ],
+    "chats": [],
+    "users": [
+      {"_": "user", "id": 100000001, "first_name": "Test", "username": "testuser"}
+    ]
+  }
+}

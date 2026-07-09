@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"agent-telegram/telegram/chat"
+	domainclient "agent-telegram/telegram/client"
 	"agent-telegram/telegram/gift"
 	"agent-telegram/telegram/media"
 	"agent-telegram/telegram/message"
@@ -36,6 +37,7 @@ type Client struct {
 	reloadCh       chan struct{}      // signals session reload request
 	cancelFn       context.CancelFunc // cancels current client context
 	mu             sync.Mutex         // protects cancelFn and ready
+	runtimeMu      sync.RWMutex       // protects the current Telegram transport
 	// Domain clients
 	message  *message.Client
 	media    *media.Client
@@ -47,15 +49,16 @@ type Client struct {
 	gift     *gift.Client
 }
 
-// NewClient creates a new Telegram client.
-// Domain clients are created lazily in Start() when the Telegram client is ready.
+// NewClient creates a Telegram facade with stable domain service instances.
 func NewClient(appID int, appHash string) *Client {
-	return &Client{
+	c := &Client{
 		appID:    appID,
 		appHash:  appHash,
 		ready:    make(chan struct{}),
 		reloadCh: make(chan struct{}, 1),
 	}
+	c.initDomainClients()
+	return c
 }
 
 // WithSessionPath is retained for compatibility with older callers.
@@ -79,6 +82,9 @@ func (c *Client) WithUpdateStore(store *UpdateStore) *Client {
 
 // Start starts the Telegram client
 func (c *Client) Start(ctx context.Context) error {
+	c.mu.Lock()
+	readyGeneration := c.ready
+	c.mu.Unlock()
 	var storage session.Storage
 	if c.sessionStorage != nil {
 		storage = c.sessionStorage
@@ -91,16 +97,19 @@ func (c *Client) Start(ctx context.Context) error {
 	dispatcher := tg.NewUpdateDispatcher()
 	c.RegisterUpdateHandlers(dispatcher)
 
-	// Create client
-	c.client = telegram.NewClient(c.appID, c.appHash, telegram.Options{
+	// Create a new transport while keeping domain service instances stable.
+	tgClient := telegram.NewClient(c.appID, c.appHash, telegram.Options{
 		SessionStorage: storage,
 		UpdateHandler:  dispatcher,
 	})
-
-	c.initDomainClients()
+	c.runtimeMu.Lock()
+	c.client = tgClient
+	c.runtimeMu.Unlock()
 
 	// Run client
-	return c.client.Run(ctx, c.runClient)
+	return tgClient.Run(ctx, func(runCtx context.Context) error {
+		return c.runClient(runCtx, tgClient, readyGeneration)
+	})
 }
 
 // GetSessionPath returns the session path to use.
@@ -121,9 +130,9 @@ func (c *Client) initDomainClients() {
 }
 
 // runClient is the main client run loop.
-func (c *Client) runClient(ctx context.Context) error {
+func (c *Client) runClient(ctx context.Context, tgClient *telegram.Client, readyGeneration chan struct{}) error {
 	// Check auth status
-	status, err := c.client.Auth().Status(ctx)
+	status, err := tgClient.Auth().Status(ctx)
 	if err != nil {
 		return err
 	}
@@ -135,17 +144,22 @@ func (c *Client) runClient(ctx context.Context) error {
 	}
 
 	// Get current user and log
-	userInfo, err := c.client.Self(ctx)
+	userInfo, err := tgClient.Self(ctx)
 	if err != nil {
 		return err
 	}
 	slog.Info("Logged in", "first_name", userInfo.FirstName, "username", userInfo.Username)
 
 	// Set API for domain clients
-	c.setDomainAPIs()
+	c.setDomainAPIs(tgClient.API())
 
-	// Signal that client is ready
-	close(c.ready)
+	// Signal readiness only for the generation that started this transport. A
+	// concurrent Reload may already have installed a fresh readiness channel.
+	c.mu.Lock()
+	if c.ready == readyGeneration {
+		close(readyGeneration)
+	}
+	c.mu.Unlock()
 
 	// Keep running
 	<-ctx.Done()
@@ -153,8 +167,7 @@ func (c *Client) runClient(ctx context.Context) error {
 }
 
 // setDomainAPIs sets the API client for all domain clients.
-func (c *Client) setDomainAPIs() {
-	api := c.client.API()
+func (c *Client) setDomainAPIs(api *tg.Client) {
 	c.message.SetAPI(api)
 	c.media.SetAPI(api)
 	c.chat.SetAPI(api)
@@ -203,12 +216,15 @@ func (c *Client) GetStatus(ctx context.Context) ClientStatus {
 		State:       "connecting",
 	}
 
-	if !status.Initialized || c.client == nil {
+	c.runtimeMu.RLock()
+	tgClient := c.client
+	c.runtimeMu.RUnlock()
+	if !status.Initialized || tgClient == nil {
 		return status
 	}
 
 	// Try to get user info
-	userInfo, err := c.client.Self(ctx)
+	userInfo, err := tgClient.Self(ctx)
 	if err == nil {
 		status.Authorized = true
 		status.State = "ready"
@@ -224,10 +240,13 @@ func (c *Client) GetStatus(ctx context.Context) ClientStatus {
 
 // Logout invalidates the current Telegram authorization and clears volatile storage.
 func (c *Client) Logout(ctx context.Context) error {
-	if c.client == nil {
+	c.runtimeMu.RLock()
+	tgClient := c.client
+	c.runtimeMu.RUnlock()
+	if tgClient == nil {
 		return nil
 	}
-	_, err := c.client.API().AuthLogOut(ctx)
+	_, err := tgClient.API().AuthLogOut(ctx)
 	if clearer, ok := c.sessionStorage.(interface{ Clear() }); ok {
 		clearer.Clear()
 	}
@@ -264,12 +283,12 @@ func (c *Client) Reload() {
 	c.mu.Lock()
 	// Reset ready channel for new connection
 	c.ready = make(chan struct{})
-	// Clear peer cache since we might be a different user
-	c.peerCache = sync.Map{}
-	// Reset singleflight group to discard in-flight resolutions
-	c.peerFlight = singleflight.Group{}
 	cancelFn := c.cancelFn
 	c.mu.Unlock()
+
+	// Clear resolved entities without replacing synchronization primitives that
+	// may still be used by in-flight requests.
+	c.peerCache.Clear()
 
 	// Signal reload request first
 	select {
@@ -282,6 +301,29 @@ func (c *Client) Reload() {
 	if cancelFn != nil {
 		cancelFn()
 	}
+}
+
+// EnsureReady rejects requests while the Telegram transport is connecting or
+// reloading. It is used by transport adapters before invoking domain handlers.
+func (c *Client) EnsureReady(ctx context.Context) error {
+	c.mu.Lock()
+	ready := c.ready
+	c.mu.Unlock()
+	select {
+	case <-ready:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return domainclient.ErrNotInitialized
+	}
+}
+
+func (c *Client) currentTelegramClient() *telegram.Client {
+	c.runtimeMu.RLock()
+	client := c.client
+	c.runtimeMu.RUnlock()
+	return client
 }
 
 // SetCancelFn stores the cancel function for the current client context.

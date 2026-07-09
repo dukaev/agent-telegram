@@ -17,7 +17,7 @@ import (
 func (c *Client) resolveDiscussionPeer(
 	ctx context.Context, channelPeer tg.InputPeerClass, msgID int64,
 ) (discussionPeer tg.InputPeerClass, threadID int64, err error) {
-	disc, err := c.API.MessagesGetDiscussionMessage(ctx, &tg.MessagesGetDiscussionMessageRequest{
+	disc, err := c.API().MessagesGetDiscussionMessage(ctx, &tg.MessagesGetDiscussionMessageRequest{
 		Peer:  channelPeer,
 		MsgID: int(msgID),
 	})
@@ -110,7 +110,7 @@ func (c *Client) GetReplies(ctx context.Context, params types.GetRepliesParams) 
 	}
 
 	// Fetch replies in the thread
-	repliesClass, err := c.API.MessagesGetReplies(ctx, &tg.MessagesGetRepliesRequest{
+	repliesClass, err := c.API().MessagesGetReplies(ctx, &tg.MessagesGetRepliesRequest{
 		Peer:     discussionPeer,
 		MsgID:    int(threadID),
 		Limit:    params.Limit,
@@ -176,7 +176,7 @@ func (c *Client) ReplyToComment(ctx context.Context, params types.ReplyToComment
 	if len(entities) > 0 {
 		req.SetEntities(entities)
 	}
-	result, err := c.API.MessagesSendMessage(ctx, req)
+	result, err := c.API().MessagesSendMessage(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reply to comment: %w", err)
 	}

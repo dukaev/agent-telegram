@@ -23,16 +23,22 @@ const (
 // HTTPServer serves registered IPC handlers over HTTP.
 // It implements MethodRegistrar so RegisterHandlers works identically to SocketServer.
 type HTTPServer struct {
-	methods map[string]Handler
-	mu      sync.RWMutex
-	secret  string
-	cors    string
-	srv     *http.Server
-	policy  PolicyChecker
+	methods   map[string]Handler
+	mu        sync.RWMutex
+	secret    string
+	cors      string
+	srv       *http.Server
+	policy    PolicyChecker
+	fileRoots []string
 }
 
 // NewHTTPServer creates a new HTTP API server.
 func NewHTTPServer(port int, secret, cors string) *HTTPServer {
+	return NewHTTPServerOnAddress(fmt.Sprintf("127.0.0.1:%d", port), secret, cors)
+}
+
+// NewHTTPServerOnAddress creates an HTTP API server on an explicit address.
+func NewHTTPServerOnAddress(address, secret, cors string) *HTTPServer {
 	s := &HTTPServer{
 		methods: make(map[string]Handler),
 		secret:  secret,
@@ -56,12 +62,20 @@ func NewHTTPServer(port int, secret, cors string) *HTTPServer {
 	handler = s.loggingMiddleware(handler)
 
 	s.srv = &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
+		Addr:         address,
 		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: ClientTimeout(),
 	}
 	return s
+}
+
+// SetFileRoots configures roots from which HTTP callers may reference files.
+// An empty list disables server-side file paths over HTTP.
+func (s *HTTPServer) SetFileRoots(roots []string) {
+	s.mu.Lock()
+	s.fileRoots = append([]string(nil), roots...)
+	s.mu.Unlock()
 }
 
 // Register implements MethodRegistrar.
@@ -143,7 +157,8 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, rpcErr, status := readHTTPRPCBody(r)
+	body, uploadRoot, cleanup, rpcErr, status := readHTTPRPCPayload(w, r)
+	defer cleanup()
 	if rpcErr != nil {
 		s.writeRPCError(w, req, nil, rpcErr, status, false)
 		return
@@ -155,7 +170,24 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rpcErr := s.checkHTTPPolicy(r.Context(), req.method, params); rpcErr != nil {
+	s.mu.RLock()
+	fileRoots := append([]string(nil), s.fileRoots...)
+	s.mu.RUnlock()
+	if uploadRoot != "" {
+		fileRoots = append(fileRoots, uploadRoot)
+	}
+	requestCtx := WithSurface(r.Context(), SurfaceHTTP)
+	requestCtx = WithFileRoots(requestCtx, fileRoots)
+	requestCtx = WithConfirmation(requestCtx, httpRequestConfirmed(r))
+	if operations.HasSchema(req.method) {
+		if err := operations.ValidateParams(req.method, params); err != nil {
+			rpcErr := NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, err.Error(), nil)
+			s.writeRPCError(w, req, params, rpcErr, errorToHTTPStatus(rpcErr), dryRun || validateOnly)
+			return
+		}
+	}
+
+	if rpcErr := s.checkHTTPPolicy(requestCtx, req.method, params); rpcErr != nil {
 		s.writeRPCError(w, req, params, rpcErr, errorToHTTPStatus(rpcErr), dryRun || validateOnly)
 		return
 	}
@@ -164,7 +196,7 @@ func (s *HTTPServer) handleRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, rpcErr := handler(params)
+	result, rpcErr := handler(requestCtx, params)
 	if rpcErr != nil {
 		s.writeRPCError(w, req, params, rpcErr, errorToHTTPStatus(rpcErr), false)
 		return

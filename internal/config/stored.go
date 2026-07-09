@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"agent-telegram/internal/paths"
 )
 
 // StoredConfig represents saved configuration in config.json.
@@ -17,11 +19,11 @@ type StoredConfig struct {
 
 // ConfigPath returns the path to config.json.
 func ConfigPath() (string, error) {
-	homeDir := os.Getenv("HOME")
-	if homeDir == "" {
-		return "", fmt.Errorf("HOME environment variable not set")
+	dir, err := paths.ConfigDir()
+	if err != nil {
+		return "", err
 	}
-	return filepath.Join(homeDir, ".agent-telegram", "config.json"), nil
+	return filepath.Join(dir, "config.json"), nil
 }
 
 // SaveConfig saves appID and appHash to config.json.

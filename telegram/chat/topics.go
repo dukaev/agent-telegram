@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // GetTopics retrieves forum topics from a channel.
@@ -35,7 +35,7 @@ func (c *Client) GetTopics(ctx context.Context, params types.GetTopicsParams) (*
 	}
 
 	// Get forum topics using MessagesGetForumTopics
-	result, err := c.API.MessagesGetForumTopics(ctx, &tg.MessagesGetForumTopicsRequest{
+	result, err := c.API().MessagesGetForumTopics(ctx, &tg.MessagesGetForumTopicsRequest{
 		Peer:  peer,
 		Limit: limit,
 	})

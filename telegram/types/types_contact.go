@@ -58,6 +58,10 @@ func (p DeleteContactParams) Validate() error {
 	return nil
 }
 
+func (DeleteContactParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("username", "userId")
+}
+
 // DeleteContactResult is the result of DeleteContact.
 type DeleteContactResult struct {
 	Success bool `json:"success"`

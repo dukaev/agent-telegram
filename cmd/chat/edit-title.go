@@ -9,8 +9,8 @@ import (
 
 // EditTitleCmd represents the edit-title command.
 var EditTitleCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:     "edit-title",
-	Short:   "Edit the title of a chat or channel",
+	Use:   "edit-title",
+	Short: "Edit the title of a chat or channel",
 	Long: `Edit the title of a Telegram chat or channel.
 
 Example:

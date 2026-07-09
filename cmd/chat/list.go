@@ -19,7 +19,7 @@ var ListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
 	Short:   "List Telegram chats",
-	Long:    `List all Telegram chats with optional pagination and filtering.
+	Long: `List all Telegram chats with optional pagination and filtering.
 
 Shortcut: 'chats' command is an alias for 'chat list'.`,
 	Example: `  agent-telegram chat list

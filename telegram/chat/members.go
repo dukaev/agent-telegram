@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // Leave leaves a chat or channel.
@@ -17,7 +17,7 @@ func (c *Client) Leave(ctx context.Context, params types.LeaveParams) (*types.Le
 
 	switch p := peer.(type) {
 	case *tg.InputPeerChannel:
-		_, err := c.API.ChannelsLeaveChannel(ctx, &tg.InputChannel{
+		_, err := c.API().ChannelsLeaveChannel(ctx, &tg.InputChannel{
 			ChannelID:  p.ChannelID,
 			AccessHash: p.AccessHash,
 		})
@@ -25,7 +25,7 @@ func (c *Client) Leave(ctx context.Context, params types.LeaveParams) (*types.Le
 			return nil, fmt.Errorf("failed to leave channel: %w", err)
 		}
 	case *tg.InputPeerChat:
-		_, err := c.API.MessagesDeleteChatUser(ctx, &tg.MessagesDeleteChatUserRequest{
+		_, err := c.API().MessagesDeleteChatUser(ctx, &tg.MessagesDeleteChatUserRequest{
 			ChatID: p.ChatID,
 		})
 		if err != nil {
@@ -65,7 +65,7 @@ func (c *Client) Invite(ctx context.Context, params types.InviteParams) (*types.
 
 		switch p := peer.(type) {
 		case *tg.InputPeerChannel:
-			_, err := c.API.ChannelsInviteToChannel(ctx, &tg.ChannelsInviteToChannelRequest{
+			_, err := c.API().ChannelsInviteToChannel(ctx, &tg.ChannelsInviteToChannelRequest{
 				Channel: &tg.InputChannel{
 					ChannelID:  p.ChannelID,
 					AccessHash: p.AccessHash,
@@ -76,7 +76,7 @@ func (c *Client) Invite(ctx context.Context, params types.InviteParams) (*types.
 				return nil, fmt.Errorf("failed to invite to channel: %w", err)
 			}
 		case *tg.InputPeerChat:
-			_, err := c.API.MessagesAddChatUser(ctx, &tg.MessagesAddChatUserRequest{
+			_, err := c.API().MessagesAddChatUser(ctx, &tg.MessagesAddChatUserRequest{
 				ChatID: p.ChatID,
 				UserID: inputUser,
 			})

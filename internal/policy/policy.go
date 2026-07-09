@@ -2,6 +2,7 @@
 package policy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -163,8 +164,14 @@ func (e *Enforcer) Check(ctx context.Context, method string, params json.RawMess
 		return nil
 	}
 	op, ok := operations.Get(method)
-	if ok && !e.safetyAllowed(op.Safety) {
+	if !ok {
+		return ipc.NewPolicyDeniedError(method, "operation is not registered")
+	}
+	if !e.safetyAllowed(op.Safety) {
 		return ipc.NewPolicyDeniedError(method, op.Safety+" operations are disabled")
+	}
+	if op.RequiresConfirmation && !ipc.IsConfirmed(ctx) {
+		return ipc.NewPolicyDeniedError(method, "explicit confirmation is required")
 	}
 
 	peers := ExtractPeers(params)
@@ -262,7 +269,9 @@ func ExtractPeers(raw json.RawMessage) []string {
 		return nil
 	}
 	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&m); err != nil {
 		return nil
 	}
 	values := []string{}
@@ -288,6 +297,8 @@ func valueStrings(value any) []string {
 		return []string{v}
 	case float64:
 		return []string{strconv.FormatInt(int64(v), 10)}
+	case json.Number:
+		return []string{v.String()}
 	case []any:
 		out := make([]string, 0, len(v))
 		for _, item := range v {

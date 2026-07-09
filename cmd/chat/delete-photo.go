@@ -9,8 +9,8 @@ import (
 
 // DeletePhotoCmd represents the delete-photo command.
 var DeletePhotoCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:     "delete-photo",
-	Short:   "Delete the photo from a chat or channel",
+	Use:   "delete-photo",
+	Short: "Delete the photo from a chat or channel",
 	Long: `Delete the profile photo from a Telegram chat or channel.
 
 Example:

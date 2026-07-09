@@ -15,8 +15,8 @@ var (
 
 // TopicsCmd represents the topics command.
 var TopicsCmd = &cobra.Command{
-	Use:     "topics",
-	Short:   "List forum topics in a channel",
+	Use:   "topics",
+	Short: "List forum topics in a channel",
 	Long: `List all forum topics in a Telegram channel that has enabled forum mode.
 
 Use --to @username or --to username to specify the channel.

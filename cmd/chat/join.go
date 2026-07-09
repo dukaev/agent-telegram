@@ -9,8 +9,8 @@ import (
 
 // JoinChatCmd represents the join command.
 var JoinChatCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:    "join",
-	Short:  "Join a chat using an invite link",
+	Use:   "join",
+	Short: "Join a chat using an invite link",
 	Long: `Join a Telegram chat or channel using an invite link.
 
 Example:

@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // GeoCoder handles geocoding requests.
@@ -120,7 +120,7 @@ func (c *Client) SendLocation(ctx context.Context, params types.SendLocationPara
 	}
 
 	// Send location using MessagesSendMedia
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    geoPoint,
 		RandomID: time.Now().UnixNano(),

@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/client"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // Client provides reaction operations.
@@ -48,7 +48,7 @@ func (c *Client) AddReaction(ctx context.Context, params types.AddReactionParams
 	// Create reaction from emoji
 	reaction := createReaction(params.Emoji)
 
-	_, err = c.API.MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
+	_, err = c.API().MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
 		Peer:     inputPeer,
 		MsgID:    int(params.MessageID),
 		Reaction: []tg.ReactionClass{reaction},
@@ -74,7 +74,7 @@ func (c *Client) RemoveReaction(
 		return nil, err
 	}
 
-	_, err = c.API.MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
+	_, err = c.API().MessagesSendReaction(ctx, &tg.MessagesSendReactionRequest{
 		Peer:     inputPeer,
 		MsgID:    int(params.MessageID),
 		Reaction: []tg.ReactionClass{},
@@ -128,7 +128,7 @@ func (c *Client) ListReactions(
 	}
 
 	// Get messages to find reactions
-	messages, err := c.API.MessagesGetMessages(ctx, []tg.InputMessageClass{
+	messages, err := c.API().MessagesGetMessages(ctx, []tg.InputMessageClass{
 		&tg.InputMessageID{ID: int(params.MessageID)},
 	})
 	if err != nil {

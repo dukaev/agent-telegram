@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // SendDocument sends a document to a peer with custom mime type.
@@ -23,7 +23,7 @@ func (c *Client) SendDocument(
 		return nil, err
 	}
 
-	uploadedFile, err := uploadFile(ctx, c.API, file)
+	uploadedFile, err := uploadFile(ctx, c.API(), file)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (c *Client) SendDocument(
 		MimeType: mimeType,
 	}
 
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
 		RandomID: time.Now().UnixNano(),

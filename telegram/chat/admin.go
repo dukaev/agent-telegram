@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // PromoteAdmin promotes a user to admin.
@@ -70,7 +70,7 @@ func (c *Client) PromoteAdmin(ctx context.Context, params types.PromoteAdminPara
 		rights.Anonymous = true
 	}
 
-	_, err = c.API.ChannelsEditAdmin(ctx, &tg.ChannelsEditAdminRequest{
+	_, err = c.API().ChannelsEditAdmin(ctx, &tg.ChannelsEditAdminRequest{
 		Channel: &tg.InputChannel{
 			ChannelID:  inputChannel.ChannelID,
 			AccessHash: inputChannel.AccessHash,
@@ -117,7 +117,7 @@ func (c *Client) DemoteAdmin(ctx context.Context, params types.DemoteAdminParams
 	// Set empty admin rights (demote)
 	rights := &tg.ChatAdminRights{}
 
-	_, err = c.API.ChannelsEditAdmin(ctx, &tg.ChannelsEditAdminRequest{
+	_, err = c.API().ChannelsEditAdmin(ctx, &tg.ChannelsEditAdminRequest{
 		Channel: &tg.InputChannel{
 			ChannelID:  inputChannel.ChannelID,
 			AccessHash: inputChannel.AccessHash,

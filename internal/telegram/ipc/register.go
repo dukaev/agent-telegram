@@ -9,6 +9,9 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/gotd/td/tgerr"
 
 	"agent-telegram/internal/ipc"
 	"agent-telegram/telegram/client"
@@ -162,7 +165,7 @@ var methodHandlers = map[string]func(Client) HandlerFunc{
 // RegisterHandlers registers all Telegram IPC handlers.
 func RegisterHandlers(srv ipc.MethodRegistrar, client Client) {
 	for method, factory := range methodHandlers {
-		registerHandler(srv, method, factory(client))
+		registerHandler(srv, method, client, factory(client))
 	}
 }
 
@@ -172,10 +175,18 @@ func RegisteredMethods() []string {
 }
 
 // registerHandler registers a single handler with error wrapping and request timeout.
-func registerHandler(srv ipc.MethodRegistrar, method string, handler HandlerFunc) {
-	srv.Register(method, func(params json.RawMessage) (result interface{}, rpcErr *ipc.ErrorObject) {
-		ctx, cancel := context.WithTimeout(context.Background(), ipc.RequestTimeout())
+func registerHandler(srv ipc.MethodRegistrar, method string, client Client, handler HandlerFunc) {
+	srv.Register(method, func(parent context.Context, params json.RawMessage) (result interface{}, rpcErr *ipc.ErrorObject) {
+		ctx, cancel := context.WithTimeout(parent, ipc.RequestTimeout())
 		defer cancel()
+		if readiness, ok := client.(interface{ EnsureReady(context.Context) error }); ok {
+			if err := readiness.EnsureReady(ctx); err != nil {
+				return nil, classifyRPCError(err)
+			}
+		}
+		if err := ValidateFileParams(ctx, params); err != nil {
+			return nil, ipc.NewTypedError(ipc.ErrCodeForbidden, ipc.ErrorTypeForbidden, err.Error(), nil)
+		}
 
 		res, err := handler(ctx, params)
 		if err != nil {
@@ -194,6 +205,23 @@ func classifyRPCError(err error) *ipc.ErrorObject {
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return ipc.NewTypedError(ipc.ErrCodeTimeout, ipc.ErrorTypeTimeout, "request timed out", nil)
+	}
+	if wait, ok := tgerr.AsFloodWait(err); ok {
+		retryAfter := int(wait.Round(time.Second) / time.Second)
+		return ipc.NewTypedError(
+			ipc.ErrCodeFloodWait,
+			ipc.ErrorTypeFloodWait,
+			err.Error(),
+			map[string]any{"retryAfter": retryAfter},
+		)
+	}
+	if telegramErr, ok := tgerr.As(err); ok {
+		switch {
+		case telegramErr.IsOneOf("USERNAME_INVALID", "USERNAME_NOT_OCCUPIED", "CHANNEL_INVALID", "USER_ID_INVALID", "PEER_ID_INVALID"):
+			return ipc.NewTypedError(ipc.ErrCodePeerNotFound, ipc.ErrorTypePeerNotFound, err.Error(), nil)
+		case telegramErr.Code == 403 || telegramErr.IsOneOf("CHAT_ADMIN_REQUIRED", "CHAT_WRITE_FORBIDDEN", "USER_BANNED_IN_CHANNEL"):
+			return ipc.NewTypedError(ipc.ErrCodeForbidden, ipc.ErrorTypeForbidden, err.Error(), nil)
+		}
 	}
 
 	msg := err.Error()

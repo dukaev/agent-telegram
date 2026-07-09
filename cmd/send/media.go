@@ -8,10 +8,10 @@ import (
 
 // mediaCommandDef defines a media send subcommand.
 type mediaCommandDef struct {
-	Name    string
-	Short   string
-	Long    string
-	Method  string
+	Name   string
+	Short  string
+	Long   string
+	Method string
 }
 
 var mediaCommands = []mediaCommandDef{

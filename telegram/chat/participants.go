@@ -30,7 +30,7 @@ func (c *Client) GetParticipants(
 	switch p := peer.(type) {
 	case *tg.InputPeerChannel:
 		// For channels, use ChannelsGetParticipants
-		channelResult, err := c.API.ChannelsGetParticipants(ctx, &tg.ChannelsGetParticipantsRequest{
+		channelResult, err := c.API().ChannelsGetParticipants(ctx, &tg.ChannelsGetParticipantsRequest{
 			Channel: &tg.InputChannel{
 				ChannelID:  p.ChannelID,
 				AccessHash: p.AccessHash,
@@ -52,7 +52,7 @@ func (c *Client) GetParticipants(
 
 	case *tg.InputPeerChat:
 		// For chats, use MessagesGetFullChat
-		fullChat, err := c.API.MessagesGetFullChat(ctx, p.ChatID)
+		fullChat, err := c.API().MessagesGetFullChat(ctx, p.ChatID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chat info: %w", err)
 		}
@@ -198,7 +198,7 @@ func (c *Client) GetBanned(ctx context.Context, params types.GetBannedParams) (*
 	}
 
 	// Use ChannelsGetParticipants with ChannelParticipantsKicked filter
-	channelResult, err := c.API.ChannelsGetParticipants(ctx, &tg.ChannelsGetParticipantsRequest{
+	channelResult, err := c.API().ChannelsGetParticipants(ctx, &tg.ChannelsGetParticipantsRequest{
 		Channel: &tg.InputChannel{
 			ChannelID:  inputChannel.ChannelID,
 			AccessHash: inputChannel.AccessHash,

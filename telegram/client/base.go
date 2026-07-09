@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/gotd/td/tg"
 )
@@ -11,7 +12,8 @@ import (
 // BaseClient provides shared functionality for all domain clients.
 // Domain clients should embed this struct to inherit common methods.
 type BaseClient struct {
-	API    *tg.Client
+	apiMu  sync.RWMutex
+	api    *tg.Client
 	Parent ParentClient
 }
 
@@ -23,7 +25,18 @@ type ParentClient interface {
 
 // SetAPI sets the API client (called when the telegram client is initialized).
 func (b *BaseClient) SetAPI(api *tg.Client) {
-	b.API = api
+	b.apiMu.Lock()
+	b.api = api
+	b.apiMu.Unlock()
+}
+
+// API returns the current Telegram API client. Domain clients are stable
+// across reconnects; only this transport pointer is replaced.
+func (b *BaseClient) API() *tg.Client {
+	b.apiMu.RLock()
+	api := b.api
+	b.apiMu.RUnlock()
+	return api
 }
 
 // ResolvePeer resolves a peer string to InputPeerClass using the parent client's cache.
@@ -43,7 +56,7 @@ func (b *BaseClient) CachePeer(peer string, inputPeer tg.InputPeerClass) {
 
 // IsInitialized returns true if the API client is set.
 func (b *BaseClient) IsInitialized() bool {
-	return b.API != nil
+	return b.API() != nil
 }
 
 // ErrNotInitialized is returned when the API client is not set.

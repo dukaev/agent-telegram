@@ -30,8 +30,8 @@ var SearchCmd = &cobra.Command{
 
 // SearchGlobalCmd represents the search global command.
 var SearchGlobalCmd = &cobra.Command{
-	Use:     "global <query>",
-	Short:   "Search public chats, channels, and bots globally",
+	Use:   "global <query>",
+	Short: "Search public chats, channels, and bots globally",
 	Long: `Search for public chats, channels, and bots globally on Telegram.
 
 Supports filtering by type:
@@ -47,8 +47,8 @@ Usage: agent-telegram search global "myquery" [--type bots] [--limit 20]`,
 
 // SearchInChatCmd represents the search in-chat command.
 var SearchInChatCmd = &cobra.Command{
-	Use:     "in-chat <query>",
-	Short:   "Search for messages within a specific chat",
+	Use:   "in-chat <query>",
+	Short: "Search for messages within a specific chat",
 	Long: `Search for messages within a specific Telegram chat.
 
 Supports filtering by message type:

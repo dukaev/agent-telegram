@@ -8,12 +8,16 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"agent-telegram/internal/observability"
 	"agent-telegram/internal/operations"
 )
+
+const maxAPIUploadSize = 100 << 20 // 100 MB
 
 type httpRPCRequest struct {
 	start   time.Time
@@ -227,6 +231,18 @@ func (s *HTTPServer) lookupHandler(method string) (Handler, bool) {
 	return handler, ok
 }
 
+func readHTTPRPCPayload(
+	w http.ResponseWriter,
+	r *http.Request,
+) (body []byte, uploadRoot string, cleanup func(), rpcErr *ErrorObject, status int) {
+	cleanup = func() {}
+	if strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/form-data") {
+		return readHTTPMultipartPayload(w, r)
+	}
+	body, rpcErr, status = readHTTPRPCBody(r)
+	return body, "", cleanup, rpcErr, status
+}
+
 func readHTTPRPCBody(r *http.Request) ([]byte, *ErrorObject, int) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxAPIBodySize+1))
 	if err != nil {
@@ -238,6 +254,79 @@ func readHTTPRPCBody(r *http.Request) ([]byte, *ErrorObject, int) {
 		return nil, rpcErr, http.StatusRequestEntityTooLarge
 	}
 	return body, nil, http.StatusOK
+}
+
+func readHTTPMultipartPayload(
+	w http.ResponseWriter,
+	r *http.Request,
+) (body []byte, uploadRoot string, cleanup func(), rpcErr *ErrorObject, status int) {
+	cleanup = func() {}
+	r.Body = http.MaxBytesReader(w, r.Body, maxAPIUploadSize)
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		rpcErr = NewTypedError(ErrCodeInvalidRequest, ErrorTypeValidation, "invalid multipart request", nil)
+		return nil, "", cleanup, rpcErr, http.StatusBadRequest
+	}
+	cleanup = func() {
+		if r.MultipartForm != nil {
+			_ = r.MultipartForm.RemoveAll()
+		}
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		rpcErr = NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, "multipart file field is required", nil)
+		return nil, "", cleanup, rpcErr, http.StatusBadRequest
+	}
+	defer func() { _ = file.Close() }()
+
+	dir, err := os.MkdirTemp("", "agent-telegram-upload-*")
+	if err != nil {
+		rpcErr = NewTypedError(ErrCodeInternalError, ErrorTypeInternal, "create upload directory", nil)
+		return nil, "", cleanup, rpcErr, http.StatusInternalServerError
+	}
+	formCleanup := cleanup
+	cleanup = func() {
+		_ = os.RemoveAll(dir)
+		formCleanup()
+	}
+	name := filepath.Base(header.Filename)
+	if name == "." || name == string(filepath.Separator) || name == "" {
+		name = "upload.bin"
+	}
+	path := filepath.Join(dir, name)
+	output, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		cleanup()
+		rpcErr = NewTypedError(ErrCodeInternalError, ErrorTypeInternal, "create upload file", nil)
+		return nil, "", func() {}, rpcErr, http.StatusInternalServerError
+	}
+	if _, err := io.Copy(output, file); err != nil {
+		_ = output.Close()
+		cleanup()
+		rpcErr = NewTypedError(ErrCodeInvalidRequest, ErrorTypeValidation, "store upload file", nil)
+		return nil, "", func() {}, rpcErr, http.StatusBadRequest
+	}
+	if err := output.Close(); err != nil {
+		cleanup()
+		rpcErr = NewTypedError(ErrCodeInternalError, ErrorTypeInternal, "close upload file", nil)
+		return nil, "", func() {}, rpcErr, http.StatusInternalServerError
+	}
+
+	params := map[string]any{}
+	if raw := strings.TrimSpace(r.FormValue("params")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &params); err != nil {
+			cleanup()
+			rpcErr = NewTypedError(ErrCodeInvalidParams, ErrorTypeValidation, "invalid multipart params JSON", nil)
+			return nil, "", func() {}, rpcErr, http.StatusBadRequest
+		}
+	}
+	params["file"] = path
+	body, err = json.Marshal(params)
+	if err != nil {
+		cleanup()
+		rpcErr = NewTypedError(ErrCodeInternalError, ErrorTypeInternal, "encode multipart params", nil)
+		return nil, "", func() {}, rpcErr, http.StatusInternalServerError
+	}
+	return body, dir, cleanup, nil, http.StatusOK
 }
 
 func parseHTTPRPCParams(r *http.Request, body []byte) (json.RawMessage, bool, bool, *ErrorObject) {
@@ -335,6 +424,10 @@ func isTruthy(value string) bool {
 	default:
 		return false
 	}
+}
+
+func httpRequestConfirmed(r *http.Request) bool {
+	return isTruthy(r.URL.Query().Get("confirm")) || isTruthy(r.Header.Get("X-Confirm-Action"))
 }
 
 // ErrorTypesManifest returns stable machine-readable error metadata for agents.

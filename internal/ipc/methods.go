@@ -2,7 +2,10 @@
 package ipc
 
 import (
+	"context"
 	"encoding/json"
+
+	"agent-telegram/internal/strictjson"
 )
 
 // PingParams represents the parameters for a ping request.
@@ -18,10 +21,10 @@ type PingResult struct {
 
 // RegisterPingPong registers ping/pong methods on the server.
 func RegisterPingPong(srv MethodRegistrar) {
-	srv.Register("ping", func(params json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("ping", func(_ context.Context, params json.RawMessage) (interface{}, *ErrorObject) {
 		var p PingParams
 		if len(params) > 0 {
-			if err := json.Unmarshal(params, &p); err != nil {
+			if err := strictjson.Decode(params, &p); err != nil {
 				return nil, ErrInvalidParams
 			}
 		}
@@ -31,10 +34,10 @@ func RegisterPingPong(srv MethodRegistrar) {
 		}, nil
 	})
 
-	srv.Register("echo", func(params json.RawMessage) (interface{}, *ErrorObject) {
+	srv.Register("echo", func(_ context.Context, params json.RawMessage) (interface{}, *ErrorObject) {
 		var p PingParams
 		if len(params) > 0 {
-			if err := json.Unmarshal(params, &p); err != nil {
+			if err := strictjson.Decode(params, &p); err != nil {
 				return nil, ErrInvalidParams
 			}
 		}

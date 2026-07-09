@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"agent-telegram/internal/cliutil"
 	"agent-telegram/cmd/send"
+	"agent-telegram/internal/cliutil"
 )
 
 var (

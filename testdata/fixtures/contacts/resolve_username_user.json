@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "method": "contacts.resolveUsername",
+    "recorded_at": "2026-01-01T00:00:00Z",
+    "telegram_layer": 0,
+    "notes": "Sanitized contract fixture",
+    "sanitized": true
+  },
+  "request": {"username": "testuser"},
+  "response": {
+    "_": "contacts.resolvedPeer",
+    "peer": {"_": "peerUser", "user_id": 100000001},
+    "users": [
+      {
+        "_": "user",
+        "id": 100000001,
+        "access_hash": 1000000000000000001,
+        "first_name": "Test",
+        "username": "testuser"
+      }
+    ],
+    "chats": []
+  }
+}

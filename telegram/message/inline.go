@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // InspectInlineButtons inspects inline buttons in a message.
@@ -18,7 +18,7 @@ func (c *Client) InspectInlineButtons(
 	}
 
 	// Get messages to find the one with inline buttons
-	messages, err := c.API.MessagesGetMessages(ctx, []tg.InputMessageClass{
+	messages, err := c.API().MessagesGetMessages(ctx, []tg.InputMessageClass{
 		&tg.InputMessageID{ID: int(params.MessageID)},
 	})
 	if err != nil {
@@ -135,7 +135,7 @@ func (c *Client) PressInlineButton(
 	button := inspectResult.Buttons[params.ButtonIndex]
 
 	// Press the button using the callback data
-	_, err = c.API.MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
+	_, err = c.API().MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{
 		Peer:  peer,
 		MsgID: int(params.MessageID),
 		Data:  []byte(button.Data),

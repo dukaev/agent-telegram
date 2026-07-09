@@ -41,8 +41,7 @@ func WriteAudit(socketPath string, event AuditEvent) error {
 	if err != nil {
 		return err
 	}
-	//nolint:gosec // path is derived from the local socket path for the current user.
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	f, err := OpenAppendLog(path)
 	if err != nil {
 		return fmt.Errorf("open audit journal: %w", err)
 	}

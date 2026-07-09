@@ -13,11 +13,11 @@ import (
 
 // AcceptCmd represents the gift accept command.
 var AcceptCmd = &cobra.Command{
-	Use:   "accept <msgId>",
-	Short: "Accept an incoming gift offer",
-	Long:  `Accept a gift offer by specifying the message ID of the offer.`,
+	Use:     "accept <msgId>",
+	Short:   "Accept an incoming gift offer",
+	Long:    `Accept a gift offer by specifying the message ID of the offer.`,
 	Example: `  agent-telegram gift accept 12345`,
-	Args: cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 }
 
 // AddAcceptCommand adds the accept command to the parent command.

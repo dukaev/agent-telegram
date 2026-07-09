@@ -53,3 +53,25 @@ func TestSplitPeerListNormalizesCommonFormats(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractPeersPreservesLargeNumericIDs(t *testing.T) {
+	peers := ExtractPeers(json.RawMessage(`{"peer":9007199254740993}`))
+	if len(peers) != 1 || peers[0] != "9007199254740993" {
+		t.Fatalf("peers = %v", peers)
+	}
+}
+
+func TestEnforcerRejectsUnknownAndRequiresConfirmation(t *testing.T) {
+	enforcer := NewEnforcer(Default(), nil)
+	if err := enforcer.Check(context.Background(), "unregistered", nil); err == nil {
+		t.Fatal("unregistered operation should be denied")
+	}
+
+	if err := enforcer.Check(context.Background(), "logout", nil); err == nil {
+		t.Fatal("logout without confirmation should be denied")
+	}
+	confirmed := ipc.WithConfirmation(context.Background(), true)
+	if err := enforcer.Check(confirmed, "logout", nil); err != nil {
+		t.Fatalf("confirmed logout denied: %v", err)
+	}
+}

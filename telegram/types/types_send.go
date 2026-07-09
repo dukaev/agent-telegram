@@ -32,6 +32,13 @@ func (p SendLocationParams) Validate() error {
 	return ValidateLongitude(p.Longitude)
 }
 
+func (SendLocationParams) SchemaPropertyHints() map[string]map[string]any {
+	return map[string]map[string]any{
+		"latitude":  {"minimum": -90, "maximum": 90},
+		"longitude": {"minimum": -180, "maximum": 180},
+	}
+}
+
 // SendLocationResult is the result of SendLocation.
 type SendLocationResult struct {
 	ID        int64   `json:"id"`
@@ -89,7 +96,7 @@ type SendFileResult struct {
 
 // PollOption represents a poll option.
 type PollOption struct {
-	Text string `json:"text"`
+	Text string `json:"text" validate:"required"`
 }
 
 // SendPollParams holds parameters for SendPoll.
@@ -111,6 +118,12 @@ func (p SendPollParams) Validate() error {
 		return fmt.Errorf("maximum 10 options allowed")
 	}
 	return nil
+}
+
+func (SendPollParams) SchemaPropertyHints() map[string]map[string]any {
+	return map[string]map[string]any{
+		"options": {"minItems": 2, "maxItems": 10},
+	}
 }
 
 // ValidateForQuiz validates SendPollParams for quiz mode.
@@ -213,6 +226,10 @@ func (p SendStickerParams) Validate() error {
 		return ErrRequiresStickerOrFile
 	}
 	return nil
+}
+
+func (SendStickerParams) SchemaRules() map[string]any {
+	return eitherRequiredSchema("stickerId", "file")
 }
 
 // SendStickerResult is the result of SendSticker.

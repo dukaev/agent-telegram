@@ -8,21 +8,21 @@ import (
 )
 
 var (
-	permTo             cliutil.Recipient
-	permSendMessages   bool
-	permSendMedia      bool
-	permSendStickers   bool
-	permSendGifs       bool
-	permSendPolls      bool
-	permEmbedLinks     bool
-	permChangeInfo     bool
-	permInviteUsers    bool
-	permPinMessages    bool
-	permSendPhotos     bool
-	permSendVideos     bool
-	permSendAudios     bool
-	permSendVoices     bool
-	permSendDocs       bool
+	permTo           cliutil.Recipient
+	permSendMessages bool
+	permSendMedia    bool
+	permSendStickers bool
+	permSendGifs     bool
+	permSendPolls    bool
+	permEmbedLinks   bool
+	permChangeInfo   bool
+	permInviteUsers  bool
+	permPinMessages  bool
+	permSendPhotos   bool
+	permSendVideos   bool
+	permSendAudios   bool
+	permSendVoices   bool
+	permSendDocs     bool
 )
 
 // PermissionsCmd represents the permissions command.

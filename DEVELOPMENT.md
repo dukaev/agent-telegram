@@ -135,6 +135,20 @@ maps every RPC method to:
 CLI `--schema`, REST `GET /manifest`, and REST `GET /openapi.json` all use this
 registry.
 
+Unknown RPC methods are denied by policy. Parameter decoding is strict (unknown
+fields and trailing JSON are rejected), and destructive or paid operations must
+carry an explicit confirmation bit from CLI, Unix IPC, or HTTP.
+
+The HTTP server binds to loopback by default. File paths supplied by remote
+callers are accepted only below configured `--file-root` directories; multipart
+uploads are copied to a request-scoped temporary directory and removed after the
+handler returns.
+
+Telegram domain clients keep stable identities while their underlying transport
+is replaced on reconnect. Shutdown and logout are separate lifecycle actions,
+and update consumers use an offset plus process epoch so restart/eviction gaps
+are observable instead of silently skipping events.
+
 ### 0.1 Documentation Generator (`internal/docs/`)
 
 README command tables, global option tables, and `llms-txt` are generated from

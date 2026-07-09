@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"agent-telegram/telegram/types"
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
-	"agent-telegram/telegram/types"
 )
 
 // Client returns the underlying telegram.Client
 func (c *Client) Client() *telegram.Client {
-	return c.client
+	return c.currentTelegramClient()
 }
 
 // Message returns the message client.
@@ -69,4 +69,12 @@ func (c *Client) GetUpdates(limit int, offset ...int64) []types.StoredUpdate {
 		return []types.StoredUpdate{}
 	}
 	return c.updateStore.Get(limit, offset...)
+}
+
+// GetUpdatePage returns cursor metadata together with ordered updates.
+func (c *Client) GetUpdatePage(limit int, offset int64, epoch string) UpdatePage {
+	if c.updateStore == nil {
+		return UpdatePage{Updates: []types.StoredUpdate{}, NextOffset: offset, Epoch: epoch}
+	}
+	return c.updateStore.Page(limit, offset, epoch)
 }

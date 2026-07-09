@@ -9,8 +9,8 @@ import (
 
 // SetPhotoCmd represents the set-photo command.
 var SetPhotoCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:     "set-photo",
-	Short:   "Set the photo for a chat or channel",
+	Use:   "set-photo",
+	Short: "Set the photo for a chat or channel",
 	Long: `Set the profile photo for a Telegram chat or channel.
 
 Example:

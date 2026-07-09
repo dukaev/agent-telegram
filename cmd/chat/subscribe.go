@@ -9,8 +9,8 @@ import (
 
 // SubscribeCmd represents the subscribe command.
 var SubscribeCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:     "subscribe",
-	Short:   "Subscribe to a public channel",
+	Use:   "subscribe",
+	Short: "Subscribe to a public channel",
 	Long: `Subscribe to a public Telegram channel by username.
 
 Example:

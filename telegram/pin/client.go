@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/client"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // Client provides pin operations.
@@ -49,7 +49,7 @@ func (c *Client) updatePin(ctx context.Context, peer string, messageID int64, un
 		return err
 	}
 
-	_, err = c.API.MessagesUpdatePinnedMessage(ctx, &tg.MessagesUpdatePinnedMessageRequest{
+	_, err = c.API().MessagesUpdatePinnedMessage(ctx, &tg.MessagesUpdatePinnedMessageRequest{
 		Peer:  inputPeer,
 		ID:    int(messageID),
 		Unpin: unpin,

@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	diceSubFlags      SendFlags
-	diceSubEmoticon   string
-	diceSubReplyToID  int64
+	diceSubFlags     SendFlags
+	diceSubEmoticon  string
+	diceSubReplyToID int64
 )
 
 // DiceCmd represents the send dice subcommand.

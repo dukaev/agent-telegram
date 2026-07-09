@@ -9,8 +9,8 @@ import (
 
 // CreateGroupCmd represents the create-group command.
 var CreateGroupCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
-	Use:    "create-group",
-	Short:  "Create a new group chat",
+	Use:   "create-group",
+	Short: "Create a new group chat",
 	Long: `Create a new Telegram group chat.
 
 Example:

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gotd/td/tg"
 	"agent-telegram/telegram/types"
+	"github.com/gotd/td/tg"
 )
 
 // SendPhoto sends a photo to a peer.
@@ -17,14 +17,14 @@ func (c *Client) SendPhoto(ctx context.Context, params types.SendPhotoParams) (*
 		return nil, err
 	}
 
-	uploadedFile, err := uploadFile(ctx, c.API, params.File)
+	uploadedFile, err := uploadFile(ctx, c.API(), params.File)
 	if err != nil {
 		return nil, err
 	}
 
 	media := &tg.InputMediaUploadedPhoto{File: uploadedFile}
 
-	result, err := c.API.MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
+	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
 		RandomID: time.Now().UnixNano(),
