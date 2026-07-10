@@ -140,6 +140,23 @@ The public route is now a focused landing page for `agent-telegram`: a local-fir
 - Skipped checks: The full Toolcraft performance suite is unnecessary because the Canvas dimensions, 12 fps cap, sample density, scheduling, visibility pause, and media dimensions did not change.
 - Risks: The baked reverse half adds one generation of H.264 compression and may repeat an endpoint for one 24 fps frame. CRF 18 and paired-frame inspection keep the visual difference below a perceptible threshold for the ASCII renderer.
 
+### Iteration 11 — Monorepo landing relocation
+
+- Request: Move the standalone landing repository into the main `agent-telegram` repository without preserving Git history, while keeping Cloudflare deployment operational.
+- Task type: Tier 4 complete-application relocation and deployment-path integration; no product implementation changed.
+- User-visible result: The landing page is unchanged and now lives in the main repository under `site/`; root npm scripts delegate development, testing, build, and Cloudflare deployment to that self-contained project.
+- Source/reference checked: `dukaev/agent-telegram-site` commit `0cc31f9fa5f270e6aecbd6b457ff0a9fe890fc23`, its nested application tree, the main repository's existing auth-web scripts, and the imported `wrangler.jsonc`.
+- Docs/contracts read: Root integration design and implementation plan, `site/AGENTS.md`, Toolcraft workflow, writing-plans, executing-plans, systematic-debugging, and Playwright browser workflow.
+- Contract rules applied: `workflow-required`, `acceptance-product-observable`, and `performance-coverage-levels`; renderer, schema, state, export, timeline, layers, and persistence contracts remain unchanged.
+- Decision: Preserve the site as an isolated npm project with its own lockfile and configuration. Add root `site:dev`, `site:build`, `site:test`, and `site:deploy` delegates instead of merging dependencies or adopting workspaces.
+- Alternatives rejected: npm workspaces would rewrite shared dependency metadata; merging with the existing auth Vite app would create configuration and dependency coupling; preserving source Git history was explicitly unnecessary.
+- State/output mapping: No product state or output mapping changed. The imported React route, landing content, Canvas renderer, assets, tests, and Toolcraft runtime are byte-for-byte identical to the selected source snapshot.
+- Files changed: Imported application under `site/`, root `package.json`, root `README.md`, integration design/plan, and this worklog entry.
+- Verification: Snapshot diff passed; `npm --prefix site ci` reported zero vulnerabilities; `npm --prefix site run verify:final` passed all docs, integrity, unit, build, and five Playwright acceptance checks; `npm --prefix site run verify:perf` completed with no matching dedicated performance tests; Wrangler dry-run read 13 files from `site/dist` without deployment; root `npm run check:web:auth` passed. Playwright CLI confirmed the landing title, complete content, animated hero image, and copy-success interaction at `http://127.0.0.1:3003/`.
+- Deployment mapping: `site/wrangler.jsonc` remains the source of truth for `agent-telegram.com`. Cloudflare Workers Builds must change its repository to `dukaev/agent-telegram` and its root directory from `/agent-telegram-site` to `/site`; build and deploy commands remain `npm run build` and `npx wrangler deploy` when executed from that root.
+- Skipped checks: No live deployment was published because this relocation only validates repository readiness and a production publish changes external state. The imported project has no dedicated tests whose names match `browser perf:`; the prior controlled-browser performance checkpoint remains recorded for the unchanged renderer.
+- Risks: The browser smoke check reports only a pre-existing missing `/favicon.ico` request; page behavior and all acceptance checks pass. Cloudflare automatic deployment will not follow the new monorepo until its connected repository and root directory are updated in the dashboard.
+
 ## Product State Mapping
 
 - Testing proof: static backend-versus-real-session evidence, takeaway, and receipt labels; no demo state or transport controls.
