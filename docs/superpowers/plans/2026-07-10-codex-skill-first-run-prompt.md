@@ -1,46 +1,153 @@
-# Codex Skill First-Run Prompt Implementation Plan
+# Project-Aware Codex Skill Onboarding Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Offer an explicit, one-time, interactive installation of the bundled `agent-telegram` Codex skill without changing non-interactive CLI behavior or overwriting user files.
+**Goal:** Automatically install the bundled `agent-telegram` skill into an existing project `.agents/skills` directory while requiring explicit consent for global `$HOME/.agents/skills` installation.
 
-**Architecture:** Add filesystem-only onboarding state helpers to `internal/skills`, then keep terminal detection, prompt rendering, and response handling in `cmd/root.go`. Inject prompt dependencies in tests so consent, decline, errors, TTY gating, flags, and CI behavior are deterministic without touching the developer's home directory.
+**Architecture:** Keep path discovery and preference persistence in `internal/skills`, independent from Cobra and terminal I/O. The root command performs eligibility checks, executes the resolver decision, auto-installs project scope, or asks for global consent through injected services that make every branch testable.
 
-**Tech Stack:** Go 1.25.4, Cobra 1.10.2, standard library `bufio`, `io`, `os`, and `path/filepath`, existing embedded skill installer.
+**Tech Stack:** Go 1.25.4, Cobra 1.10.2, standard library filesystem and terminal primitives, existing `embed.FS` skill bundle.
 
 ## Global Constraints
 
-- Require explicit `y` or `yes` consent before installing.
-- Never pass `force=true` from onboarding and never inspect or rewrite an existing target entry.
-- Prompt only for the root command with no positional arguments and no flags, with terminal stdin and stdout, and with an empty `CI` environment variable.
-- Write prompt and status messages to stderr; preserve the existing root welcome text on stdout.
-- Store target-specific dismissal state at `~/.agent-telegram/skill-prompt-dismissed` with file mode `0600` and parent mode `0700`.
-- Treat onboarding as best-effort: all onboarding failures leave the root command successful.
+- Run onboarding only for the interactive root command with no arguments or flags, terminal stdin and stdout, and an empty `CI` variable.
+- Search repository `.agents/skills` locations from CWD to the nearest `.git` boundary; without a repository inspect only CWD.
+- Automatically install only into an already existing project `.agents/skills` directory.
+- Require explicit `y` or `yes` before creating or installing into global `$HOME/.agents/skills`.
+- Treat files, directories, valid symlinks, and dangling symlinks at skill targets as user-owned.
+- Never pass `force=true` from onboarding and never rewrite an existing target.
+- Recognize `${CODEX_HOME}/skills/agent-telegram` or `$HOME/.codex/skills/agent-telegram` legacy installations.
+- Do not fall back globally after malformed project paths or project installation failures.
+- Write onboarding messages to stderr and preserve non-interactive stdout byte-for-byte.
+- Make all onboarding failures non-fatal to the root command.
 - Add no third-party dependency.
-- Use temporary `HOME` and `CODEX_HOME` directories in filesystem tests.
+- Use temporary HOME, CODEX_HOME, CWD, and repository trees in filesystem tests.
 
 ---
 
 ## File Structure
 
-- Create `internal/skills/onboarding.go`: resolve the normalized target, detect existing entries with `os.Lstat`, compare the dismissal marker, and write the marker securely.
-- Create `internal/skills/onboarding_test.go`: cover target resolution, existing files/directories/symlinks, target-specific dismissal, permissions, and filesystem failures.
-- Modify `cmd/root.go`: run the best-effort prompt after the welcome text and expose a small dependency bundle for deterministic tests.
-- Modify `cmd/root_test.go`: test TTY/CI/flag eligibility, affirmative installation, decline recording, EOF, warnings, and unchanged non-interactive output.
-- Modify `internal/docs/docs.go` and `internal/docs/docs_test.go`: document and test generated agent guidance.
-- Modify `README.md`: explain the optional first-run offer and explicit installation command.
+- Modify `internal/skills/skills.go` and `skills_test.go`: canonical user default and `Lstat` overwrite protection.
+- Create `internal/skills/onboarding.go` and `onboarding_test.go`: project discovery, canonical/legacy checks, onboarding decision, and global preference.
+- Modify `cmd/root.go` and `root_test.go`: eligibility, project auto-install, and global consent.
+- Modify `cmd/sys/skills.go`, `internal/docs/docs.go`, `internal/docs/docs_test.go`, `README.md`, and `DEVELOPMENT.md`: canonical help and documentation.
 
-### Task 1: Filesystem onboarding state
+### Task 1: Canonical explicit installer path and overwrite safety
+
+**Files:**
+- Modify: `internal/skills/skills.go`
+- Modify: `internal/skills/skills_test.go`
+
+**Interfaces:**
+- Consumes: `os.UserHomeDir()` and the existing embedded bundle.
+- Produces: `DefaultInstallDir() string` returning `$HOME/.agents/skills`, plus `Install(name, targetDir string, force bool)` that detects dangling symlinks with `os.Lstat`.
+
+- [ ] **Step 1: Write failing canonical-path and dangling-symlink tests**
+
+Append to `internal/skills/skills_test.go`:
+
+```go
+func TestDefaultInstallDirUsesCanonicalUserSkills(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", filepath.Join(home, "legacy-codex-home"))
+	want := filepath.Join(home, ".agents", "skills")
+	if got := DefaultInstallDir(); got != want {
+		t.Fatalf("DefaultInstallDir() = %q, want %q", got, want)
+	}
+}
+
+func TestInstallDoesNotReplaceDanglingSymlinkWithoutForce(t *testing.T) {
+	target := t.TempDir()
+	destination := filepath.Join(target, "agent-telegram")
+	missing := filepath.Join(target, "missing-target")
+	if err := os.Symlink(missing, destination); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install("agent-telegram", target, false); err == nil {
+		t.Fatal("install should reject an existing dangling symlink")
+	}
+	info, err := os.Lstat(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("destination mode = %v, want symlink", info.Mode())
+	}
+}
+
+func TestInstallCreatesCanonicalUserSkillParents(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	installed, err := Install("agent-telegram", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(home, ".agents", "skills", "agent-telegram")
+	if installed != want {
+		t.Fatalf("installed = %q, want %q", installed, want)
+	}
+	if _, err := os.Stat(filepath.Join(installed, "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+}
+```
+
+- [ ] **Step 2: Run the focused tests and verify failure**
+
+```bash
+go test ./internal/skills -run 'TestDefaultInstallDirUsesCanonicalUserSkills|TestInstallDoesNotReplaceDanglingSymlinkWithoutForce|TestInstallCreatesCanonicalUserSkillParents' -count=1
+```
+
+Expected: default-path assertion reports `.codex/skills`; dangling-symlink test exposes the `os.Stat` gap.
+
+- [ ] **Step 3: Implement the canonical default and Lstat check**
+
+Replace `DefaultInstallDir`:
+
+```go
+// DefaultInstallDir returns the canonical user skill directory.
+func DefaultInstallDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(".agents", "skills")
+	}
+	return filepath.Join(home, ".agents", "skills")
+}
+```
+
+Replace the initial destination check in `Install`:
+
+```go
+	if _, err := os.Lstat(destinationRoot); err == nil && !force {
+		return "", fmt.Errorf("skill %q already exists at %s; pass --force to overwrite", name, destinationRoot)
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("inspect skill destination: %w", err)
+	}
+```
+
+- [ ] **Step 4: Format, test, and commit**
+
+```bash
+gofmt -w internal/skills/skills.go internal/skills/skills_test.go
+go test ./internal/skills -count=1
+git add internal/skills/skills.go internal/skills/skills_test.go
+git commit -m "Use canonical Codex skill install path"
+```
+
+Expected: package tests pass and the commit succeeds.
+
+### Task 2: Project-aware onboarding resolver and global preference
 
 **Files:**
 - Create: `internal/skills/onboarding.go`
 - Create: `internal/skills/onboarding_test.go`
 
 **Interfaces:**
-- Consumes: `DefaultInstallDir() string`, `paths.ConfigDir() (string, error)`, and `paths.EnsureConfigDir() (string, error)`.
-- Produces: `DefaultTarget(name string) (string, error)`, `ShouldOffer(target string) (bool, error)`, and `RecordDismissal(target string) error`.
+- Consumes: `DefaultInstallDir() string`, `paths.ConfigDir()`, and `paths.EnsureConfigDir()`.
+- Produces: `ResolveOnboarding(name, cwd string) (OnboardingDecision, error)`, `GlobalPromptDismissed(target string) (bool, error)`, and `RecordGlobalPromptDismissal(target string) error`.
 
-- [ ] **Step 1: Write failing target and existing-entry tests**
+- [ ] **Step 1: Write failing resolver tests**
 
 Create `internal/skills/onboarding_test.go`:
 
@@ -53,169 +160,165 @@ import (
 	"testing"
 )
 
-func TestDefaultTargetUsesCodexHome(t *testing.T) {
-	home := t.TempDir()
-	codexHome := filepath.Join(home, "custom-codex")
-	t.Setenv("HOME", home)
-	t.Setenv("CODEX_HOME", codexHome)
-	target, err := DefaultTarget("agent-telegram")
-	if err != nil {
+func makeDir(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o700); err != nil {
 		t.Fatal(err)
-	}
-	want, _ := filepath.Abs(filepath.Join(codexHome, "skills", "agent-telegram"))
-	if target != want {
-		t.Fatalf("target = %q, want %q", target, want)
 	}
 }
 
-func TestDefaultTargetRequiresHomeWithoutCodexHome(t *testing.T) {
-	t.Setenv("HOME", "")
+func TestResolveOnboardingChoosesNearestProjectSkills(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(t.TempDir(), "repo")
+	cwd := filepath.Join(repo, "services", "telegram")
+	rootSkills := filepath.Join(repo, ".agents", "skills")
+	nearSkills := filepath.Join(repo, "services", ".agents", "skills")
+	makeDir(t, filepath.Join(repo, ".git"))
+	makeDir(t, cwd)
+	makeDir(t, rootSkills)
+	makeDir(t, nearSkills)
+	t.Setenv("HOME", home)
 	t.Setenv("CODEX_HOME", "")
-	if _, err := DefaultTarget("agent-telegram"); err == nil {
-		t.Fatal("missing home should prevent an onboarding target")
-	}
-}
 
-func TestShouldOfferOnlyWhenTargetIsAbsent(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
-	target, err := DefaultTarget("agent-telegram")
+	decision, err := ResolveOnboarding("agent-telegram", cwd)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if offer, err := ShouldOffer(target); err != nil || !offer {
-		t.Fatalf("absent target: offer=%v err=%v", offer, err)
+	if decision.Action != OnboardingInstallProject || decision.InstallDir != nearSkills {
+		t.Fatalf("decision = %+v", decision)
 	}
+	if decision.Target != filepath.Join(nearSkills, "agent-telegram") {
+		t.Fatalf("target = %q", decision.Target)
+	}
+}
 
-	entries := []struct {
-		name   string
-		create func(string) error
+func TestResolveOnboardingStopsForExistingApplicableSkill(t *testing.T) {
+	tests := []struct {
+		name string
+		setup func(t *testing.T, home, rootSkills string)
 	}{
-		{"directory", func(path string) error { return os.MkdirAll(path, 0o700) }},
-		{"file", func(path string) error {
-			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-				return err
-			}
-			return os.WriteFile(path, []byte("owned"), 0o600)
+		{"parent-project", func(t *testing.T, _, rootSkills string) {
+			makeDir(t, filepath.Join(rootSkills, "agent-telegram"))
 		}},
-		{"dangling-symlink", func(path string) error {
-			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-				return err
-			}
-			return os.Symlink(filepath.Join(home, "missing"), path)
+		{"canonical-user", func(t *testing.T, home, _ string) {
+			makeDir(t, filepath.Join(home, ".agents", "skills", "agent-telegram"))
+		}},
+		{"legacy-user", func(t *testing.T, home, _ string) {
+			makeDir(t, filepath.Join(home, ".codex", "skills", "agent-telegram"))
 		}},
 	}
 
-	for _, entry := range entries {
-		t.Run(entry.name, func(t *testing.T) {
-			if err := os.RemoveAll(filepath.Dir(target)); err != nil {
-				t.Fatal(err)
-			}
-			if err := entry.create(target); err != nil {
-				t.Fatal(err)
-			}
-			if offer, err := ShouldOffer(target); err != nil || offer {
-				t.Fatalf("existing target: offer=%v err=%v", offer, err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			home := t.TempDir()
+			repo := filepath.Join(t.TempDir(), "repo")
+			cwd := filepath.Join(repo, "nested")
+			rootSkills := filepath.Join(repo, ".agents", "skills")
+			makeDir(t, filepath.Join(repo, ".git"))
+			makeDir(t, filepath.Join(cwd, ".agents", "skills"))
+			makeDir(t, rootSkills)
+			t.Setenv("HOME", home)
+			t.Setenv("CODEX_HOME", "")
+			test.setup(t, home, rootSkills)
+			decision, err := ResolveOnboarding("agent-telegram", cwd)
+			if err != nil || decision.Action != OnboardingNone {
+				t.Fatalf("decision=%+v err=%v", decision, err)
 			}
 		})
 	}
 }
+
+func TestResolveOnboardingPromptsCanonicalGlobalWithoutProjectSkills(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(t.TempDir(), "repo")
+	makeDir(t, filepath.Join(repo, ".git"))
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
+	decision, err := ResolveOnboarding("agent-telegram", repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDir := filepath.Join(home, ".agents", "skills")
+	if decision.Action != OnboardingPromptGlobal || decision.InstallDir != wantDir {
+		t.Fatalf("decision = %+v", decision)
+	}
+}
+
+func TestResolveOnboardingNonRepositoryChecksOnlyCWD(t *testing.T) {
+	home := t.TempDir()
+	parent := t.TempDir()
+	cwd := filepath.Join(parent, "work")
+	makeDir(t, cwd)
+	makeDir(t, filepath.Join(parent, ".agents", "skills"))
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
+	decision, err := ResolveOnboarding("agent-telegram", cwd)
+	if err != nil || decision.Action != OnboardingPromptGlobal {
+		t.Fatalf("decision=%+v err=%v", decision, err)
+	}
+}
+
+func TestResolveOnboardingRejectsMalformedProjectSkills(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(t.TempDir(), "repo")
+	makeDir(t, filepath.Join(repo, ".git"))
+	makeDir(t, filepath.Join(repo, ".agents"))
+	if err := os.WriteFile(filepath.Join(repo, ".agents", "skills"), []byte("owned"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	if _, err := ResolveOnboarding("agent-telegram", repo); err == nil {
+		t.Fatal("malformed project skills path should fail")
+	}
+}
 ```
 
-- [ ] **Step 2: Verify the tests fail for the missing API**
+- [ ] **Step 2: Verify resolver tests fail for missing symbols**
 
 ```bash
-go test ./internal/skills -run 'TestDefaultTarget|TestShouldOfferOnlyWhenTargetIsAbsent' -count=1
+go test ./internal/skills -run TestResolveOnboarding -count=1
 ```
 
-Expected: build failure containing `undefined: DefaultTarget` and `undefined: ShouldOffer`.
+Expected: build failure containing `undefined: ResolveOnboarding` and the onboarding constants.
 
-- [ ] **Step 3: Add failing dismissal tests**
+- [ ] **Step 3: Add failing global-dismissal tests**
 
 Append:
 
 ```go
-func TestRecordDismissalSuppressesOnlyMatchingTarget(t *testing.T) {
+func TestGlobalPromptDismissalMatchesOnlyCanonicalTarget(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("CODEX_HOME", filepath.Join(home, "codex-a"))
-	targetA, err := DefaultTarget("agent-telegram")
-	if err != nil {
+	targetA := filepath.Join(home, ".agents", "skills", "agent-telegram")
+	targetB := filepath.Join(home, "other", "agent-telegram")
+	if err := RecordGlobalPromptDismissal(targetA); err != nil {
 		t.Fatal(err)
 	}
-	if err := RecordDismissal(targetA); err != nil {
-		t.Fatal(err)
+	dismissed, err := GlobalPromptDismissed(targetA)
+	if err != nil || !dismissed {
+		t.Fatalf("matching target: dismissed=%v err=%v", dismissed, err)
+	}
+	dismissed, err = GlobalPromptDismissed(targetB)
+	if err != nil || dismissed {
+		t.Fatalf("different target: dismissed=%v err=%v", dismissed, err)
 	}
 	marker := filepath.Join(home, ".agent-telegram", "skill-prompt-dismissed")
 	data, err := os.ReadFile(marker)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != targetA+"\n" {
-		t.Fatalf("marker = %q", data)
+	if err != nil || string(data) != filepath.Clean(targetA)+"\n" {
+		t.Fatalf("marker=%q err=%v", data, err)
 	}
 	info, err := os.Stat(marker)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("marker mode = %v", info.Mode().Perm())
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("marker mode error: info=%v err=%v", info, err)
 	}
 	dirInfo, err := os.Stat(filepath.Dir(marker))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dirInfo.Mode().Perm() != 0o700 {
-		t.Fatalf("marker directory mode = %v", dirInfo.Mode().Perm())
-	}
-	if offer, err := ShouldOffer(targetA); err != nil || offer {
-		t.Fatalf("matching marker: offer=%v err=%v", offer, err)
-	}
-
-	t.Setenv("CODEX_HOME", filepath.Join(home, "codex-b"))
-	targetB, err := DefaultTarget("agent-telegram")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if offer, err := ShouldOffer(targetB); err != nil || !offer {
-		t.Fatalf("different target: offer=%v err=%v", offer, err)
-	}
-}
-
-func TestRecordDismissalRestoresMode0600(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	dir := filepath.Join(home, ".agent-telegram")
-	marker := filepath.Join(dir, "skill-prompt-dismissed")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(marker, []byte("old\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := RecordDismissal(filepath.Join(home, "target")); err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(marker)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("marker mode = %v", info.Mode().Perm())
+	if err != nil || dirInfo.Mode().Perm() != 0o700 {
+		t.Fatalf("marker directory mode error: info=%v err=%v", dirInfo, err)
 	}
 }
 ```
 
-- [ ] **Step 4: Verify dismissal tests fail**
-
-```bash
-go test ./internal/skills -run TestRecordDismissal -count=1
-```
-
-Expected: build failure containing `undefined: RecordDismissal`.
-
-- [ ] **Step 5: Implement the state helpers**
+- [ ] **Step 4: Implement resolver and preference storage**
 
 Create `internal/skills/onboarding.go`:
 
@@ -231,46 +334,157 @@ import (
 	"agent-telegram/internal/paths"
 )
 
-const dismissalFileName = "skill-prompt-dismissed"
+type OnboardingAction uint8
 
-func DefaultTarget(name string) (string, error) {
-	if strings.TrimSpace(os.Getenv("CODEX_HOME")) == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("resolve skill target home: %w", err)
-		}
-		if home == "" {
-			return "", fmt.Errorf("resolve skill target home: home directory is empty")
-		}
-	}
-	target, err := filepath.Abs(filepath.Join(DefaultInstallDir(), name))
-	if err != nil {
-		return "", fmt.Errorf("resolve skill target: %w", err)
-	}
-	return filepath.Clean(target), nil
+const (
+	OnboardingNone OnboardingAction = iota
+	OnboardingInstallProject
+	OnboardingPromptGlobal
+)
+
+type OnboardingDecision struct {
+	Action OnboardingAction
+	InstallDir string
+	Target string
 }
 
-func ShouldOffer(target string) (bool, error) {
-	if _, err := os.Lstat(target); err == nil {
-		return false, nil
-	} else if !os.IsNotExist(err) {
-		return false, fmt.Errorf("inspect skill target: %w", err)
+func ResolveOnboarding(name, cwd string) (OnboardingDecision, error) {
+	absCWD, err := filepath.Abs(cwd)
+	if err != nil {
+		return OnboardingDecision{}, fmt.Errorf("resolve working directory: %w", err)
 	}
-	marker, err := dismissalPath()
+	projectDirs, err := projectSkillDirs(filepath.Clean(absCWD))
+	if err != nil {
+		return OnboardingDecision{}, err
+	}
+	canonicalDir, err := canonicalUserInstallDir()
+	if err != nil {
+		return OnboardingDecision{}, err
+	}
+	legacyDir, err := legacyUserInstallDir()
+	if err != nil {
+		return OnboardingDecision{}, err
+	}
+	allDirs := append(append([]string{}, projectDirs...), canonicalDir)
+	if legacyDir != canonicalDir {
+		allDirs = append(allDirs, legacyDir)
+	}
+	for _, dir := range allDirs {
+		exists, err := pathEntryExists(filepath.Join(dir, name))
+		if err != nil {
+			return OnboardingDecision{}, err
+		}
+		if exists {
+			return OnboardingDecision{Action: OnboardingNone}, nil
+		}
+	}
+	if len(projectDirs) > 0 {
+		dir := projectDirs[0]
+		return OnboardingDecision{Action: OnboardingInstallProject, InstallDir: dir, Target: filepath.Join(dir, name)}, nil
+	}
+	return OnboardingDecision{Action: OnboardingPromptGlobal, InstallDir: canonicalDir, Target: filepath.Join(canonicalDir, name)}, nil
+}
+
+func projectSkillDirs(cwd string) ([]string, error) {
+	root, found, err := repositoryRoot(cwd)
+	if err != nil {
+		return nil, err
+	}
+	limit := cwd
+	if found {
+		limit = root
+	}
+	var dirs []string
+	for current := cwd; ; current = filepath.Dir(current) {
+		candidate := filepath.Join(current, ".agents", "skills")
+		info, err := os.Stat(candidate)
+		switch {
+		case err == nil && !info.IsDir():
+			return nil, fmt.Errorf("project skill path is not a directory: %s", candidate)
+		case err == nil:
+			dirs = append(dirs, candidate)
+		case !os.IsNotExist(err):
+			return nil, fmt.Errorf("inspect project skill path %s: %w", candidate, err)
+		}
+		if current == limit {
+			break
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+	}
+	return dirs, nil
+}
+
+func repositoryRoot(cwd string) (string, bool, error) {
+	for current := cwd; ; current = filepath.Dir(current) {
+		_, err := os.Lstat(filepath.Join(current, ".git"))
+		if err == nil {
+			return current, true, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", false, fmt.Errorf("inspect repository boundary: %w", err)
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", false, nil
+		}
+	}
+}
+
+func canonicalUserInstallDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve user home directory: %w", err)
+	}
+	if home == "" {
+		return "", fmt.Errorf("resolve user home directory: home is empty")
+	}
+	return filepath.Join(home, ".agents", "skills"), nil
+}
+
+func legacyUserInstallDir() (string, error) {
+	if codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME")); codexHome != "" {
+		return filepath.Abs(filepath.Join(codexHome, "skills"))
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve legacy home directory: %w", err)
+	}
+	if home == "" {
+		return "", fmt.Errorf("resolve legacy home directory: home is empty")
+	}
+	return filepath.Join(home, ".codex", "skills"), nil
+}
+
+func pathEntryExists(path string) (bool, error) {
+	_, err := os.Lstat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, fmt.Errorf("inspect skill target %s: %w", path, err)
+}
+
+func GlobalPromptDismissed(target string) (bool, error) {
+	marker, err := globalDismissalPath()
 	if err != nil {
 		return false, err
 	}
 	data, err := os.ReadFile(marker) //nolint:gosec // fixed per-user state path
 	if err != nil {
 		if os.IsNotExist(err) {
-			return true, nil
+			return false, nil
 		}
-		return false, fmt.Errorf("read skill prompt dismissal: %w", err)
+		return false, fmt.Errorf("read global skill dismissal: %w", err)
 	}
-	return strings.TrimSpace(string(data)) != filepath.Clean(target), nil
+	return strings.TrimSpace(string(data)) == filepath.Clean(target), nil
 }
 
-func RecordDismissal(target string) error {
+func RecordGlobalPromptDismissal(target string) error {
 	dir, err := paths.EnsureConfigDir()
 	if err != nil {
 		return err
@@ -278,39 +492,157 @@ func RecordDismissal(target string) error {
 	if err := os.Chmod(dir, 0o700); err != nil {
 		return fmt.Errorf("secure config directory: %w", err)
 	}
-	marker := filepath.Join(dir, dismissalFileName)
-	file, err := os.CreateTemp(dir, ".skill-prompt-dismissed-*")
+	marker := filepath.Join(dir, "skill-prompt-dismissed")
+	temporary, err := os.CreateTemp(dir, ".skill-prompt-dismissed-*")
 	if err != nil {
-		return fmt.Errorf("create skill prompt dismissal: %w", err)
+		return fmt.Errorf("create global skill dismissal: %w", err)
 	}
-	temporary := file.Name()
-	defer os.Remove(temporary)
-	if err := file.Chmod(0o600); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("secure skill prompt dismissal: %w", err)
+	temporaryPath := temporary.Name()
+	defer os.Remove(temporaryPath)
+	if err := temporary.Chmod(0o600); err != nil {
+		_ = temporary.Close()
+		return err
 	}
-	if _, err := fmt.Fprintln(file, filepath.Clean(target)); err != nil {
-		_ = file.Close()
-		return fmt.Errorf("write skill prompt dismissal: %w", err)
+	if _, err := fmt.Fprintln(temporary, filepath.Clean(target)); err != nil {
+		_ = temporary.Close()
+		return err
 	}
-	if err := file.Close(); err != nil {
-		return fmt.Errorf("close skill prompt dismissal: %w", err)
+	if err := temporary.Close(); err != nil {
+		return err
 	}
 	if err := os.Remove(marker); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove previous skill prompt dismissal: %w", err)
+		return err
 	}
-	if err := os.Rename(temporary, marker); err != nil {
-		return fmt.Errorf("replace skill prompt dismissal: %w", err)
+	if err := os.Rename(temporaryPath, marker); err != nil {
+		return err
 	}
 	return nil
 }
 
-func dismissalPath() (string, error) {
+func globalDismissalPath() (string, error) {
 	dir, err := paths.ConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("resolve skill prompt dismissal: %w", err)
+		return "", err
 	}
-	return filepath.Join(dir, dismissalFileName), nil
+	return filepath.Join(dir, "skill-prompt-dismissed"), nil
+}
+```
+
+- [ ] **Step 5: Add Git-file, CODEX_HOME, and dangling-target coverage**
+
+Append:
+
+```go
+func TestResolveOnboardingSupportsGitFileAndCodexHomeLegacy(t *testing.T) {
+	home := t.TempDir()
+	codexHome := filepath.Join(home, "custom-codex")
+	repo := filepath.Join(t.TempDir(), "repo")
+	makeDir(t, repo)
+	if err := os.WriteFile(filepath.Join(repo, ".git"), []byte("gitdir: elsewhere\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	makeDir(t, filepath.Join(repo, ".agents", "skills"))
+	makeDir(t, filepath.Join(codexHome, "skills", "agent-telegram"))
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", codexHome)
+	decision, err := ResolveOnboarding("agent-telegram", repo)
+	if err != nil || decision.Action != OnboardingNone {
+		t.Fatalf("decision=%+v err=%v", decision, err)
+	}
+}
+
+func TestResolveOnboardingTreatsDanglingTargetAsExisting(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(t.TempDir(), "repo")
+	skillsDir := filepath.Join(repo, ".agents", "skills")
+	makeDir(t, filepath.Join(repo, ".git"))
+	makeDir(t, skillsDir)
+	if err := os.Symlink(filepath.Join(repo, "missing"), filepath.Join(skillsDir, "agent-telegram")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
+	decision, err := ResolveOnboarding("agent-telegram", repo)
+	if err != nil || decision.Action != OnboardingNone {
+		t.Fatalf("decision=%+v err=%v", decision, err)
+	}
+}
+
+func TestResolveOnboardingTreatsAllTargetKindsAsExisting(t *testing.T) {
+	creators := []struct {
+		name string
+		create func(t *testing.T, target string)
+	}{
+		{"file", func(t *testing.T, target string) {
+			if err := os.WriteFile(target, []byte("owned"), 0o600); err != nil { t.Fatal(err) }
+		}},
+		{"directory", func(t *testing.T, target string) { makeDir(t, target) }},
+		{"valid-symlink", func(t *testing.T, target string) {
+			real := target + "-real"
+			makeDir(t, real)
+			if err := os.Symlink(real, target); err != nil { t.Skipf("symlink unavailable: %v", err) }
+		}},
+		{"dangling-symlink", func(t *testing.T, target string) {
+			if err := os.Symlink(target+"-missing", target); err != nil { t.Skipf("symlink unavailable: %v", err) }
+		}},
+	}
+	for _, creator := range creators {
+		t.Run(creator.name, func(t *testing.T) {
+			home := t.TempDir()
+			repo := filepath.Join(t.TempDir(), "repo")
+			skillsDir := filepath.Join(repo, ".agents", "skills")
+			makeDir(t, filepath.Join(repo, ".git"))
+			makeDir(t, skillsDir)
+			creator.create(t, filepath.Join(skillsDir, "agent-telegram"))
+			t.Setenv("HOME", home)
+			t.Setenv("CODEX_HOME", "")
+			decision, err := ResolveOnboarding("agent-telegram", repo)
+			if err != nil || decision.Action != OnboardingNone { t.Fatalf("decision=%+v err=%v", decision, err) }
+		})
+	}
+}
+
+func TestResolveOnboardingFollowsProjectSkillsDirectorySymlink(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(t.TempDir(), "repo")
+	realSkills := filepath.Join(t.TempDir(), "shared-skills")
+	makeDir(t, filepath.Join(repo, ".git"))
+	makeDir(t, filepath.Join(repo, ".agents"))
+	makeDir(t, realSkills)
+	if err := os.Symlink(realSkills, filepath.Join(repo, ".agents", "skills")); err != nil { t.Skipf("symlink unavailable: %v", err) }
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
+	decision, err := ResolveOnboarding("agent-telegram", repo)
+	if err != nil || decision.Action != OnboardingInstallProject { t.Fatalf("decision=%+v err=%v", decision, err) }
+}
+
+func TestResolveOnboardingUsesCWDProjectSkills(t *testing.T) {
+	home := t.TempDir()
+	repo := filepath.Join(t.TempDir(), "repo")
+	cwd := filepath.Join(repo, "module")
+	makeDir(t, filepath.Join(repo, ".git"))
+	makeDir(t, filepath.Join(cwd, ".agents", "skills"))
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
+	decision, err := ResolveOnboarding("agent-telegram", cwd)
+	if err != nil || decision.InstallDir != filepath.Join(cwd, ".agents", "skills") {
+		t.Fatalf("decision=%+v err=%v", decision, err)
+	}
+}
+
+func TestResolveOnboardingStopsAtNearestRepositoryBoundary(t *testing.T) {
+	home := t.TempDir()
+	outer := filepath.Join(t.TempDir(), "outer")
+	inner := filepath.Join(outer, "inner")
+	makeDir(t, filepath.Join(outer, ".git"))
+	makeDir(t, filepath.Join(outer, ".agents", "skills"))
+	makeDir(t, filepath.Join(inner, ".git"))
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", "")
+	decision, err := ResolveOnboarding("agent-telegram", inner)
+	if err != nil || decision.Action != OnboardingPromptGlobal {
+		t.Fatalf("decision=%+v err=%v", decision, err)
+	}
 }
 ```
 
@@ -320,27 +652,31 @@ func dismissalPath() (string, error) {
 gofmt -w internal/skills/onboarding.go internal/skills/onboarding_test.go
 go test ./internal/skills -count=1
 git add internal/skills/onboarding.go internal/skills/onboarding_test.go
-git commit -m "Add Codex skill onboarding state"
+git commit -m "Add project-aware skill onboarding resolver"
 ```
 
-Expected: tests report `ok agent-telegram/internal/skills`; commit succeeds.
+Expected: all resolver and preference tests pass.
 
-### Task 2: Interactive root prompt
+### Task 3: Root command project auto-install and global consent
 
 **Files:**
 - Modify: `cmd/root.go`
 - Modify: `cmd/root_test.go`
 
 **Interfaces:**
-- Consumes: the three Task 1 helpers and `skills.Install(string, string, bool) (string, error)`.
-- Produces: `skillPromptServices`, `defaultSkillPromptServices()`, `maybeOfferSkill(*cobra.Command, skillPromptServices)`, and `isTerminal(any) bool`.
+- Consumes: `skills.ResolveOnboarding`, `skills.GlobalPromptDismissed`, `skills.RecordGlobalPromptDismissal`, and `skills.Install`.
+- Produces: `onboardingServices`, `defaultOnboardingServices()`, `runRootWithServices`, `maybeOnboardSkill`, and `isTerminal`.
 
-- [ ] **Step 1: Add failing consent and decline tests**
+- [ ] **Step 1: Add failing root-flow tests**
 
-Extend `cmd/root_test.go` imports with `errors`, then append:
+Extend `cmd/root_test.go` imports with `errors` and `agent-telegram/internal/skills`. Append:
 
 ```go
-func promptTestCommand(input string) (*cobra.Command, *bytes.Buffer, *bytes.Buffer) {
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, errors.New("input failed") }
+
+func onboardingTestCommand(input string) (*cobra.Command, *bytes.Buffer, *bytes.Buffer) {
 	command := &cobra.Command{Use: "agent-telegram"}
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
@@ -350,225 +686,223 @@ func promptTestCommand(input string) (*cobra.Command, *bytes.Buffer, *bytes.Buff
 	return command, stdout, stderr
 }
 
-func promptTestServices() skillPromptServices {
-	return skillPromptServices{
+func onboardingTestServices(decision skills.OnboardingDecision) onboardingServices {
+	return onboardingServices{
 		isTerminal: func(any) bool { return true },
-		target: func(string) (string, error) {
-			return "/tmp/codex/skills/agent-telegram", nil
-		},
-		shouldOffer: func(string) (bool, error) { return true, nil },
-		install: func(string, string, bool) (string, error) {
-			return "/tmp/codex/skills/agent-telegram", nil
-		},
-		dismiss: func(string) error { return nil },
+		getwd: func() (string, error) { return "/repo", nil },
+		resolve: func(string, string) (skills.OnboardingDecision, error) { return decision, nil },
+		install: func(string, string, bool) (string, error) { return decision.Target, nil },
+		dismissed: func(string) (bool, error) { return false, nil },
+		recordDismissal: func(string) error { return nil },
 	}
 }
 
-func TestMaybeOfferSkillInstallsOnlyOnExplicitConsent(t *testing.T) {
+func TestMaybeOnboardSkillAutoInstallsProjectWithoutReadingInput(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingInstallProject, InstallDir: "/repo/.agents/skills", Target: "/repo/.agents/skills/agent-telegram"}
+	command, _, stderr := onboardingTestCommand("")
+	command.SetIn(failingReader{})
+	services := onboardingTestServices(decision)
+	called := false
+	preferenceChecked := false
+	services.dismissed = func(string) (bool, error) { preferenceChecked = true; return true, nil }
+	services.install = func(name, target string, force bool) (string, error) {
+		called = true
+		if name != "agent-telegram" || target != decision.InstallDir || force {
+			t.Fatalf("install args = %q %q %v", name, target, force)
+		}
+		return decision.Target, nil
+	}
+	maybeOnboardSkill(command, services)
+	if !called || preferenceChecked || !strings.Contains(stderr.String(), "Installed project Codex skill") {
+		t.Fatalf("called=%v preferenceChecked=%v stderr=%q", called, preferenceChecked, stderr.String())
+	}
+}
+
+func TestMaybeOnboardSkillRequiresGlobalConsent(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingPromptGlobal, InstallDir: "/home/user/.agents/skills", Target: "/home/user/.agents/skills/agent-telegram"}
 	for _, answer := range []string{"y\n", "yes\n", "Y\n", "YES\n"} {
 		t.Run(strings.TrimSpace(answer), func(t *testing.T) {
-			command, _, stderr := promptTestCommand(answer)
-			services := promptTestServices()
-			installed := false
-			services.install = func(name, target string, force bool) (string, error) {
-				installed = true
-				if name != "agent-telegram" || target != "" || force {
-					t.Fatalf("install args = %q, %q, %v", name, target, force)
-				}
-				return "/tmp/codex/skills/agent-telegram", nil
-			}
-			maybeOfferSkill(command, services)
-			if !installed || !strings.Contains(stderr.String(), "Skill installed at") {
-				t.Fatalf("installed=%v stderr=%q", installed, stderr.String())
-			}
-		})
-	}
-}
-
-func TestMaybeOfferSkillRecordsCompletedDeclines(t *testing.T) {
-	for _, answer := range []string{"\n", "n\n", "no\n", "later\n"} {
-		t.Run(strings.TrimSpace(answer), func(t *testing.T) {
-			command, _, _ := promptTestCommand(answer)
-			services := promptTestServices()
-			installed := false
-			dismissed := ""
-			services.install = func(string, string, bool) (string, error) {
-				installed = true
-				return "", nil
-			}
-			services.dismiss = func(target string) error {
-				dismissed = target
-				return nil
-			}
-			maybeOfferSkill(command, services)
-			if installed || dismissed != "/tmp/codex/skills/agent-telegram" {
-				t.Fatalf("installed=%v dismissed=%q", installed, dismissed)
-			}
-		})
-	}
-}
-```
-
-- [ ] **Step 2: Verify missing prompt symbols**
-
-```bash
-go test ./cmd -run TestMaybeOfferSkill -count=1
-```
-
-Expected: build failure containing `undefined: skillPromptServices` and `undefined: maybeOfferSkill`.
-
-- [ ] **Step 3: Add eligibility, EOF, error, and compatibility tests**
-
-Append:
-
-```go
-func TestMaybeOfferSkillSkipsIneligibleInvocations(t *testing.T) {
-	tests := []struct {
-		name   string
-		mutate func(*cobra.Command, *skillPromptServices)
-	}{
-		{"ci", func(_ *cobra.Command, services *skillPromptServices) { services.ci = "true" }},
-		{"non-terminal-stdin", func(_ *cobra.Command, services *skillPromptServices) {
-			services.isTerminal = func(any) bool { return false }
-		}},
-		{"non-terminal-stdout", func(_ *cobra.Command, services *skillPromptServices) {
-			calls := 0
-			services.isTerminal = func(any) bool {
-				calls++
-				return calls == 1
-			}
-		}},
-		{"root-flag", func(command *cobra.Command, _ *skillPromptServices) {
-			command.Flags().Bool("quiet", false, "quiet")
-			if err := command.Flags().Set("quiet", "true"); err != nil {
-				t.Fatal(err)
-			}
-		}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			command, _, stderr := promptTestCommand("y\n")
-			services := promptTestServices()
+			command, _, stderr := onboardingTestCommand(answer)
+			services := onboardingTestServices(decision)
 			called := false
-			services.target = func(string) (string, error) {
+			services.install = func(_ string, target string, force bool) (string, error) {
 				called = true
-				return "", nil
+				if target != decision.InstallDir || force { t.Fatalf("install target=%q force=%v", target, force) }
+				return decision.Target, nil
 			}
-			test.mutate(command, &services)
-			maybeOfferSkill(command, services)
-			if called || stderr.Len() != 0 {
+			maybeOnboardSkill(command, services)
+			if !called || !strings.Contains(stderr.String(), "globally for Codex") {
 				t.Fatalf("called=%v stderr=%q", called, stderr.String())
 			}
 		})
 	}
 }
 
-func TestMaybeOfferSkillTreatsEOFAsNoDecision(t *testing.T) {
-	command, _, _ := promptTestCommand("y")
-	services := promptTestServices()
-	installed := false
-	dismissed := false
-	services.install = func(string, string, bool) (string, error) {
-		installed = true
-		return "", nil
-	}
-	services.dismiss = func(string) error {
-		dismissed = true
-		return nil
-	}
-	maybeOfferSkill(command, services)
-	if installed || dismissed {
-		t.Fatalf("EOF changed state: installed=%v dismissed=%v", installed, dismissed)
+func TestMaybeOnboardSkillRecordsGlobalDecline(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingPromptGlobal, Target: "/global/agent-telegram"}
+	for _, answer := range []string{"\n", "n\n", "no\n", "later\n"} {
+		t.Run(strings.TrimSpace(answer), func(t *testing.T) {
+			command, _, _ := onboardingTestCommand(answer)
+			services := onboardingTestServices(decision)
+			recorded := ""
+			services.recordDismissal = func(target string) error { recorded = target; return nil }
+			maybeOnboardSkill(command, services)
+			if recorded != decision.Target { t.Fatalf("recorded = %q", recorded) }
+		})
 	}
 }
+```
 
-type failingReader struct{}
+- [ ] **Step 2: Verify missing root helpers**
 
-func (failingReader) Read([]byte) (int, error) {
-	return 0, errors.New("input failed")
-}
+```bash
+go test ./cmd -run TestMaybeOnboardSkill -count=1
+```
 
-func TestMaybeOfferSkillReadFailureChangesNoState(t *testing.T) {
-	command, _, stderr := promptTestCommand("")
-	command.SetIn(failingReader{})
-	services := promptTestServices()
-	installed := false
-	dismissed := false
-	services.install = func(string, string, bool) (string, error) {
-		installed = true
-		return "", nil
-	}
-	services.dismiss = func(string) error {
-		dismissed = true
-		return nil
-	}
-	maybeOfferSkill(command, services)
-	if installed || dismissed || !strings.Contains(stderr.String(), "could not read skill prompt response") {
-		t.Fatalf("installed=%v dismissed=%v stderr=%q", installed, dismissed, stderr.String())
-	}
-}
+Expected: build failure containing `undefined: onboardingServices` and `undefined: maybeOnboardSkill`.
 
-func TestMaybeOfferSkillSilentlySkipsTargetResolutionFailure(t *testing.T) {
-	command, _, stderr := promptTestCommand("y\n")
-	services := promptTestServices()
-	services.target = func(string) (string, error) {
-		return "", errors.New("home unavailable")
-	}
-	maybeOfferSkill(command, services)
-	if stderr.Len() != 0 {
-		t.Fatalf("stderr=%q", stderr.String())
-	}
-}
+- [ ] **Step 3: Add eligibility, EOF, failure, and compatibility tests**
 
-func TestMaybeOfferSkillReportsBestEffortErrors(t *testing.T) {
-	tests := []struct {
-		name   string
-		answer string
-		mutate func(*skillPromptServices)
-		want   string
-	}{
-		{"inspect", "y\n", func(s *skillPromptServices) {
-			s.shouldOffer = func(string) (bool, error) { return false, errors.New("denied") }
-		}, "Warning: could not inspect Codex skill onboarding"},
-		{"install", "y\n", func(s *skillPromptServices) {
-			s.install = func(string, string, bool) (string, error) { return "", errors.New("read-only") }
-		}, "agent-telegram skills install agent-telegram"},
-		{"dismiss", "n\n", func(s *skillPromptServices) {
-			s.dismiss = func(string) error { return errors.New("read-only") }
-		}, "Warning: could not save skill prompt preference"},
+Append:
+
+```go
+func TestMaybeOnboardSkillSkipsIneligibleCalls(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingPromptGlobal, Target: "/global/agent-telegram"}
+	tests := []struct { name string; mutate func(*cobra.Command, *onboardingServices) }{
+		{"ci", func(_ *cobra.Command, s *onboardingServices) { s.ci = "1" }},
+		{"stdin", func(_ *cobra.Command, s *onboardingServices) { s.isTerminal = func(any) bool { return false } }},
+		{"stdout", func(_ *cobra.Command, s *onboardingServices) {
+			calls := 0
+			s.isTerminal = func(any) bool { calls++; return calls == 1 }
+		}},
+		{"flag", func(command *cobra.Command, _ *onboardingServices) {
+			command.Flags().Bool("quiet", false, "quiet")
+			if err := command.Flags().Set("quiet", "true"); err != nil { t.Fatal(err) }
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			command, _, stderr := promptTestCommand(test.answer)
-			services := promptTestServices()
-			test.mutate(&services)
-			maybeOfferSkill(command, services)
-			if !strings.Contains(stderr.String(), test.want) {
-				t.Fatalf("stderr=%q, want %q", stderr.String(), test.want)
-			}
+			command, _, stderr := onboardingTestCommand("y\n")
+			services := onboardingTestServices(decision)
+			called := false
+			services.getwd = func() (string, error) { called = true; return "/repo", nil }
+			test.mutate(command, &services)
+			maybeOnboardSkill(command, services)
+			if called || stderr.Len() != 0 { t.Fatalf("called=%v stderr=%q", called, stderr.String()) }
 		})
 	}
 }
 
-func TestNonInteractiveRootOutputIsUnchanged(t *testing.T) {
-	command, stdout, stderr := promptTestCommand("")
-	services := promptTestServices()
-	services.isTerminal = func(any) bool { return false }
-	if err := runRootWithServices(command, nil, services); err != nil {
-		t.Fatal(err)
-	}
-	if stdout.String() != rootWelcome || stderr.Len() != 0 {
-		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
+func TestMaybeOnboardSkillHonorsGlobalDismissal(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingPromptGlobal, Target: "/global/agent-telegram"}
+	command, _, stderr := onboardingTestCommand("y\n")
+	services := onboardingTestServices(decision)
+	services.dismissed = func(string) (bool, error) { return true, nil }
+	maybeOnboardSkill(command, services)
+	if stderr.Len() != 0 { t.Fatalf("stderr=%q", stderr.String()) }
+}
+
+func TestMaybeOnboardSkillEOFChangesNothing(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingPromptGlobal, Target: "/global/agent-telegram"}
+	command, _, _ := onboardingTestCommand("y")
+	services := onboardingTestServices(decision)
+	installed := false
+	recorded := false
+	services.install = func(string, string, bool) (string, error) { installed = true; return "", nil }
+	services.recordDismissal = func(string) error { recorded = true; return nil }
+	maybeOnboardSkill(command, services)
+	if installed || recorded { t.Fatalf("installed=%v recorded=%v", installed, recorded) }
+}
+
+func TestProjectInstallFailureDoesNotPromptGlobal(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingInstallProject, InstallDir: "/project", Target: "/project/agent-telegram"}
+	command, _, stderr := onboardingTestCommand("y\n")
+	services := onboardingTestServices(decision)
+	services.install = func(string, string, bool) (string, error) { return "", errors.New("read-only") }
+	maybeOnboardSkill(command, services)
+	if !strings.Contains(stderr.String(), "could not install project Codex skill") || strings.Contains(stderr.String(), "globally") {
+		t.Fatalf("stderr=%q", stderr.String())
 	}
 }
 
-func TestSubcommandDoesNotRunRootOnboarding(t *testing.T) {
-	services := promptTestServices()
-	called := false
-	services.target = func(string) (string, error) {
-		called = true
-		return "", nil
+func TestMaybeOnboardSkillResolverFailureWarnsWithoutInstall(t *testing.T) {
+	command, _, stderr := onboardingTestCommand("y\n")
+	services := onboardingTestServices(skills.OnboardingDecision{})
+	services.resolve = func(string, string) (skills.OnboardingDecision, error) {
+		return skills.OnboardingDecision{}, errors.New("malformed project path")
 	}
+	installed := false
+	services.install = func(string, string, bool) (string, error) { installed = true; return "", nil }
+	maybeOnboardSkill(command, services)
+	if installed || !strings.Contains(stderr.String(), "could not inspect Codex skill locations") {
+		t.Fatalf("installed=%v stderr=%q", installed, stderr.String())
+	}
+}
+
+func TestMaybeOnboardSkillGetwdFailureIsSilent(t *testing.T) {
+	command, _, stderr := onboardingTestCommand("y\n")
+	services := onboardingTestServices(skills.OnboardingDecision{})
+	services.getwd = func() (string, error) { return "", errors.New("cwd unavailable") }
+	maybeOnboardSkill(command, services)
+	if stderr.Len() != 0 { t.Fatalf("stderr=%q", stderr.String()) }
+}
+
+func TestMaybeOnboardSkillReadFailureChangesNothing(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingPromptGlobal, Target: "/global/agent-telegram"}
+	command, _, stderr := onboardingTestCommand("")
+	command.SetIn(failingReader{})
+	services := onboardingTestServices(decision)
+	installed := false
+	recorded := false
+	services.install = func(string, string, bool) (string, error) { installed = true; return "", nil }
+	services.recordDismissal = func(string) error { recorded = true; return nil }
+	maybeOnboardSkill(command, services)
+	if installed || recorded || !strings.Contains(stderr.String(), "could not read skill prompt response") {
+		t.Fatalf("installed=%v recorded=%v stderr=%q", installed, recorded, stderr.String())
+	}
+}
+
+func TestMaybeOnboardSkillGlobalFailuresAreNonFatal(t *testing.T) {
+	decision := skills.OnboardingDecision{Action: skills.OnboardingPromptGlobal, InstallDir: "/global", Target: "/global/agent-telegram"}
+	tests := []struct {
+		name string
+		answer string
+		mutate func(*onboardingServices)
+		want string
+	}{
+		{"preference-read", "y\n", func(s *onboardingServices) {
+			s.dismissed = func(string) (bool, error) { return false, errors.New("read-only") }
+		}, "could not read global skill preference"},
+		{"install", "y\n", func(s *onboardingServices) {
+			s.install = func(string, string, bool) (string, error) { return "", errors.New("read-only") }
+		}, "agent-telegram skills install agent-telegram"},
+		{"dismissal-write", "n\n", func(s *onboardingServices) {
+			s.recordDismissal = func(string) error { return errors.New("read-only") }
+		}, "could not save global skill preference"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			command, _, stderr := onboardingTestCommand(test.answer)
+			services := onboardingTestServices(decision)
+			test.mutate(&services)
+			maybeOnboardSkill(command, services)
+			if !strings.Contains(stderr.String(), test.want) { t.Fatalf("stderr=%q", stderr.String()) }
+		})
+	}
+}
+
+func TestNonInteractiveRootOutputRemainsExact(t *testing.T) {
+	command, stdout, stderr := onboardingTestCommand("")
+	services := onboardingTestServices(skills.OnboardingDecision{})
+	services.isTerminal = func(any) bool { return false }
+	if err := runRootWithServices(command, nil, services); err != nil { t.Fatal(err) }
+	if stdout.String() != rootWelcome || stderr.Len() != 0 { t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String()) }
+}
+
+func TestSubcommandDoesNotRunRootOnboarding(t *testing.T) {
+	called := false
+	services := onboardingTestServices(skills.OnboardingDecision{})
+	services.getwd = func() (string, error) { called = true; return "/repo", nil }
 	root := &cobra.Command{
 		Use: "agent-telegram",
 		RunE: func(command *cobra.Command, args []string) error {
@@ -579,196 +913,226 @@ func TestSubcommandDoesNotRunRootOnboarding(t *testing.T) {
 	root.SetArgs([]string{"status"})
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	if called {
-		t.Fatal("subcommand ran root onboarding")
-	}
+	if err := root.Execute(); err != nil { t.Fatal(err) }
+	if called { t.Fatal("subcommand ran root onboarding") }
 }
 ```
 
-- [ ] **Step 4: Implement the prompt**
+- [ ] **Step 4: Implement root onboarding orchestration**
 
 Add `bufio`, `io`, `strings`, and `agent-telegram/internal/skills` imports to `cmd/root.go`, then add:
 
 ```go
 const bundledSkillName = "agent-telegram"
 
-type skillPromptServices struct {
-	isTerminal  func(any) bool
-	target      func(string) (string, error)
-	shouldOffer func(string) (bool, error)
-	install     func(string, string, bool) (string, error)
-	dismiss     func(string) error
-	ci          string
+type onboardingServices struct {
+	isTerminal func(any) bool
+	getwd func() (string, error)
+	resolve func(string, string) (skills.OnboardingDecision, error)
+	install func(string, string, bool) (string, error)
+	dismissed func(string) (bool, error)
+	recordDismissal func(string) error
+	ci string
 }
 
-func defaultSkillPromptServices() skillPromptServices {
-	return skillPromptServices{
-		isTerminal: isTerminal, target: skills.DefaultTarget,
-		shouldOffer: skills.ShouldOffer, install: skills.Install,
-		dismiss: skills.RecordDismissal, ci: os.Getenv("CI"),
+func defaultOnboardingServices() onboardingServices {
+	return onboardingServices{
+		isTerminal: isTerminal, getwd: os.Getwd, resolve: skills.ResolveOnboarding,
+		install: skills.Install, dismissed: skills.GlobalPromptDismissed,
+		recordDismissal: skills.RecordGlobalPromptDismissal, ci: os.Getenv("CI"),
 	}
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
-	return runRootWithServices(cmd, args, defaultSkillPromptServices())
+	return runRootWithServices(cmd, args, defaultOnboardingServices())
 }
 
-func runRootWithServices(cmd *cobra.Command, _ []string, services skillPromptServices) error {
-	if _, err := fmt.Fprint(cmd.OutOrStdout(), rootWelcome); err != nil {
-		return err
-	}
-	maybeOfferSkill(cmd, services)
+func runRootWithServices(cmd *cobra.Command, _ []string, services onboardingServices) error {
+	if _, err := fmt.Fprint(cmd.OutOrStdout(), rootWelcome); err != nil { return err }
+	maybeOnboardSkill(cmd, services)
 	return nil
 }
 
-func maybeOfferSkill(cmd *cobra.Command, services skillPromptServices) {
-	if services.ci != "" || cmd.Flags().NFlag() != 0 ||
-		!services.isTerminal(cmd.InOrStdin()) || !services.isTerminal(cmd.OutOrStdout()) {
-		return
-	}
-	target, err := services.target(bundledSkillName)
+func maybeOnboardSkill(cmd *cobra.Command, services onboardingServices) {
+	if services.ci != "" || cmd.Flags().NFlag() != 0 || !services.isTerminal(cmd.InOrStdin()) || !services.isTerminal(cmd.OutOrStdout()) { return }
+	cwd, err := services.getwd()
+	if err != nil { return }
+	decision, err := services.resolve(bundledSkillName, cwd)
 	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not inspect Codex skill locations: %v\n", err)
 		return
 	}
-	offer, err := services.shouldOffer(target)
+	switch decision.Action {
+	case skills.OnboardingNone:
+		return
+	case skills.OnboardingInstallProject:
+		installed, err := services.install(bundledSkillName, decision.InstallDir, false)
+		if err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not install project Codex skill: %v\n", err)
+			return
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "Installed project Codex skill at %s\n", installed)
+	case skills.OnboardingPromptGlobal:
+		promptGlobalSkill(cmd, services, decision)
+	}
+}
+
+func promptGlobalSkill(cmd *cobra.Command, services onboardingServices, decision skills.OnboardingDecision) {
+	dismissed, err := services.dismissed(decision.Target)
 	if err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not inspect Codex skill onboarding: %v\n", err)
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not read global skill preference: %v\n", err)
 		return
 	}
-	if !offer {
-		return
-	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "\nInstall the Agent Telegram skill for Codex?\nTarget: %s\nThis adds CLI usage instructions for Codex. [y/N] ", target)
+	if dismissed { return }
+	fmt.Fprintf(cmd.ErrOrStderr(), "\nInstall the Agent Telegram skill globally for Codex?\nTarget: %s\nThis makes the skill available across projects. [y/N] ", decision.Target)
 	answer, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 	if err != nil {
-		if err != io.EOF {
-			fmt.Fprintf(cmd.ErrOrStderr(), "\nWarning: could not read skill prompt response: %v\n", err)
-		}
+		if err != io.EOF { fmt.Fprintf(cmd.ErrOrStderr(), "\nWarning: could not read skill prompt response: %v\n", err) }
 		return
 	}
 	switch strings.ToLower(strings.TrimSpace(answer)) {
 	case "y", "yes":
-		installedPath, err := services.install(bundledSkillName, "", false)
+		installed, err := services.install(bundledSkillName, decision.InstallDir, false)
 		if err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not install Codex skill: %v\nInstall it later with: agent-telegram skills install agent-telegram\n", err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not install global Codex skill: %v\nInstall it later with: agent-telegram skills install agent-telegram\n", err)
 			return
 		}
-		fmt.Fprintf(cmd.ErrOrStderr(), "Skill installed at %s\n", installedPath)
+		fmt.Fprintf(cmd.ErrOrStderr(), "Installed global Codex skill at %s\n", installed)
 	default:
-		if err := services.dismiss(target); err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not save skill prompt preference: %v\n", err)
-		}
+		if err := services.recordDismissal(decision.Target); err != nil { fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not save global skill preference: %v\n", err) }
 	}
 }
 
 func isTerminal(value any) bool {
 	file, ok := value.(*os.File)
-	if !ok {
-		return false
-	}
+	if !ok { return false }
 	info, err := file.Stat()
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 ```
 
-Keep the root welcome, `Execute`, flags, and command registration unchanged.
-
 - [ ] **Step 5: Format, test, and commit**
 
 ```bash
 gofmt -w cmd/root.go cmd/root_test.go
-go test ./cmd -run 'TestRoot|TestMaybeOfferSkill|TestNonInteractiveRootOutput' -count=1
+go test ./cmd -run 'TestRoot|TestMaybeOnboardSkill|TestProjectInstallFailure|TestNonInteractiveRoot' -count=1
 go test ./cmd ./internal/skills -count=1
 git add cmd/root.go cmd/root_test.go
-git commit -m "Offer Codex skill on first interactive run"
+git commit -m "Add project-aware Codex skill onboarding"
 ```
 
-Expected: both packages report `ok`; tests confirm `install(..., force=false)` and unchanged non-interactive output. Cobra merges parsed root persistent flags into `cmd.Flags()` before `RunE`, so `NFlag()` covers the production global-flag path.
+Expected: project installation never reads stdin, global installation requires consent, and root output compatibility is preserved.
 
-### Task 3: User and agent documentation
+### Task 4: Canonical path and onboarding documentation
 
 **Files:**
-- Modify: `README.md`
+- Modify: `cmd/sys/skills.go`
 - Modify: `internal/docs/docs.go`
 - Modify: `internal/docs/docs_test.go`
+- Modify: `README.md`
+- Modify: `DEVELOPMENT.md`
 
 **Interfaces:**
-- Consumes: `docs.GenerateLLMMarkdown(rootCmd) string`.
-- Produces: Quick Start copy and generated guidance explaining interactive and explicit installation.
+- Consumes: `skills.DefaultInstallDir()` and `docs.GenerateLLMMarkdown`.
+- Produces: help and generated guidance matching `.agents/skills` behavior.
 
 - [ ] **Step 1: Add a failing generated-guidance test**
 
 Append to `internal/docs/docs_test.go`:
 
 ```go
-func TestGenerateLLMMarkdownMentionsSkillOnboarding(t *testing.T) {
+func TestGenerateLLMMarkdownMentionsProjectAwareSkillOnboarding(t *testing.T) {
 	root := &cobra.Command{Use: "agent-telegram"}
 	body := GenerateLLMMarkdown(root)
-	for _, want := range []string{
-		"interactive no-argument run may offer",
-		"agent-telegram skills install agent-telegram",
-	} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("generated docs missing %q:\n%s", want, body)
-		}
+	for _, want := range []string{"existing project `.agents/skills`", "global `$HOME/.agents/skills` installation requires consent", "agent-telegram skills install agent-telegram"} {
+		if !strings.Contains(body, want) { t.Fatalf("generated docs missing %q:\n%s", want, body) }
 	}
 }
 ```
 
-- [ ] **Step 2: Verify the new phrase is absent**
+- [ ] **Step 2: Verify the docs test fails**
 
 ```bash
-go test ./internal/docs -run TestGenerateLLMMarkdownMentionsSkillOnboarding -count=1
+go test ./internal/docs -run TestGenerateLLMMarkdownMentionsProjectAwareSkillOnboarding -count=1
 ```
 
-Expected: failure containing `generated docs missing "interactive no-argument run may offer"`.
+Expected: failure for the new project-aware phrase.
 
-- [ ] **Step 3: Update generated guidance and README**
+- [ ] **Step 3: Update help and generated guidance**
 
-Replace the current skill bullet in `internal/docs/docs.go` with:
+Use this `Long` text in `cmd/sys/skills.go`:
 
 ```go
-b.WriteString("- An interactive no-argument run may offer to install the bundled Codex skill; for automation or manual setup, use `agent-telegram skills install agent-telegram`.\n")
+Long: `List and install agent skills bundled with agent-telegram.
+
+Skills help AI agents discover best practices for using the CLI. The explicit
+install command defaults to $HOME/.agents/skills; use --target to override it.`,
 ```
 
-After the Quick Start code block in `README.md`, add:
+Change the `--target` help:
+
+```go
+SkillsInstallCmd.Flags().StringVar(&skillInstallTarget, "target", "", "Skill install directory (default: $HOME/.agents/skills)")
+```
+
+Replace the generated skill guidance in `internal/docs/docs.go`:
+
+```go
+b.WriteString("- An interactive no-argument run auto-installs into an existing project `.agents/skills`; global `$HOME/.agents/skills` installation requires consent. For manual setup, use `agent-telegram skills install agent-telegram`.\n")
+```
+
+- [ ] **Step 4: Update README and DEVELOPMENT**
+
+After README Quick Start, add:
 
 ````markdown
-On the first interactive run with no arguments, `agent-telegram` may offer to
-install its bundled Codex skill. The default answer is no, existing skill files
-are never overwritten, and automated or manual setups can install it explicitly:
+On an interactive run with no arguments, `agent-telegram` automatically adds
+its bundled skill to the nearest existing project `.agents/skills`. It never
+creates a project skill directory. If no project skill directory exists, it
+asks before installing globally to `$HOME/.agents/skills`.
+
+Manual installation remains available:
 
 ```bash
 agent-telegram skills install agent-telegram
 ```
 ````
 
-- [ ] **Step 4: Format, verify, and commit documentation**
+Replace the legacy skill-location paragraph in `DEVELOPMENT.md` with:
 
-```bash
-gofmt -w internal/docs/docs.go internal/docs/docs_test.go
-go test ./internal/docs -count=1
-go run . docs check --target README.md
-git add README.md internal/docs/docs.go internal/docs/docs_test.go
-git commit -m "Document Codex skill onboarding"
+```markdown
+Bundled Codex skills live under `internal/skills/bundled` and are exposed via
+`agent-telegram skills list`, `agent-telegram skills install`, CLI/HTTP
+manifests, and generated docs. The explicit installer defaults to the canonical
+user directory `$HOME/.agents/skills`; `--target` supports custom and legacy
+locations. Interactive onboarding auto-installs only into an existing project
+`.agents/skills` and requires consent for global installation.
 ```
 
-Expected: docs tests pass, docs check prints JSON with `"ok": true`, and commit succeeds.
+- [ ] **Step 5: Format, verify, and commit documentation**
 
-### Task 4: Full verification and required release cycle
+```bash
+gofmt -w cmd/sys/skills.go internal/docs/docs.go internal/docs/docs_test.go
+go test ./internal/docs ./cmd/sys -count=1
+go run . docs check --target README.md
+git diff --check
+git add cmd/sys/skills.go internal/docs/docs.go internal/docs/docs_test.go README.md DEVELOPMENT.md
+git commit -m "Document project-aware skill onboarding"
+```
+
+Expected: docs tests and generated-doc check pass; commit succeeds.
+
+### Task 5: Full verification and required release cycle
 
 **Files:**
-- Verify all Task 1-3 changes.
-- Preserve the pre-existing unstaged edit in the design spec unless the user separately authorizes changing it.
+- Verify all files changed by Tasks 1-4.
+- Do not modify unrelated working-tree files.
 
 **Interfaces:**
-- Consumes: the complete implementation and the repository release workflow in `CLAUDE.md`.
-- Produces: a built, tested, pushed, released, and locally installed patch version.
+- Consumes: completed onboarding behavior and the release workflow in `CLAUDE.md`.
+- Produces: tested, pushed, released, and locally installed patch version.
 
-- [ ] **Step 1: Run the complete local verification suite**
+- [ ] **Step 1: Run complete verification**
 
 ```bash
 go test ./... -count=1
@@ -777,17 +1141,17 @@ go vet ./...
 go run . docs check --target README.md
 ```
 
-Expected: all packages pass, build and vet exit zero, and docs check reports `"ok": true`.
+Expected: all packages pass; build and vet exit zero; docs check returns `"ok": true`.
 
-- [ ] **Step 2: Inspect the final diff and state**
+- [ ] **Step 2: Inspect final scope**
 
 ```bash
 git diff --check
 git status --short
-git log -5 --oneline
+git log -8 --oneline
 ```
 
-Expected: no whitespace errors; only explicitly preserved pre-existing user changes may remain unstaged; implementation commits are at the tip of `main`.
+Expected: no whitespace errors, no uncommitted implementation files, and focused Task 1-4 commits at the tip of `main`.
 
 - [ ] **Step 3: Push and create the patch release**
 
@@ -796,29 +1160,30 @@ git push origin main
 make release
 ```
 
-Expected: `main` and the next `vX.Y.Z` patch tag are pushed successfully.
+Expected: `main` and the next `vX.Y.Z` patch tag are pushed.
 
-- [ ] **Step 4: Wait for the release workflow**
+- [ ] **Step 4: Watch the release workflow**
 
 ```bash
-gh run list --limit 1 --json databaseId,headBranch,displayTitle,status,conclusion
+gh run list --limit 1 --json databaseId,displayTitle,status,conclusion,url
 RUN_ID=$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
 gh run watch "$RUN_ID" --exit-status
 ```
 
-Expected: the newest release workflow completes with conclusion `success`.
+Expected: newest release workflow finishes with `success`.
 
-- [ ] **Step 5: Install and smoke-test the npm release**
+- [ ] **Step 5: Install and smoke-test the release**
 
 ```bash
 VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
 npm install -g "agent-telegram@$VERSION"
 CI=1 agent-telegram
+agent-telegram skills path
 agent-telegram skills list
 ```
 
-Expected: npm installs the new version; `CI=1 agent-telegram` prints the welcome without prompting; `skills list` includes `agent-telegram` and its explicit install command.
+Expected: npm installs the release; CI invocation never prompts; `skills path` reports `$HOME/.agents/skills`; bundled skill remains listed.
 
-- [ ] **Step 6: Report exact release evidence**
+- [ ] **Step 6: Report release evidence**
 
-Include the released version, verification commands, workflow URL, and preserved unrelated working-tree changes in the final handoff. Do not claim the interactive path was manually exercised unless it was run in a real TTY with temporary `HOME` and `CODEX_HOME`.
+Include the version, verification commands, GitHub Actions URL, npm result, and preserved unrelated worktree state. Do not claim a real-TTY project auto-install unless it was exercised with temporary HOME and repository directories.
