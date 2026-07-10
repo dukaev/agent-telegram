@@ -37,6 +37,17 @@ agent-telegram send @username "Hello from agent-telegram"
 agent-telegram stop
 ```
 
+On an interactive run with no arguments, `agent-telegram` automatically adds
+its bundled skill to the nearest existing project `.agents/skills`. It never
+creates a project skill directory. If no project skill directory exists, it
+asks before installing globally to `$HOME/.agents/skills`.
+
+Manual installation remains available:
+
+```bash
+agent-telegram skills install agent-telegram
+```
+
 Default Telegram API credentials are built in. To use your own, create an app at [my.telegram.org](https://my.telegram.org) and set `TELEGRAM_APP_ID` and `TELEGRAM_APP_HASH`.
 
 QR is the only supported sign-in method. A new login is saved to the selected

@@ -169,7 +169,10 @@ agent-telegram docs check --target README.md
 
 Bundled Codex skills live under `internal/skills/bundled` and are exposed via
 `agent-telegram skills list`, `agent-telegram skills install`, CLI/HTTP
-manifests, and generated docs.
+manifests, and generated docs. The explicit installer defaults to the canonical
+user directory `$HOME/.agents/skills`; `--target` supports custom and legacy
+locations. Interactive onboarding auto-installs only into an existing project
+`.agents/skills` and requires consent for global installation.
 
 ### 1. IPC Layer (`internal/ipc/`)
 

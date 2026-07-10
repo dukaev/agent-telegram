@@ -18,8 +18,8 @@ var SkillsCmd = &cobra.Command{
 	Short: "List and install bundled agent skills",
 	Long: `List and install agent skills bundled with agent-telegram.
 
-Skills help AI agents discover best practices for using the CLI. Install them
-into CODEX_HOME/skills or ~/.codex/skills so Codex can load them directly.`,
+Skills help AI agents discover best practices for using the CLI. The explicit
+install command defaults to $HOME/.agents/skills; use --target to override it.`,
 }
 
 // SkillsListCmd lists bundled skills.
@@ -76,6 +76,6 @@ var SkillsInstallCmd = &cobra.Command{
 func AddSkillsCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(SkillsCmd)
 	SkillsCmd.AddCommand(SkillsListCmd, SkillsPathCmd, SkillsInstallCmd)
-	SkillsInstallCmd.Flags().StringVar(&skillInstallTarget, "target", "", "Skill install directory (default: CODEX_HOME/skills or ~/.codex/skills)")
+	SkillsInstallCmd.Flags().StringVar(&skillInstallTarget, "target", "", "Skill install directory (default: $HOME/.agents/skills)")
 	SkillsInstallCmd.Flags().BoolVar(&skillInstallForce, "force", false, "Overwrite an existing installed skill")
 }

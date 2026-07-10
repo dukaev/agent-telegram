@@ -64,3 +64,17 @@ func TestUpdateReadmeRequiresMarkers(t *testing.T) {
 		t.Fatal("UpdateReadme should fail when generated markers are missing")
 	}
 }
+
+func TestGenerateLLMMarkdownMentionsProjectAwareSkillOnboarding(t *testing.T) {
+	root := &cobra.Command{Use: "agent-telegram"}
+	body := GenerateLLMMarkdown(root)
+	for _, want := range []string{
+		"existing project `.agents/skills`",
+		"global `$HOME/.agents/skills` installation requires consent",
+		"agent-telegram skills install agent-telegram",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("generated docs missing %q:\n%s", want, body)
+		}
+	}
+}

@@ -93,7 +93,7 @@ func writeLLMDocumentation(b *strings.Builder, rootCmd *cobra.Command) {
 	b.WriteString("- Auth secrets should stay in the local browser flow or environment variables, never in command arguments.\n")
 	b.WriteString("- Use `agent-telegram <command> --schema` to inspect input/output schemas, safety, idempotency, and retry hints.\n")
 	b.WriteString("- Use `agent-telegram manifest` to inspect the full machine-readable tool catalog without starting HTTP.\n")
-	b.WriteString("- Use `agent-telegram skills list` to discover bundled installable skills, and `agent-telegram skills install agent-telegram` to install the Codex skill for this CLI.\n")
+	b.WriteString("- An interactive no-argument run auto-installs into an existing project `.agents/skills`; global `$HOME/.agents/skills` installation requires consent. For manual setup, use `agent-telegram skills install agent-telegram`.\n")
 	b.WriteString("- Use `agent-telegram serve-api --secret <token>` then `GET /manifest` for a machine-readable tool manifest.\n")
 	b.WriteString("- Use `GET /openapi.json` for an OpenAPI 3.1 document.\n")
 	b.WriteString("- Use `POST /rpc/{method}?dryRun=true` or body `{ \"dryRun\": true, \"params\": {...} }` to validate without executing.\n")
