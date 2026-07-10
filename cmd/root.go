@@ -2,13 +2,17 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/cliutil"
 	"agent-telegram/internal/paths"
+	"agent-telegram/internal/skills"
 )
 
 var (
@@ -54,9 +58,122 @@ After sign-in
 Run agent-telegram --help to see every command.
 `
 
-func runRoot(cmd *cobra.Command, _ []string) error {
-	_, err := fmt.Fprint(cmd.OutOrStdout(), rootWelcome)
-	return err
+const bundledSkillName = "agent-telegram"
+
+type onboardingServices struct {
+	isTerminal      func(any) bool
+	getwd           func() (string, error)
+	resolve         func(string, string) (skills.OnboardingDecision, error)
+	install         func(string, string, bool) (string, error)
+	dismissed       func(string) (bool, error)
+	recordDismissal func(string) error
+	ci              string
+}
+
+func defaultOnboardingServices() onboardingServices {
+	return onboardingServices{
+		isTerminal:      isTerminal,
+		getwd:           os.Getwd,
+		resolve:         skills.ResolveOnboarding,
+		install:         skills.Install,
+		dismissed:       skills.GlobalPromptDismissed,
+		recordDismissal: skills.RecordGlobalPromptDismissal,
+		ci:              os.Getenv("CI"),
+	}
+}
+
+func runRoot(cmd *cobra.Command, args []string) error {
+	return runRootWithServices(cmd, args, defaultOnboardingServices())
+}
+
+func runRootWithServices(cmd *cobra.Command, _ []string, services onboardingServices) error {
+	if _, err := fmt.Fprint(cmd.OutOrStdout(), rootWelcome); err != nil {
+		return err
+	}
+	maybeOnboardSkill(cmd, services)
+	return nil
+}
+
+func maybeOnboardSkill(cmd *cobra.Command, services onboardingServices) {
+	if services.ci != "" || cmd.Flags().NFlag() != 0 ||
+		!services.isTerminal(cmd.InOrStdin()) || !services.isTerminal(cmd.OutOrStdout()) {
+		return
+	}
+	cwd, err := services.getwd()
+	if err != nil {
+		return
+	}
+	decision, err := services.resolve(bundledSkillName, cwd)
+	if err != nil {
+		writeOnboardingMessage(cmd, "Warning: could not inspect Codex skill locations: %v\n", err)
+		return
+	}
+	switch decision.Action {
+	case skills.OnboardingNone:
+		return
+	case skills.OnboardingInstallProject:
+		installed, err := services.install(bundledSkillName, decision.InstallDir, false)
+		if err != nil {
+			writeOnboardingMessage(cmd, "Warning: could not install project Codex skill: %v\n", err)
+			return
+		}
+		writeOnboardingMessage(cmd, "Installed project Codex skill at %s\n", installed)
+	case skills.OnboardingPromptGlobal:
+		promptGlobalSkill(cmd, services, decision)
+	}
+}
+
+func promptGlobalSkill(cmd *cobra.Command, services onboardingServices, decision skills.OnboardingDecision) {
+	dismissed, err := services.dismissed(decision.Target)
+	if err != nil {
+		writeOnboardingMessage(cmd, "Warning: could not read global skill preference: %v\n", err)
+		return
+	}
+	if dismissed {
+		return
+	}
+	writeOnboardingMessage(
+		cmd,
+		"\nInstall the Agent Telegram skill globally for Codex?\nTarget: %s\nThis makes the skill available across projects. [y/N] ",
+		decision.Target,
+	)
+	answer, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+	if err != nil {
+		if err != io.EOF {
+			writeOnboardingMessage(cmd, "\nWarning: could not read skill prompt response: %v\n", err)
+		}
+		return
+	}
+	switch strings.ToLower(strings.TrimSpace(answer)) {
+	case "y", "yes":
+		installed, err := services.install(bundledSkillName, decision.InstallDir, false)
+		if err != nil {
+			writeOnboardingMessage(
+				cmd,
+				"Warning: could not install global Codex skill: %v\nInstall it later with: agent-telegram skills install agent-telegram\n",
+				err,
+			)
+			return
+		}
+		writeOnboardingMessage(cmd, "Installed global Codex skill at %s\n", installed)
+	default:
+		if err := services.recordDismissal(decision.Target); err != nil {
+			writeOnboardingMessage(cmd, "Warning: could not save global skill preference: %v\n", err)
+		}
+	}
+}
+
+func isTerminal(value any) bool {
+	file, ok := value.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
+func writeOnboardingMessage(cmd *cobra.Command, format string, args ...any) {
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), format, args...)
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
