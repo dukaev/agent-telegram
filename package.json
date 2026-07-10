@@ -8,7 +8,11 @@
   "scripts": {
     "build:web:auth": "vite build --config vite.auth.config.ts",
     "typecheck:web:auth": "tsc -p web/auth/tsconfig.json --noEmit",
-    "check:web:auth": "npm run typecheck:web:auth && npm run build:web:auth"
+    "check:web:auth": "npm run typecheck:web:auth && npm run build:web:auth",
+    "site:dev": "npm --prefix site run dev",
+    "site:build": "npm --prefix site run build",
+    "site:test": "npm --prefix site run test",
+    "site:deploy": "npm --prefix site run deploy:cloudflare"
   },
   "files": [
     "bin/",

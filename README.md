@@ -164,6 +164,22 @@ go run . docs generate
 npm run check:web:auth
 ```
 
+### Landing site
+
+The public landing page is a self-contained application in `site/`.
+
+```bash
+npm --prefix site install
+npm run site:dev
+npm run site:test
+npm run site:build
+```
+
+Deploy it from the repository root with `npm run site:deploy`. For Cloudflare
+Git integration, set the project root directory to `site`; the Wrangler
+configuration in that directory remains the deployment source of truth for
+`agent-telegram.com`.
+
 See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture notes and command patterns.
 
 ## License
