@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -27,95 +26,6 @@ import (
 const testAllowUserPolicyBody = `{"policy":{"version":1,` +
 	`"safeties":{"read":true,"write":true},` +
 	`"peerTypes":{"users":true},"allowPeers":["user:1"]}}`
-
-func TestWebAuthVerifyCompletesLogin(t *testing.T) {
-	tmp := t.TempDir()
-	resetAuthGlobals(t, tmp)
-	state := createTestState(t)
-	backend := &fakeAuthBackend{
-		sessionData: []byte("web-session"),
-		signResult:  &types.SignInResult{Success: true},
-	}
-	session := newTestWebAuthSession(state, backend)
-
-	req := httptest.NewRequest(http.MethodPost, "/auth/verify?t=test-token", strings.NewReader("code=12345"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-	session.handleVerify(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-	if backend.signedCode != "12345" {
-		t.Fatalf("signed code = %q, want 12345", backend.signedCode)
-	}
-	result := <-session.done
-	if result.err != nil {
-		t.Fatal(result.err)
-	}
-	if result.body["ok"] != true || result.body["next"] != "done" {
-		t.Fatalf("unexpected result body: %+v", result.body)
-	}
-	if _, err := authflow.NewStateStore(authStateDir).Load(state.ID); err == nil {
-		t.Fatal("state should be removed after successful web login")
-	}
-	if result.body["sessionStorage"] != "memory" {
-		t.Fatalf("session storage = %v", result.body["sessionStorage"])
-	}
-}
-
-func TestWebAuthVerifyThenPasswordCompletes2FA(t *testing.T) {
-	tmp := t.TempDir()
-	resetAuthGlobals(t, tmp)
-	state := createTestState(t)
-	backend := &fakeAuthBackend{
-		sessionData: []byte("web-2fa-session"),
-		signResult:  &types.SignInResult{Requires2FA: true, TwoFactorHint: "pet"},
-		passResult:  &types.SignInResult{Success: true},
-	}
-	session := newTestWebAuthSession(state, backend)
-
-	req := httptest.NewRequest(http.MethodPost, "/auth/verify?t=test-token", strings.NewReader("code=12345"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec := httptest.NewRecorder()
-	session.handleVerify(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-	authState := decodeAuthState(t, rec)
-	if authState.Mode != "password" || authState.Title != "Enter your password" {
-		t.Fatalf("verify should return password state, got: %+v", authState)
-	}
-	select {
-	case result := <-session.done:
-		t.Fatalf("2FA prompt should not finish login yet: %+v", result)
-	default:
-	}
-	loaded, err := authflow.NewStateStore(authStateDir).Load(state.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !loaded.Requires2FA || loaded.TwoFactorHint != "pet" {
-		t.Fatalf("state should persist 2FA info: %+v", loaded)
-	}
-
-	req = httptest.NewRequest(http.MethodPost, "/auth/password?t=test-token", strings.NewReader("password=secret"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	rec = httptest.NewRecorder()
-	session.handlePassword(rec, req)
-
-	if backend.password != "secret" {
-		t.Fatalf("password = %q, want secret", backend.password)
-	}
-	result := <-session.done
-	if result.err != nil {
-		t.Fatal(result.err)
-	}
-	if result.body["ok"] != true || result.body["next"] != "done" {
-		t.Fatalf("unexpected result body: %+v", result.body)
-	}
-}
 
 func TestWebAuthRejectsBadToken(t *testing.T) {
 	tmp := t.TempDir()
@@ -170,15 +80,11 @@ func TestWebAuthPolicyFormSavesPolicy(t *testing.T) {
 	}
 }
 
-func TestWebAuthServerEndToEnd(t *testing.T) {
+func TestWebAuthServerDoesNotExposeNonQRLoginRoutes(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
-	backend := &fakeAuthBackend{
-		sessionData: []byte("web-end-session"),
-		signResult:  &types.SignInResult{Success: true},
-	}
-	session := newTestWebAuthSession(state, backend)
+	session := newTestWebAuthSession(state, &fakeAuthBackend{})
 
 	server, link, err := startWebAuthServer(context.Background(), session, 0)
 	if err != nil {
@@ -186,32 +92,25 @@ func TestWebAuthServerEndToEnd(t *testing.T) {
 	}
 	defer shutdownWebAuthServer(server)
 
-	form := url.Values{"code": {"12345"}}
-	req, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodPost,
-		strings.Replace(link, "/auth?", "/auth/verify?", 1),
-		strings.NewReader(form.Encode()),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want 200", resp.StatusCode)
-	}
-
-	result := <-session.done
-	if result.err != nil {
-		t.Fatal(result.err)
-	}
-	if result.body["ok"] != true || result.body["next"] != "done" {
-		t.Fatalf("unexpected result: %+v", result.body)
+	for _, path := range []string{"/auth/mode", "/auth/session", "/auth/verify", "/auth/password"} {
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodPost,
+			strings.Replace(link, "/auth?", path+"?", 1),
+			strings.NewReader(`{}`),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Fatalf("%s status = %d, want 405", path, resp.StatusCode)
+		}
 	}
 }
 
@@ -238,8 +137,8 @@ func TestWebAuthStateReturnsPolicy(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 	authState := decodeAuthState(t, rec)
-	if authState.Mode != "code" {
-		t.Fatalf("mode = %q, want code", authState.Mode)
+	if authState.Mode != "qr" {
+		t.Fatalf("mode = %q, want qr", authState.Mode)
 	}
 	if !authState.Policy.Safeties.Read || !authState.Policy.PeerTypes.Bots {
 		t.Fatalf("unexpected policy in state: %+v", authState.Policy)
@@ -254,7 +153,6 @@ func TestWebAuthStateContractForQR(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
-	session.qrMode = true
 	session.qrImage = "data:image/png;base64,AA=="
 	session.qrTokenURL = "tg://login?token=a"
 	session.qrExpires = time.Now().Add(time.Minute)
@@ -286,7 +184,6 @@ func TestWebAuthStateContractForSetup(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
-	session.qrMode = true
 	session.completed = true
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/state?t=test-token", nil)
@@ -337,7 +234,6 @@ func TestWebAuthQRCompletionWaitsForFilterSetup(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{sessionData: []byte("qr-session")})
-	session.qrMode = true
 	session.peerLoader = func(context.Context, *authflow.State, []byte) ([]authPeer, error) {
 		return []authPeer{{Peer: "user:1", Title: "Ada", Type: "user"}}, nil
 	}
@@ -399,7 +295,6 @@ func TestWebAuthQRCompletionFinishesAfterFilterSetup(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{sessionData: []byte("qr-session")})
-	session.qrMode = true
 	session.peerLoader = func(context.Context, *authflow.State, []byte) ([]authPeer, error) {
 		return []authPeer{{Peer: "user:1", Title: "Ada", Type: "user"}}, nil
 	}
@@ -445,7 +340,6 @@ func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	state := createTestState(t)
 	session := newTestWebAuthSession(state, &fakeAuthBackend{})
-	session.qrMode = true
 
 	var gotAppID int
 	var gotAppHash string
@@ -485,7 +379,7 @@ func TestWebAuthAPISettingsUpdatesState(t *testing.T) {
 	}
 }
 
-func TestWebAuthOffersAndLoadsSavedSession(t *testing.T) {
+func TestWebAuthDoesNotOfferSavedSessionAsLogin(t *testing.T) {
 	tmp := t.TempDir()
 	resetAuthGlobals(t, tmp)
 	const profile = "saved-web"
@@ -503,95 +397,11 @@ func TestWebAuthOffersAndLoadsSavedSession(t *testing.T) {
 	}, "test-token")
 
 	initial := session.clientState("")
-	if initial.Session == nil || !initial.Session.Available || !initial.Session.SaveByDefault {
+	if initial.Session == nil || initial.Session.Available || !initial.Session.SaveByDefault {
 		t.Fatalf("saved session metadata = %+v", initial.Session)
 	}
 	if initial.Session.Provider != "auth-test-persistent" || initial.Session.Profile != profile {
 		t.Fatalf("saved session selection = %+v", initial.Session)
-	}
-
-	var loaded []byte
-	session.peerLoader = func(_ context.Context, _ *authflow.State, data []byte) ([]authPeer, error) {
-		loaded = append([]byte(nil), data...)
-		return []authPeer{{Peer: "user:1", Title: "Ada", Type: "user", ID: 1}}, nil
-	}
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/auth/session?t=test-token",
-		strings.NewReader(`{"action":"use_saved"}`),
-	)
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	session.handleSavedSession(rec, req)
-
-	authState := decodeAuthState(t, rec)
-	if rec.Code != http.StatusOK || authState.Mode != "setup" || !authState.Completed {
-		t.Fatalf("saved session state = %+v, status %d", authState, rec.Code)
-	}
-	if string(loaded) != "saved-keychain-session" {
-		t.Fatalf("loaded session = %q", loaded)
-	}
-	stored, err := state.SessionData()
-	if err != nil || string(stored) != "saved-keychain-session" {
-		t.Fatalf("state session = %q, %v", stored, err)
-	}
-	if len(session.peers) != 1 || !session.peersLoaded {
-		t.Fatalf("saved session peers = %+v, loaded %v", session.peers, session.peersLoaded)
-	}
-}
-
-func TestWebAuthRejectsInvalidSavedSessionAndReturnsToSignIn(t *testing.T) {
-	tmp := t.TempDir()
-	resetAuthGlobals(t, tmp)
-	const profile = "expired-web"
-	t.Setenv(sessionstore.EnvProvider, "auth-test-persistent")
-	t.Setenv(sessionstore.EnvProfile, profile)
-	authTestPersistentStore.data[profile] = []byte("expired-session")
-	t.Cleanup(func() { delete(authTestPersistentStore.data, profile) })
-
-	state := createTestState(t)
-	session := newWebAuthSession(&cobra.Command{}, authRuntimeFromGlobals(), webAuthStart{
-		backend: &fakeAuthBackend{},
-		store:   authflow.NewStateStore(authStateDir),
-		state:   state,
-	}, "test-token")
-	session.peerLoader = func(context.Context, *authflow.State, []byte) ([]authPeer, error) {
-		return nil, errors.New("telegram authorization expired")
-	}
-
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/auth/session?t=test-token",
-		strings.NewReader(`{"action":"use_saved"}`),
-	)
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	session.handleSavedSession(rec, req)
-
-	authState := decodeAuthState(t, rec)
-	if rec.Code != http.StatusUnauthorized || authState.Mode != "qr" {
-		t.Fatalf("invalid saved session state = %+v, status %d", authState, rec.Code)
-	}
-	if authState.Session == nil || authState.Session.Available || authState.Session.Error == "" {
-		t.Fatalf("invalid saved session metadata = %+v", authState.Session)
-	}
-}
-
-func TestWebAuthMockCanExposeSavedSession(t *testing.T) {
-	tmp := t.TempDir()
-	resetAuthGlobals(t, tmp)
-	runtime := authRuntimeFromGlobals()
-	runtime.WebMock = true
-	runtime.WebMockSaved = true
-
-	start, err := buildWebAuthStart(runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
-	session := newWebAuthSession(&cobra.Command{}, runtime, start, "test-token")
-	state := session.clientState("")
-	if state.Session == nil || !state.Session.Available || state.Session.Provider != sessionstore.MemoryProvider {
-		t.Fatalf("mock saved session = %+v", state.Session)
 	}
 }
 
@@ -600,7 +410,6 @@ func TestWebAuthMockQRFlowAdvancesToPeerSetup(t *testing.T) {
 	resetAuthGlobals(t, tmp)
 	runtime := authRuntimeFromGlobals()
 	runtime.WebMock = true
-	runtime.WebQR = true
 
 	start, err := buildWebAuthStart(runtime)
 	if err != nil {
@@ -641,103 +450,6 @@ func TestWebAuthMockQRFlowAdvancesToPeerSetup(t *testing.T) {
 	result := <-session.done
 	if result.err != nil || result.body["mock"] != true || result.body["next"] != "done" {
 		t.Fatalf("mock finish = %#v, err %v", result.body, result.err)
-	}
-}
-
-func TestWebAuthMockCodeFlowUsesMockCredentials(t *testing.T) {
-	tmp := t.TempDir()
-	resetAuthGlobals(t, tmp)
-	runtime := authRuntimeFromGlobals()
-	runtime.WebMock = true
-	runtime.WebQR = false
-	runtime.Phone = ""
-
-	start, err := buildWebAuthStart(runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
-	session := newWebAuthSession(&cobra.Command{}, runtime, start, "test-token")
-
-	req := httptest.NewRequest(http.MethodGet, "/auth/state?t=test-token", nil)
-	rec := httptest.NewRecorder()
-	session.handleState(rec, req)
-	authState := decodeAuthState(t, rec)
-	if authState.Mode != "code" || authState.Mock == nil || authState.Mock.Code != mockCode {
-		t.Fatalf("initial mock state = %+v", authState)
-	}
-
-	req = httptest.NewRequest(http.MethodPost, "/auth/verify?t=test-token", strings.NewReader(`{"code":"`+mockCode+`"}`))
-	req.Header.Set("Content-Type", "application/json")
-	rec = httptest.NewRecorder()
-	session.handleVerify(rec, req)
-	authState = decodeAuthState(t, rec)
-	if authState.Mode != "password" || authState.Mock == nil || authState.Mock.Password != mockPassword {
-		t.Fatalf("mock password state = %+v", authState)
-	}
-
-	req = httptest.NewRequest(
-		http.MethodPost,
-		"/auth/password?t=test-token",
-		strings.NewReader(`{"password":"`+mockPassword+`"}`),
-	)
-	req.Header.Set("Content-Type", "application/json")
-	rec = httptest.NewRecorder()
-	session.handlePassword(rec, req)
-	authState = decodeAuthState(t, rec)
-	if rec.Code != http.StatusOK || authState.Mode != "setup" || !authState.Completed {
-		t.Fatalf("mock setup state = %+v, status %d", authState, rec.Code)
-	}
-	waitForPeers(t, session)
-}
-
-func TestWebAuthMockCanSwitchBetweenQRAndPhone(t *testing.T) {
-	tmp := t.TempDir()
-	resetAuthGlobals(t, tmp)
-	runtime := authRuntimeFromGlobals()
-	runtime.WebMock = true
-	runtime.WebQR = true
-
-	start, err := buildWebAuthStart(runtime)
-	if err != nil {
-		t.Fatal(err)
-	}
-	session := newWebAuthSession(&cobra.Command{}, runtime, start, "test-token")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	session.setContext(ctx)
-	session.startQRCodeFlow()
-	defer session.cancelQRCodeFlow()
-
-	postMode := func(body string) authClientState {
-		t.Helper()
-		req := httptest.NewRequest(http.MethodPost, "/auth/mode?t=test-token", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		rec := httptest.NewRecorder()
-		session.handleMode(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("mode status = %d; body: %s", rec.Code, rec.Body.String())
-		}
-		return decodeAuthState(t, rec)
-	}
-
-	if state := postMode(`{"mode":"phone"}`); state.Mode != "phone" {
-		t.Fatalf("phone-entry state = %+v", state)
-	}
-	if state := postMode(`{"mode":"code","phone":"+1 (555) 010-1010"}`); state.Mode != "code" || state.Phone == "" {
-		t.Fatalf("code state = %+v", state)
-	}
-	if state := postMode(`{"mode":"qr"}`); state.Mode != "qr" {
-		t.Fatalf("qr state = %+v", state)
-	}
-}
-
-func TestNormalizeAuthPhone(t *testing.T) {
-	phone, err := normalizeAuthPhone("+90 (555) 123-45-67")
-	if err != nil || phone != "+905551234567" {
-		t.Fatalf("normalizeAuthPhone = %q, %v", phone, err)
-	}
-	if _, err := normalizeAuthPhone("12"); err == nil {
-		t.Fatal("short phone should be rejected")
 	}
 }
 

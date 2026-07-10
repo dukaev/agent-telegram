@@ -20,7 +20,7 @@ export type Policy = {
   denyPeers?: string[];
 };
 
-export type AuthMode = "qr" | "phone" | "code" | "password" | "setup" | "done";
+export type AuthMode = "qr" | "setup" | "done";
 
 export type AuthAPI = {
   appId: number;
@@ -30,8 +30,6 @@ export type AuthAPI = {
 
 export type AuthMock = {
   enabled: boolean;
-  code?: string;
-  password?: string;
 };
 
 export type AuthSession = {
@@ -49,8 +47,6 @@ export type AuthState = {
   error?: string;
   mode: AuthMode;
   completed: boolean;
-  phone?: string;
-  hint?: string;
   qrImage?: string;
   qrLink?: string;
   expires?: string;

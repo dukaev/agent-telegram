@@ -15,14 +15,8 @@ import (
 )
 
 type fakeAuthBackend struct {
-	sessionData     []byte
-	importedSession []byte
-	sendResult      *types.SendCodeResult
-	signResult      *types.SignInResult
-	passResult      *types.SignInResult
-	sentPhone       string
-	signedCode      string
-	password        string
+	sessionData []byte
+	signResult  *types.SignInResult
 }
 
 type recordingSessionStore struct {
@@ -55,21 +49,6 @@ func init() {
 	})
 }
 
-func (f *fakeAuthBackend) SendCode(_ context.Context, phone string) (*types.SendCodeResult, error) {
-	f.sentPhone = phone
-	return f.sendResult, nil
-}
-
-func (f *fakeAuthBackend) SignIn(_ context.Context, _ string, code, _ string) (*types.SignInResult, error) {
-	f.signedCode = code
-	return f.signResult, nil
-}
-
-func (f *fakeAuthBackend) SignInWith2FA(_ context.Context, _ string, password string) (*types.SignInResult, error) {
-	f.password = password
-	return f.passResult, nil
-}
-
 func (f *fakeAuthBackend) SignInWithQR(
 	_ context.Context,
 	onToken func(tokenURL string, expiresAt time.Time) error,
@@ -80,11 +59,6 @@ func (f *fakeAuthBackend) SignInWithQR(
 		}
 	}
 	return f.signResult, nil
-}
-
-func (f *fakeAuthBackend) ImportSession(_ context.Context, data []byte) error {
-	f.importedSession = append([]byte(nil), data...)
-	return nil
 }
 
 func (f *fakeAuthBackend) ExportSession(_ context.Context) ([]byte, error) {
@@ -129,14 +103,13 @@ func TestAuthRuntimeConfigBuildsTelegramConfig(t *testing.T) {
 	runtime := authRuntimeConfig{
 		AppID:   "456",
 		AppHash: "runtime-hash",
-		Phone:   "+100200300",
 	}
 
-	cfg, err := runtime.authConfig(runtime.Phone)
+	cfg, err := runtime.authConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.AppID != 456 || cfg.AppHash != "runtime-hash" || cfg.Phone != "+100200300" {
+	if cfg.AppID != 456 || cfg.AppHash != "runtime-hash" || cfg.Phone != "" {
 		t.Fatalf("unexpected config: %+v", cfg)
 	}
 	if cfg.SessionPath != filepath.Join(tmp, ".agent-telegram") {
@@ -160,13 +133,10 @@ func resetAuthGlobals(t *testing.T, home string) {
 
 	authAppID = "123"
 	authAppHash = "app-hash"
-	authPhone = "+88806283792"
 	authStateDir = filepath.Join(home, ".agent-telegram", "auth-state")
 	authStateTTL = time.Minute
 	authReload = false
-	authWebQR = true
 	authWebMock = false
-	authWebMockSaved = false
 }
 
 func createTestState(t *testing.T) *authflow.State {

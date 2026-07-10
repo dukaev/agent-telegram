@@ -2,16 +2,13 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	gotdsession "github.com/gotd/td/session"
 	"github.com/spf13/cobra"
 
 	"agent-telegram/internal/authflow"
-	"agent-telegram/internal/config"
 	"agent-telegram/internal/policy"
 	"agent-telegram/internal/sessionstore"
 )
@@ -28,46 +25,18 @@ func buildWebAuthStart(runtime authRuntimeConfig) (webAuthStart, error) {
 		return mockWebAuthStart(runtime)
 	}
 
-	cfg, err := runtime.authConfig(runtime.Phone)
+	cfg, err := runtime.authConfig()
 	if err != nil {
 		return webAuthStart{}, err
 	}
-	if !runtime.WebQR && cfg.Phone == "" {
-		return webAuthStart{}, fmt.Errorf("phone is required")
-	}
-
 	backend := newAuthBackend(cfg)
-	phone, codeHash, sessionData, err := beginWebAuthBackend(runtime, cfg, backend)
-	if err != nil {
-		return webAuthStart{}, err
-	}
 
 	store := runtime.stateStore()
-	state, err := store.Create(phone, codeHash, cfg.AppID, cfg.AppHash, sessionData, runtime.StateTTL)
+	state, err := store.Create("", "", cfg.AppID, cfg.AppHash, nil, runtime.StateTTL)
 	if err != nil {
 		return webAuthStart{}, err
 	}
-	return webAuthStart{backend: backend, store: store, state: state, sessionData: sessionData}, nil
-}
-
-func beginWebAuthBackend(
-	runtime authRuntimeConfig,
-	cfg *config.Config,
-	backend authflow.Backend,
-) (phone string, codeHash string, sessionData []byte, err error) {
-	if runtime.WebQR {
-		return "", "", nil, nil
-	}
-
-	result, err := backend.SendCode(context.Background(), cfg.Phone)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to send code: %w", err)
-	}
-	sessionData, err = backend.ExportSession(context.Background())
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to export auth session: %w", err)
-	}
-	return cfg.Phone, result.PhoneCodeHash, sessionData, nil
+	return webAuthStart{backend: backend, store: store, state: state}, nil
 }
 
 func newWebAuthSession(
@@ -84,7 +53,6 @@ func newWebAuthSession(
 		store:       start.store,
 		state:       start.state,
 		token:       token,
-		qrMode:      runtime.WebQR,
 		policy:      webAuthInitialPolicy(runtime),
 		sessionData: append([]byte(nil), start.sessionData...),
 		peerLoader:  webAuthPeerLoader(runtime),
@@ -111,29 +79,6 @@ func (s *webAuthSession) configureSessionStore() {
 	s.sessionProvider = selection.Provider
 	s.sessionProfile = selection.Profile
 	s.sessionPersistent = selection.Persistent
-	if s.runtime.WebMock {
-		if s.runtime.WebMockSaved {
-			data := append([]byte(nil), s.sessionData...)
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := storage.StoreSession(ctx, data); err != nil {
-				s.sessionStoreError = err.Error()
-				return
-			}
-			s.savedSession = len(data) > 0
-		}
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	data, err := storage.LoadSession(ctx)
-	if err == nil && len(data) > 0 {
-		s.savedSession = true
-		return
-	}
-	if err != nil && !errors.Is(err, gotdsession.ErrNotFound) {
-		s.sessionStoreError = err.Error()
-	}
 }
 
 func webAuthInitialPolicy(runtime authRuntimeConfig) policy.Policy {

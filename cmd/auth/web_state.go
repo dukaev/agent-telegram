@@ -10,15 +10,11 @@ import (
 type webAuthSnapshot struct {
 	completed         bool
 	doneSent          bool
-	qrMode            bool
 	qrImage           string
 	qrTokenURL        string
 	qrExpires         time.Time
 	policy            policy.Policy
 	mock              bool
-	requires2FA       bool
-	hint              string
-	phone             string
 	appID             int
 	appHash           string
 	sessionProvider   string
@@ -34,13 +30,7 @@ func (s *webAuthSession) clientState(errMsg string) authClientState {
 	if snapshot.completed {
 		return snapshot.completedClientState(data)
 	}
-	if snapshot.qrMode {
-		return snapshot.qrClientState(data)
-	}
-	if snapshot.requires2FA {
-		return snapshot.passwordClientState(data)
-	}
-	return snapshot.codeClientState(data)
+	return snapshot.qrClientState(data)
 }
 
 func (s *webAuthSession) snapshot() webAuthSnapshot {
@@ -50,15 +40,11 @@ func (s *webAuthSession) snapshot() webAuthSnapshot {
 	return webAuthSnapshot{
 		completed:         s.completed,
 		doneSent:          s.doneSent,
-		qrMode:            s.qrMode,
 		qrImage:           s.qrImage,
 		qrTokenURL:        s.qrTokenURL,
 		qrExpires:         s.qrExpires,
 		policy:            s.policy,
 		mock:              s.runtime.WebMock,
-		requires2FA:       s.state.Requires2FA,
-		hint:              s.state.TwoFactorHint,
-		phone:             s.state.Phone,
 		appID:             s.state.AppID,
 		appHash:           s.state.AppHash,
 		sessionProvider:   s.sessionProvider,
@@ -80,12 +66,12 @@ func (s webAuthSnapshot) baseClientState(errMsg string) authClientState {
 		API: authAPIState{
 			AppID:   s.appID,
 			Default: isDefaultAPISettings(s.appID, s.appHash),
-			CanEdit: !s.completed && !s.doneSent && (s.qrMode || s.phone == ""),
+			CanEdit: !s.completed && !s.doneSent,
 		},
 		Policy: currentPolicy,
 	}
 	if s.mock {
-		state.Mock = &authMockInfo{Enabled: true, Code: mockCode, Password: mockPassword}
+		state.Mock = &authMockInfo{Enabled: true}
 	}
 	if s.sessionProvider != "" {
 		state.Session = &authSessionInfo{
@@ -128,30 +114,6 @@ func (s webAuthSnapshot) qrClientState(data authClientState) authClientState {
 	if !s.qrExpires.IsZero() {
 		data.Expires = s.qrExpires.Format(time.RFC3339)
 	}
-	return data
-}
-
-func (s webAuthSnapshot) passwordClientState(data authClientState) authClientState {
-	data.Title = "Enter your password"
-	data.Mode = "password"
-	data.Hint = "Enter your Telegram two-step verification password."
-	if s.hint != "" {
-		data.Hint = "Hint: " + s.hint
-	}
-	return data
-}
-
-func (s webAuthSnapshot) codeClientState(data authClientState) authClientState {
-	data.Title = "Sign in with your phone"
-	data.Phone = maskPhone(s.phone)
-	if s.phone == "" {
-		data.Mode = "phone"
-		data.Hint = "Enter the phone number linked to your Telegram account."
-		return data
-	}
-	data.Mode = "code"
-	data.Title = "Enter the code"
-	data.Hint = "Telegram sent a code for " + data.Phone + "."
 	return data
 }
 

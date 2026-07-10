@@ -43,10 +43,7 @@ It provides commands to:
 const rootWelcome = `Connect Telegram
 
   agent-telegram auth
-      Sign in with a QR code in your browser (recommended)
-
-  agent-telegram auth --qr=false
-      Sign in with your phone number and Telegram code
+      Sign in with a QR code in your browser
 
 After sign-in
 

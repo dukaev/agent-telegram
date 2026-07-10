@@ -15,12 +15,6 @@ function descriptionFor(state?: AuthState) {
   switch (state?.mode) {
     case "qr":
       return "Connect this computer to your account using the Telegram app.";
-    case "phone":
-      return "Get a one-time code in Telegram, then continue setup.";
-    case "code":
-      return state.hint || "Enter the one-time code from Telegram.";
-    case "password":
-      return "Your account is protected by an additional cloud password.";
     case "setup":
       return "Choose which chats the local agent can interact with.";
     case "done":
@@ -71,7 +65,7 @@ function App() {
             ) : (
               <>
                 <AuthScreen state={state} onState={setState} />
-                {(state.mode === "qr" || state.mode === "phone") && state.api.canEdit && (
+                {state.mode === "qr" && state.api.canEdit && (
                   <ApiSettingsPanel api={state.api} onUpdated={setState} />
                 )}
               </>

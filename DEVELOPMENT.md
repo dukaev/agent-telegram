@@ -565,7 +565,6 @@ instances do not share lifecycle state.
 |----------|-------------|
 | `TELEGRAM_APP_ID` | Telegram API App ID (optional, has default) |
 | `TELEGRAM_APP_HASH` | Telegram API App Hash (optional, has default) |
-| `AGENT_TELEGRAM_PHONE` | Phone number for auth |
 | `AGENT_TELEGRAM_SESSION_PROVIDER` | Session provider (`keychain` on native macOS, otherwise `memory`) |
 | `AGENT_TELEGRAM_PROFILE` | Session profile name (default `default`) |
 | `AGENT_TELEGRAM_RPC_TIMEOUT` | RPC handler timeout, e.g. `45s` or `2m` |

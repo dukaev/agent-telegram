@@ -10,15 +10,8 @@ import (
 	"agent-telegram/internal/types"
 )
 
-const (
-	mockPhone    = "+15550101010"
-	mockCode     = "22222"
-	mockPassword = "mock-password"
-)
-
 type mockAuthBackend struct {
 	sessionData []byte
-	imported    []byte
 }
 
 func newMockAuthBackend() *mockAuthBackend {
@@ -31,15 +24,10 @@ func mockWebAuthStart(runtime authRuntimeConfig) (webAuthStart, error) {
 		return webAuthStart{}, fmt.Errorf("invalid mock app-id: %w", err)
 	}
 	appHash := firstNonEmpty(runtime.AppHash, defaultAppHash)
-	phone := firstNonEmpty(runtime.Phone, mockPhone)
 	backend := newMockAuthBackend()
 
-	var codeHash string
-	if !runtime.WebQR {
-		codeHash = "mock-code-hash"
-	}
 	store := runtime.stateStore()
-	state, err := store.Create(phone, codeHash, appID, appHash, backend.sessionData, runtime.StateTTL)
+	state, err := store.Create("", "", appID, appHash, backend.sessionData, runtime.StateTTL)
 	if err != nil {
 		return webAuthStart{}, err
 	}
@@ -49,24 +37,6 @@ func mockWebAuthStart(runtime authRuntimeConfig) (webAuthStart, error) {
 		state:       state,
 		sessionData: append([]byte(nil), backend.sessionData...),
 	}, nil
-}
-
-func (b *mockAuthBackend) SendCode(_ context.Context, _ string) (*types.SendCodeResult, error) {
-	return &types.SendCodeResult{PhoneCodeHash: "mock-code-hash", Timeout: 30}, nil
-}
-
-func (b *mockAuthBackend) SignIn(_ context.Context, _, code, _ string) (*types.SignInResult, error) {
-	if code != mockCode {
-		return &types.SignInResult{AuthError: "Use mock code " + mockCode}, nil
-	}
-	return &types.SignInResult{Requires2FA: true, TwoFactorHint: "mock-password"}, nil
-}
-
-func (b *mockAuthBackend) SignInWith2FA(_ context.Context, _ string, password string) (*types.SignInResult, error) {
-	if password != mockPassword {
-		return &types.SignInResult{AuthError: "Use mock password " + mockPassword}, nil
-	}
-	return &types.SignInResult{Success: true}, nil
 }
 
 func (b *mockAuthBackend) SignInWithQR(
@@ -80,11 +50,6 @@ func (b *mockAuthBackend) SignInWithQR(
 	}
 	<-ctx.Done()
 	return nil, ctx.Err()
-}
-
-func (b *mockAuthBackend) ImportSession(_ context.Context, data []byte) error {
-	b.imported = append([]byte(nil), data...)
-	return nil
 }
 
 func (b *mockAuthBackend) ExportSession(_ context.Context) ([]byte, error) {

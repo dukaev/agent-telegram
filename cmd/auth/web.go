@@ -23,7 +23,6 @@ import (
 )
 
 var authWebPort int
-var authWebQR = true
 
 //go:embed web_dist/index.html web_dist/assets/*
 var authWebAssets embed.FS
@@ -42,7 +41,6 @@ type webAuthSession struct {
 	state   *authflow.State
 	token   string
 	done    chan webAuthResult
-	qrMode  bool
 
 	qrImage     string
 	qrTokenURL  string
@@ -105,9 +103,7 @@ func runAuthWebWithRuntime(cmd *cobra.Command, runtime authRuntimeConfig) {
 		failJSON(fmt.Sprintf("failed to write auth link: %v", err))
 	}
 
-	if runtime.WebQR {
-		session.startQRCodeFlow()
-	}
+	session.startQRCodeFlow()
 	waitForWebAuthResult(session, server, start)
 }
 
@@ -119,10 +115,6 @@ func startWebAuthServer(ctx context.Context, session *webAuthSession, port int) 
 	mux.HandleFunc("GET /auth/peers", session.handlePeers)
 	mux.HandleFunc("GET /auth/assets/", handleAuthAsset)
 	mux.HandleFunc("POST /auth/api", session.handleAPISettings)
-	mux.HandleFunc("POST /auth/mode", session.handleMode)
-	mux.HandleFunc("POST /auth/session", session.handleSavedSession)
-	mux.HandleFunc("POST /auth/verify", session.handleVerify)
-	mux.HandleFunc("POST /auth/password", session.handlePassword)
 	mux.HandleFunc("POST /auth/policy", session.handlePolicy)
 	mux.HandleFunc("POST /auth/finish", session.handleFinish)
 	mux.HandleFunc("POST /auth/mock/advance", session.handleMockAdvance)
@@ -290,11 +282,7 @@ func (s *webAuthSession) updateQRCode(version int, tokenURL string, expiresAt ti
 }
 
 func (s *webAuthSession) updateAPISettings(appID int, appHash string) error {
-	s.mu.Lock()
-	phone := s.state.Phone
-	s.mu.Unlock()
-
-	cfg := config.LoadFromArgs(appID, appHash, phone, "")
+	cfg := config.LoadFromArgs(appID, appHash, "", "")
 	backend := newAuthBackend(cfg)
 	var sessionData []byte
 	if s.runtime.WebMock {
@@ -312,72 +300,6 @@ func (s *webAuthSession) updateAPISettings(appID int, appHash string) error {
 	s.qrImage = ""
 	s.qrTokenURL = ""
 	s.qrExpires = time.Time{}
-	state := *s.state
-	s.mu.Unlock()
-
-	return s.store.Save(&state)
-}
-
-func (s *webAuthSession) resetAuthMode(qrMode bool) error {
-	s.mu.Lock()
-	appID := s.state.AppID
-	appHash := s.state.AppHash
-	s.mu.Unlock()
-
-	backend := newAuthBackend(config.LoadFromArgs(appID, appHash, "", ""))
-	var sessionData []byte
-	if s.runtime.WebMock {
-		mockBackend := newMockAuthBackend()
-		backend = mockBackend
-		sessionData = mockBackend.sessionData
-	}
-
-	s.mu.Lock()
-	s.backend = backend
-	s.qrMode = qrMode
-	s.state.Phone = ""
-	s.state.PhoneCodeHash = ""
-	s.state.Requires2FA = false
-	s.state.TwoFactorHint = ""
-	s.state.SetSessionData(sessionData)
-	s.sessionData = append([]byte(nil), sessionData...)
-	s.qrImage = ""
-	s.qrTokenURL = ""
-	s.qrExpires = time.Time{}
-	state := *s.state
-	s.mu.Unlock()
-
-	return s.store.Save(&state)
-}
-
-func (s *webAuthSession) beginPhoneCode(ctx context.Context, phone string) error {
-	s.mu.Lock()
-	appID := s.state.AppID
-	appHash := s.state.AppHash
-	s.mu.Unlock()
-
-	backend := newAuthBackend(config.LoadFromArgs(appID, appHash, phone, ""))
-	if s.runtime.WebMock {
-		backend = newMockAuthBackend()
-	}
-	result, err := backend.SendCode(ctx, phone)
-	if err != nil {
-		return fmt.Errorf("send Telegram code: %w", err)
-	}
-	sessionData, err := backend.ExportSession(ctx)
-	if err != nil {
-		return fmt.Errorf("export auth session: %w", err)
-	}
-
-	s.mu.Lock()
-	s.backend = backend
-	s.qrMode = false
-	s.state.Phone = phone
-	s.state.PhoneCodeHash = result.PhoneCodeHash
-	s.state.Requires2FA = false
-	s.state.TwoFactorHint = ""
-	s.state.SetSessionData(sessionData)
-	s.sessionData = append([]byte(nil), sessionData...)
 	state := *s.state
 	s.mu.Unlock()
 
@@ -484,8 +406,6 @@ type authClientState struct {
 	Error     string           `json:"error,omitempty"`
 	Mode      string           `json:"mode"`
 	Completed bool             `json:"completed"`
-	Phone     string           `json:"phone,omitempty"`
-	Hint      string           `json:"hint,omitempty"`
 	QRImage   string           `json:"qrImage,omitempty"`
 	QRLink    string           `json:"qrLink,omitempty"`
 	Expires   string           `json:"expires,omitempty"`
@@ -512,9 +432,7 @@ type authAPIState struct {
 }
 
 type authMockInfo struct {
-	Enabled  bool   `json:"enabled"`
-	Code     string `json:"code,omitempty"`
-	Password string `json:"password,omitempty"`
+	Enabled bool `json:"enabled"`
 }
 
 type authPeersState struct {

@@ -26,8 +26,7 @@ func TestRootLandingPrioritizesAuthentication(t *testing.T) {
 		t.Fatalf("authentication must appear before post-login commands:\n%s", text)
 	}
 	for _, expected := range []string{
-		"Sign in with a QR code in your browser (recommended)",
-		"agent-telegram auth --qr=false",
+		"Sign in with a QR code in your browser",
 		"agent-telegram --help",
 	} {
 		if !strings.Contains(text, expected) {

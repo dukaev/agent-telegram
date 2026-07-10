@@ -89,7 +89,7 @@ func writeLLMDocumentation(b *strings.Builder, rootCmd *cobra.Command) {
 	b.WriteString("# agent-telegram CLI Documentation\n\n")
 	b.WriteString("Telegram IPC agent CLI - A command-line tool for interacting with Telegram via IPC server.\n\n")
 	b.WriteString("## Agentic Tool Contract\n\n")
-	b.WriteString("- Authentication is browser-based: use `auth` for QR login, or `AGENT_TELEGRAM_PHONE=... auth --qr=false` for phone code and 2FA in the local web form.\n")
+	b.WriteString("- Authentication is browser-based: use `auth` to sign in with a QR code.\n")
 	b.WriteString("- Auth secrets should stay in the local browser flow or environment variables, never in command arguments.\n")
 	b.WriteString("- Use `agent-telegram <command> --schema` to inspect input/output schemas, safety, idempotency, and retry hints.\n")
 	b.WriteString("- Use `agent-telegram manifest` to inspect the full machine-readable tool catalog without starting HTTP.\n")

@@ -143,7 +143,7 @@ func nextActionsForError(err *ipc.ErrorObject, r *Runner) []map[string]any {
 	case ipc.ErrorTypeNotAuthorized:
 		return []map[string]any{{
 			"kind":    "authenticate",
-			"command": "AGENT_TELEGRAM_PHONE=... agent-telegram auth --agent --run-id " + r.runID,
+			"command": "agent-telegram auth --agent --run-id " + r.runID,
 			"safety":  "sensitive",
 			"reason":  "Telegram session is required",
 		}}

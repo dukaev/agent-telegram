@@ -31,14 +31,12 @@ const (
 )
 
 var (
-	authAppID        string
-	authAppHash      string
-	authPhone        string
-	authStateDir     string
-	authStateTTL     time.Duration
-	authReload       bool
-	authWebMock      bool
-	authWebMockSaved bool
+	authAppID    string
+	authAppHash  string
+	authStateDir string
+	authStateTTL time.Duration
+	authReload   bool
+	authWebMock  bool
 )
 
 var newAuthBackend = func(cfg *config.Config) authflow.Backend {
@@ -46,30 +44,24 @@ var newAuthBackend = func(cfg *config.Config) authflow.Backend {
 }
 
 type authRuntimeConfig struct {
-	AppID        string
-	AppHash      string
-	Phone        string
-	StateDir     string
-	StateTTL     time.Duration
-	Reload       bool
-	WebQR        bool
-	WebPort      int
-	WebMock      bool
-	WebMockSaved bool
+	AppID    string
+	AppHash  string
+	StateDir string
+	StateTTL time.Duration
+	Reload   bool
+	WebPort  int
+	WebMock  bool
 }
 
 func authRuntimeFromGlobals() authRuntimeConfig {
 	return authRuntimeConfig{
-		AppID:        authAppID,
-		AppHash:      authAppHash,
-		Phone:        authPhone,
-		StateDir:     authStateDir,
-		StateTTL:     authStateTTL,
-		Reload:       authReload,
-		WebQR:        authWebQR,
-		WebPort:      authWebPort,
-		WebMock:      authWebMock,
-		WebMockSaved: authWebMockSaved,
+		AppID:    authAppID,
+		AppHash:  authAppHash,
+		StateDir: authStateDir,
+		StateTTL: authStateTTL,
+		Reload:   authReload,
+		WebPort:  authWebPort,
+		WebMock:  authWebMock,
 	}
 }
 
@@ -77,7 +69,7 @@ func (r authRuntimeConfig) stateStore() *authflow.StateStore {
 	return authflow.NewStateStore(r.StateDir)
 }
 
-func (r authRuntimeConfig) authConfig(phone string) (*config.Config, error) {
+func (r authRuntimeConfig) authConfig() (*config.Config, error) {
 	appIDStr := firstNonEmpty(r.AppID, os.Getenv("TELEGRAM_APP_ID"), os.Getenv("AGENT_TELEGRAM_APP_ID"), defaultAppID)
 	appHash := firstNonEmpty(
 		r.AppHash,
@@ -85,13 +77,11 @@ func (r authRuntimeConfig) authConfig(phone string) (*config.Config, error) {
 		os.Getenv("AGENT_TELEGRAM_APP_HASH"),
 		defaultAppHash,
 	)
-	phone = firstNonEmpty(phone, os.Getenv("AGENT_TELEGRAM_PHONE"))
-
 	appID, err := strconv.Atoi(appIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid app-id: %w", err)
 	}
-	return config.LoadFromArgs(appID, appHash, phone, filepath.Join(defaultConfigDir(), ".agent-telegram")), nil
+	return config.LoadFromArgs(appID, appHash, "", filepath.Join(defaultConfigDir(), ".agent-telegram")), nil
 }
 
 // AuthCmd starts the browser-based authentication flow.
@@ -101,10 +91,9 @@ var AuthCmd = &cobra.Command{
 	Short:   "Login through a local browser page",
 	Long: `Start a local browser-based Telegram login flow.
 
-QR login is used by default. Pass --qr=false to use the phone-code flow with
-Telegram code and 2FA password prompts in the browser. The page is printed to
-stderr as a one-time localhost URL, then the command waits for completion and
-emits JSON on stdout.`,
+QR login is the only supported sign-in method. The page is printed to stderr
+as a one-time localhost URL, then the command waits for completion and emits
+JSON on stdout.`,
 	Args: cobra.NoArgs,
 	Run:  runAuthWeb,
 }
@@ -126,10 +115,8 @@ func addAuthBaseFlags(cmd *cobra.Command) {
 
 func addWebAuthFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&authReload, "reload-server", true, "Reload running IPC server after successful login")
-	cmd.Flags().BoolVar(&authWebQR, "qr", true, "Use QR code authentication flow")
 	cmd.Flags().IntVar(&authWebPort, "port", 0, "Local web auth port (0 chooses a free port)")
 	cmd.Flags().BoolVar(&authWebMock, "mock", false, "Use mock web auth data without Telegram")
-	cmd.Flags().BoolVar(&authWebMockSaved, "mock-saved-session", false, "Expose a saved session in mock web auth")
 }
 
 func finishAuth(cmd *cobra.Command, runtime authRuntimeConfig, state *authflow.State) (map[string]any, error) {
@@ -216,10 +203,6 @@ func trimAllSpace(value string) string {
 	return strings.TrimSpace(value)
 }
 
-func trimLineEndings(value string) string {
-	return strings.TrimRight(value, "\r\n")
-}
-
 func writeJSON(value any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -235,21 +218,6 @@ func failJSON(message string) {
 		"error": message,
 	})
 	cliutil.Exit(1)
-}
-
-func resultError(actual, fallback string) string {
-	if actual != "" {
-		return actual
-	}
-	return fallback
-}
-
-func importStateSession(ctx context.Context, backend authflow.Backend, state *authflow.State) error {
-	sessionData, err := state.SessionData()
-	if err != nil {
-		return err
-	}
-	return backend.ImportSession(ctx, sessionData)
 }
 
 func reloadServerSession(socketPath string, sessionData []byte, selection sessionstore.Selection) bool {

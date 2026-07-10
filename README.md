@@ -25,11 +25,8 @@ go build -o agent-telegram .
 # Show the recommended sign-in options.
 agent-telegram
 
-# Login through a local browser. QR is the default.
+# Login through a local browser using a QR code.
 agent-telegram auth
-
-# Or use Telegram code login.
-AGENT_TELEGRAM_PHONE=+1234567890 agent-telegram auth --qr=false
 
 # Start the local IPC server and use Telegram.
 agent-telegram server ensure
@@ -42,10 +39,8 @@ agent-telegram stop
 
 Default Telegram API credentials are built in. To use your own, create an app at [my.telegram.org](https://my.telegram.org) and set `TELEGRAM_APP_ID` and `TELEGRAM_APP_HASH`.
 
-On startup, auth checks the selected session provider and profile. If a saved
-session exists, the page offers to verify and reuse it before showing a new QR
-code. A new login is saved to the selected persistent provider by default;
-native macOS builds use Keychain.
+QR is the only supported sign-in method. A new login is saved to the selected
+persistent provider by default; native macOS builds use Keychain.
 
 ## Command Areas
 
@@ -98,7 +93,6 @@ Run `agent-telegram --help`, `agent-telegram <command> --help`, or `agent-telegr
 |----------|-------------|
 | `TELEGRAM_APP_ID` | Telegram API app ID. Optional because a default is built in. |
 | `TELEGRAM_APP_HASH` | Telegram API app hash. Optional because a default is built in. |
-| `AGENT_TELEGRAM_PHONE` | Phone number for code login. Safer than passing it as an argument. |
 | `TELEGRAM_SESSION` | Base64 session for stateless/server deployments. |
 | `AGENT_TELEGRAM_SESSION_PROVIDER` | Session provider. Defaults to macOS Keychain on native macOS builds. |
 | `AGENT_TELEGRAM_PROFILE` | Named session profile. Defaults to `default`. |
