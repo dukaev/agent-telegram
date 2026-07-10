@@ -28,19 +28,6 @@ var authWebQR = true
 //go:embed web_dist/index.html web_dist/assets/*
 var authWebAssets embed.FS
 
-// AuthWebCmd starts a local browser-based auth portal.
-var AuthWebCmd = &cobra.Command{
-	Use:   "web",
-	Short: "Login through a local browser page",
-	Long: `Start a local browser-based login flow.
-
-The command starts a local login page. QR login is used by default. Pass
---qr=false to use the phone-code flow. The page is printed to stderr as a
-one-time localhost URL, then the command waits for completion and emits JSON on
-stdout.`,
-	Run: runAuthWeb,
-}
-
 type webAuthResult struct {
 	body map[string]any
 	err  error

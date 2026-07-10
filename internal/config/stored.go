@@ -80,7 +80,7 @@ func UpdateSessionSelection(provider, profile string) error {
 		return fmt.Errorf("parse config: %w", err)
 	}
 	if cfg.AppID == 0 || cfg.AppHash == "" {
-		return fmt.Errorf("invalid config - please run 'agent-telegram auth web' first")
+		return fmt.Errorf("invalid config - please run 'agent-telegram auth' first")
 	}
 	return SaveConfigForSession(cfg.AppID, cfg.AppHash, provider, profile)
 }
@@ -103,7 +103,7 @@ func LoadStoredConfig() (*StoredConfig, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf(
-				"config not found - run 'agent-telegram auth web' or set TELEGRAM_APP_ID and TELEGRAM_APP_HASH",
+				"config not found - run 'agent-telegram auth' or set TELEGRAM_APP_ID and TELEGRAM_APP_HASH",
 			)
 		}
 		return nil, fmt.Errorf("failed to read config: %w", err)
@@ -115,7 +115,7 @@ func LoadStoredConfig() (*StoredConfig, error) {
 	}
 
 	if cfg.AppID == 0 || cfg.AppHash == "" {
-		return nil, fmt.Errorf("invalid config - please run 'agent-telegram auth web' first")
+		return nil, fmt.Errorf("invalid config - please run 'agent-telegram auth' first")
 	}
 
 	return &cfg, nil

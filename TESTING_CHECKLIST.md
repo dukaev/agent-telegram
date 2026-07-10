@@ -8,7 +8,7 @@
 
 ## 1. Authentication
 
-- [ ] 1.1 `auth web` / `auth web --qr` — Headless login
+- [ ] 1.1 `auth` / `auth --qr=false` — Browser login
 - [ ] 1.2 `logout` — Logout and clear session
 - [ ] 1.3 `my-info` — Get current user profile
 

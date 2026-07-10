@@ -27,19 +27,11 @@ agent-telegram <command> --schema
 ## Authentication
 
 Do not ask for Telegram login codes unless the user is actively authenticating.
-Prefer browser or QR login:
+Prefer the local browser login:
 
 ```bash
-AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web --agent --run-id "$RUN_ID"
-AGENT_TELEGRAM_PHONE=+123 agent-telegram auth web --qr --agent --run-id "$RUN_ID"
-```
-
-For terminal-only flows, use stdin for secrets:
-
-```bash
-AGENT_TELEGRAM_PHONE=+123 agent-telegram auth begin
-echo "$CODE" | agent-telegram auth verify --state-id <stateId> --code-stdin
-echo "$PASSWORD" | agent-telegram auth password --state-id <stateId> --password-stdin
+agent-telegram auth --agent --run-id "$RUN_ID"
+AGENT_TELEGRAM_PHONE=+123 agent-telegram auth --qr=false --agent --run-id "$RUN_ID"
 ```
 
 ## Reading And Sending

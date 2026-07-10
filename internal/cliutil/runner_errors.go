@@ -23,7 +23,7 @@ func (r *Runner) handleError(err *ipc.ErrorObject) {
 		fmt.Fprintln(os.Stderr, "Run: agent-telegram server ensure")
 	case ipc.ErrCodeNotAuthorized:
 		fmt.Fprintln(os.Stderr, "Error: Not authorized")
-		fmt.Fprintln(os.Stderr, "Please authenticate first: agent-telegram auth web")
+		fmt.Fprintln(os.Stderr, "Please authenticate first: agent-telegram auth")
 	case ipc.ErrCodeNotInitialized:
 		fmt.Fprintln(os.Stderr, "Error: Client not initialized")
 		fmt.Fprintln(os.Stderr, "The server may still be starting up. Please try again in a few seconds.")
@@ -143,7 +143,7 @@ func nextActionsForError(err *ipc.ErrorObject, r *Runner) []map[string]any {
 	case ipc.ErrorTypeNotAuthorized:
 		return []map[string]any{{
 			"kind":    "authenticate",
-			"command": "AGENT_TELEGRAM_PHONE=... agent-telegram auth web --agent --run-id " + r.runID,
+			"command": "AGENT_TELEGRAM_PHONE=... agent-telegram auth --agent --run-id " + r.runID,
 			"safety":  "sensitive",
 			"reason":  "Telegram session is required",
 		}}

@@ -95,7 +95,7 @@ func AddStatusCommand(rootCmd *cobra.Command) {
 			}
 			fmt.Printf("Telegram: %s...\n", state)
 		} else if !authorized {
-			fmt.Println("Telegram: not authorized (run: agent-telegram auth web)")
+			fmt.Println("Telegram: not authorized (run: agent-telegram auth)")
 		} else {
 			username := cliutil.ExtractString(m, "username")
 			firstName := cliutil.ExtractString(m, "first_name")

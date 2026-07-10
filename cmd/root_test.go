@@ -17,7 +17,7 @@ func TestRootLandingPrioritizesAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := output.String()
-	authIndex := strings.Index(text, "agent-telegram auth web")
+	authIndex := strings.Index(text, "agent-telegram auth")
 	afterSignInIndex := strings.Index(text, "After sign-in")
 	if authIndex < 0 {
 		t.Fatalf("root landing does not offer web auth:\n%s", text)
@@ -27,8 +27,7 @@ func TestRootLandingPrioritizesAuthentication(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"Sign in with a QR code in your browser (recommended)",
-		"agent-telegram auth web --qr=false",
-		"agent-telegram auth status",
+		"agent-telegram auth --qr=false",
 		"agent-telegram --help",
 	} {
 		if !strings.Contains(text, expected) {

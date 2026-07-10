@@ -177,6 +177,6 @@ func waitForWebAuthResult(session *webAuthSession, server *http.Server, start we
 		session.cancelQRCodeFlow()
 		shutdownWebAuthServer(server)
 		_ = start.store.Delete(start.state.ID)
-		failJSON("auth web timed out")
+		failJSON("auth timed out")
 	}
 }

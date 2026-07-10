@@ -53,7 +53,7 @@ var (
 	ErrNotAuthorized = NewTypedError(
 		ErrCodeNotAuthorized,
 		ErrorTypeNotAuthorized,
-		"Not authorized. Run: agent-telegram auth web",
+		"Not authorized. Run: agent-telegram auth",
 		nil,
 	)
 	// ErrNotInitialized is returned when the client is not initialized.

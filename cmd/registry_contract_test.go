@@ -60,11 +60,13 @@ func TestAgenticContractDoesNotExposeRemovedFlags(t *testing.T) {
 			t.Fatalf("root should not expose removed flag --%s", name)
 		}
 	}
-	if auth.AuthWebCmd.Flags().Lookup("phone") != nil {
-		t.Fatal("auth web should not expose --phone")
+	if auth.AuthCmd.Flags().Lookup("phone") != nil {
+		t.Fatal("auth should not expose --phone")
 	}
-	if auth.AuthBeginCmd.Flags().Lookup("phone") != nil {
-		t.Fatal("auth begin should not expose --phone")
+	for _, name := range []string{"web", "begin", "verify", "password", "status"} {
+		if childCommand(auth.AuthCmd, name) != nil {
+			t.Fatalf("auth should not expose legacy subcommand %q", name)
+		}
 	}
 	if observability.ParseRedactionMode("full") != observability.RedactionSafe {
 		t.Fatal("redaction=full should not be exposed as an effective mode")

@@ -16,7 +16,7 @@ func serveAuthIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	data, err := authWebAssets.ReadFile("web_dist/index.html")
 	if err != nil {
-		http.Error(w, "auth web assets are missing", http.StatusInternalServerError)
+		http.Error(w, "auth assets are missing", http.StatusInternalServerError)
 		return
 	}
 	http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(data))

@@ -131,7 +131,7 @@ func (c *Client) initDomainClients() {
 
 // runClient is the main client run loop.
 func (c *Client) runClient(ctx context.Context, tgClient *telegram.Client, readyGeneration chan struct{}) error {
-	// Check auth status
+	// Check authorization status.
 	status, err := tgClient.Auth().Status(ctx)
 	if err != nil {
 		return err
@@ -140,7 +140,7 @@ func (c *Client) runClient(ctx context.Context, tgClient *telegram.Client, ready
 	if !status.Authorized {
 		// Server mode: don't try to authenticate, just fail
 		// User should authenticate first.
-		return fmt.Errorf("not authenticated - please run 'agent-telegram auth web' first")
+		return fmt.Errorf("not authenticated - please run 'agent-telegram auth' first")
 	}
 
 	// Get current user and log

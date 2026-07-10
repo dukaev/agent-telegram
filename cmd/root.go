@@ -32,7 +32,7 @@ var RootCmd = &cobra.Command{
 
 It provides commands to:
   - Start an IPC server with Telegram client
-  - Authenticate to Telegram with headless JSON commands
+  - Authenticate to Telegram through a local browser page
   - Query chats, messages, and user info
   - Send and receive Telegram messages`,
 	Version: version,
@@ -42,14 +42,11 @@ It provides commands to:
 
 const rootWelcome = `Connect Telegram
 
-  agent-telegram auth web
+  agent-telegram auth
       Sign in with a QR code in your browser (recommended)
 
-  agent-telegram auth web --qr=false
+  agent-telegram auth --qr=false
       Sign in with your phone number and Telegram code
-
-  agent-telegram auth status
-      Check authentication and session storage status
 
 After sign-in
 
