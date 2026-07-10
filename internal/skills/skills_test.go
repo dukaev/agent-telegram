@@ -41,3 +41,48 @@ func TestInstallBundledSkill(t *testing.T) {
 		t.Fatalf("install with force should overwrite: %v", err)
 	}
 }
+
+func TestDefaultInstallDirUsesCanonicalUserSkills(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CODEX_HOME", filepath.Join(home, "legacy-codex-home"))
+	want := filepath.Join(home, ".agents", "skills")
+	if got := DefaultInstallDir(); got != want {
+		t.Fatalf("DefaultInstallDir() = %q, want %q", got, want)
+	}
+}
+
+func TestInstallDoesNotReplaceDanglingSymlinkWithoutForce(t *testing.T) {
+	target := t.TempDir()
+	destination := filepath.Join(target, "agent-telegram")
+	missing := filepath.Join(target, "missing-target")
+	if err := os.Symlink(missing, destination); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install("agent-telegram", target, false); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("install should reject an existing dangling symlink explicitly: %v", err)
+	}
+	info, err := os.Lstat(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("destination mode = %v, want symlink", info.Mode())
+	}
+}
+
+func TestInstallCreatesCanonicalUserSkillParents(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	installed, err := Install("agent-telegram", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(home, ".agents", "skills", "agent-telegram")
+	if installed != want {
+		t.Fatalf("installed = %q, want %q", installed, want)
+	}
+	if _, err := os.Stat(filepath.Join(installed, "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+}

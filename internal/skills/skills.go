@@ -8,10 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 )
-
-const defaultCodexDir = ".codex"
 
 //go:embed bundled/**
 var bundledFS embed.FS
@@ -71,16 +68,13 @@ func Manifest() []map[string]any {
 	return out
 }
 
-// DefaultInstallDir returns the conventional Codex skill installation directory.
+// DefaultInstallDir returns the canonical user skill directory.
 func DefaultInstallDir() string {
-	if codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME")); codexHome != "" {
-		return filepath.Join(codexHome, "skills")
-	}
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
-		return filepath.Join(defaultCodexDir, "skills")
+		return filepath.Join(".agents", "skills")
 	}
-	return filepath.Join(home, defaultCodexDir, "skills")
+	return filepath.Join(home, ".agents", "skills")
 }
 
 // Install copies one bundled skill into targetDir/name.
@@ -93,8 +87,10 @@ func Install(name, targetDir string, force bool) (string, error) {
 	}
 	sourceRoot := filepath.ToSlash(filepath.Join("bundled", name))
 	destinationRoot := filepath.Join(targetDir, name)
-	if _, err := os.Stat(destinationRoot); err == nil && !force {
+	if _, err := os.Lstat(destinationRoot); err == nil && !force {
 		return "", fmt.Errorf("skill %q already exists at %s; pass --force to overwrite", name, destinationRoot)
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("inspect skill destination: %w", err)
 	}
 	if force {
 		if err := os.RemoveAll(destinationRoot); err != nil {
