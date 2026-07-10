@@ -16,29 +16,16 @@ var ChatCmd = &cobra.Command{
 // AddChatCommand adds the parent chat command and all its subcommands to the root command.
 func AddChatCommand(rootCmd *cobra.Command) {
 	// Add all subcommands to ChatCmd
-	AddPinChatCommand(ChatCmd)
-	AddJoinChatCommand(ChatCmd)
-	AddSubscribeCommand(ChatCmd)
+	ChatCmd.AddCommand(PinChatCmd, JoinChatCmd, SubscribeCmd)
 	AddTopicsCommand(ChatCmd)
-	AddMuteCommand(ChatCmd)
-	AddArchiveCommand(ChatCmd)
-	AddCreateGroupCommand(ChatCmd)
-	AddCreateChannelCommand(ChatCmd)
-	AddEditTitleCommand(ChatCmd)
-	AddSetPhotoCommand(ChatCmd)
-	AddDeletePhotoCommand(ChatCmd)
-	AddLeaveCommand(ChatCmd)
-	AddInviteCommand(ChatCmd)
-	AddParticipantsCommand(ChatCmd)
-	AddAdminsCommand(ChatCmd)
-	AddBannedCommand(ChatCmd)
-	AddPromoteAdminCommand(ChatCmd)
-	AddDemoteAdminCommand(ChatCmd)
+	ChatCmd.AddCommand(MuteCmd, ArchiveCmd, CreateGroupCmd, CreateChannelCmd, EditTitleCmd,
+		SetPhotoCmd, DeletePhotoCmd, LeaveCmd, InviteCmd, ParticipantsCmd, AdminsCmd,
+		BannedCmd, PromoteAdminCmd, DemoteAdminCmd)
 	AddInviteLinkCommand(ChatCmd)
 	AddListCommand(ChatCmd)
 	AddOpenCommand(ChatCmd)
 	AddInfoCommand(ChatCmd)
-	AddSlowModeCommand(ChatCmd)
+	ChatCmd.AddCommand(SlowModeCmd)
 	AddPermissionsCommand(ChatCmd)
 	AddKeyboardCommand(ChatCmd)
 

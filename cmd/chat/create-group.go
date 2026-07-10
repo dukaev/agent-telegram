@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -22,8 +20,3 @@ Example:
 	},
 	Success: "Group created successfully",
 })
-
-// AddCreateGroupCommand adds the create-group command to the root command.
-func AddCreateGroupCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(CreateGroupCmd)
-}

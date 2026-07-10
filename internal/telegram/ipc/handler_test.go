@@ -14,7 +14,6 @@ import (
 )
 
 type testParams struct {
-	types.NoValidation
 	Name string `json:"name" validate:"required"`
 }
 

@@ -24,7 +24,7 @@ import (
 func init() {
 	// Auth commands
 	auth.AddAuthCommand(RootCmd)
-	auth.AddLogoutCommand(RootCmd)
+	RootCmd.AddCommand(auth.LogoutCmd)
 	get.AddMyInfoCommand(RootCmd)
 
 	// Get commands

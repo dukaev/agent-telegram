@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -21,8 +19,3 @@ Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
 	EnableMsg:    "Chat pinned successfully!",
 	DisableMsg:   "Chat unpinned successfully!",
 })
-
-// AddPinChatCommand adds the pin command to the root command.
-func AddPinChatCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(PinChatCmd)
-}

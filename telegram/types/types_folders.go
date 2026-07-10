@@ -3,7 +3,6 @@ package types
 
 // GetFoldersParams holds parameters for GetFolders.
 type GetFoldersParams struct {
-	NoValidation
 	// No required params
 }
 
@@ -28,7 +27,6 @@ type GetFoldersResult struct {
 
 // CreateFolderParams holds parameters for CreateFolder.
 type CreateFolderParams struct {
-	NoValidation
 	Title              string   `json:"title" validate:"required"`
 	IncludedChats      []string `json:"includedChats,omitempty"`
 	ExcludedChats      []string `json:"excludedChats,omitempty"`
@@ -47,7 +45,6 @@ type CreateFolderResult struct {
 
 // DeleteFolderParams holds parameters for DeleteFolder.
 type DeleteFolderParams struct {
-	NoValidation
 	ID int `json:"id" validate:"required"`
 }
 

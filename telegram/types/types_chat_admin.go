@@ -3,7 +3,6 @@ package types // revive:disable:var-naming
 
 // PromoteAdminParams holds parameters for PromoteAdmin.
 type PromoteAdminParams struct {
-	NoValidation
 	Peer              string `json:"peer" validate:"required"`    // Chat/channel username or ID
 	User              string `json:"user" validate:"required"`    // Username to promote
 	CanChangeInfo     bool   `json:"canChangeInfo,omitempty"`     // Can change chat info
@@ -24,7 +23,6 @@ type PromoteAdminResult struct {
 
 // DemoteAdminParams holds parameters for DemoteAdmin.
 type DemoteAdminParams struct {
-	NoValidation
 	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
 	User string `json:"user" validate:"required"` // Username to demote
 }
@@ -36,7 +34,6 @@ type DemoteAdminResult struct {
 
 // GetInviteLinkParams holds parameters for GetInviteLink.
 type GetInviteLinkParams struct {
-	NoValidation
 	Peer      string `json:"peer" validate:"required"` // Chat/channel username or ID
 	CreateNew bool   `json:"createNew,omitempty"`      // Create a new link
 }

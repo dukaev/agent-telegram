@@ -3,7 +3,6 @@ package types
 
 // SetSlowModeParams holds parameters for SetSlowMode.
 type SetSlowModeParams struct {
-	NoValidation
 	Peer    string `json:"peer" validate:"required"`
 	Seconds int    `json:"seconds"` // 0 to disable, or 10, 30, 60, 300, 900, 3600
 }
@@ -16,7 +15,6 @@ type SetSlowModeResult struct {
 
 // SetChatPermissionsParams holds parameters for SetChatPermissions.
 type SetChatPermissionsParams struct {
-	NoValidation
 	Peer            string `json:"peer" validate:"required"`
 	SendMessages    bool   `json:"sendMessages"`
 	SendMedia       bool   `json:"sendMedia"`

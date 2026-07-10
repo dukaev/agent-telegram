@@ -93,9 +93,6 @@ func TestValidationHelpers(t *testing.T) {
 	if err := ValidateLongitude(90); err != nil {
 		t.Fatalf("longitude valid = %v", err)
 	}
-	if err := (NoValidation{}).Validate(); err != nil {
-		t.Fatalf("NoValidation error = %v", err)
-	}
 }
 
 func TestCommonParamValidation(t *testing.T) {

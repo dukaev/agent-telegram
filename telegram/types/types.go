@@ -115,7 +115,6 @@ type MessageResult struct {
 
 // GetMessagesParams holds parameters for GetMessages.
 type GetMessagesParams struct {
-	NoValidation
 	Username string `json:"username" validate:"required"`
 	Limit    int    `json:"limit"`
 	Offset   int    `json:"offset"`

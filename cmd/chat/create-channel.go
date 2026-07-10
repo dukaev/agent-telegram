@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -29,8 +27,3 @@ Example:
 	},
 	Success: "Channel created successfully",
 })
-
-// AddCreateChannelCommand adds the create-channel command to the root command.
-func AddCreateChannelCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(CreateChannelCmd)
-}

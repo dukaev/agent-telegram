@@ -3,7 +3,6 @@ package types
 
 // GetPrivacyParams holds parameters for GetPrivacy.
 type GetPrivacyParams struct {
-	NoValidation
 	Key string `json:"key" validate:"required"` // status_timestamp, phone_number, profile_photo, etc.
 }
 
@@ -22,7 +21,6 @@ type GetPrivacyResult struct {
 
 // SetPrivacyParams holds parameters for SetPrivacy.
 type SetPrivacyParams struct {
-	NoValidation
 	Key   string        `json:"key" validate:"required"`
 	Rules []PrivacyRule `json:"rules" validate:"required"`
 }

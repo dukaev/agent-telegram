@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -22,8 +20,3 @@ Example:
 	},
 	Success: "Members invited successfully",
 })
-
-// AddInviteCommand adds the invite command to the root command.
-func AddInviteCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(InviteCmd)
-}

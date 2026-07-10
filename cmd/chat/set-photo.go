@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -19,8 +17,3 @@ Example:
 	Flags:   []cliutil.Flag{cliutil.ToFlag, cliutil.FileFlag},
 	Success: "Photo set successfully",
 })
-
-// AddSetPhotoCommand adds the set-photo command to the root command.
-func AddSetPhotoCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(SetPhotoCmd)
-}

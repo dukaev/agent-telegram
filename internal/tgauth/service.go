@@ -31,15 +31,6 @@ func NewService(cfg *config.Config, logger *slog.Logger) *Service {
 	}
 }
 
-// NewServiceFromEnv creates a new Telegram auth service from environment variables.
-func NewServiceFromEnv(logger *slog.Logger) (*Service, error) {
-	cfg, err := config.LoadFromEnv()
-	if err != nil {
-		return nil, err
-	}
-	return NewService(cfg, logger), nil
-}
-
 // CreateClient creates a new Telegram client.
 func (s *Service) CreateClient(userID int) (*gottg.Client, error) {
 	return s.CreateClientWithUpdateHandler(userID, nil)

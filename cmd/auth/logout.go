@@ -25,11 +25,6 @@ This will:
 	Run: runLogout,
 }
 
-// AddLogoutCommand adds the logout command to the root command.
-func AddLogoutCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(LogoutCmd)
-}
-
 func runLogout(cmd *cobra.Command, _ []string) {
 	socketPath, _ := cmd.Root().PersistentFlags().GetString("socket")
 	if socketPath == "" {

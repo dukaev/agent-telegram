@@ -18,15 +18,9 @@ import (
 // Accepts a context for cancellation and timeout propagation.
 type HandlerFunc = func(ctx context.Context, params json.RawMessage) (any, error)
 
-// Params is a constraint for handler parameter types.
-// Types only need Validate() for custom logic beyond struct-tag validation.
-type Params interface {
-	Validate() error
-}
-
 // Handler returns a generic JSON-RPC handler for the given params type.
 // Automatically runs struct-tag validation (validate:"required") before calling Validate().
-func Handler[T Params, R any](
+func Handler[T any, R any](
 	callFn func(context.Context, T) (R, error),
 	methodName string,
 ) HandlerFunc {
@@ -42,9 +36,11 @@ func Handler[T Params, R any](
 		if err := types.ValidateStruct(&p); err != nil {
 			return nil, err
 		}
-		// Custom validation (no-op for types embedding types.NoValidation)
-		if err := p.Validate(); err != nil {
-			return nil, err
+		// Custom validation is optional; simple parameter structs only need tags.
+		if validator, ok := any(p).(interface{ Validate() error }); ok {
+			if err := validator.Validate(); err != nil {
+				return nil, err
+			}
 		}
 
 		result, err := callFn(ctx, p)
@@ -98,7 +94,7 @@ func ValidateFileParams(ctx context.Context, params json.RawMessage) error {
 }
 
 // FileHandler returns a handler that validates file existence before calling the method.
-func FileHandler[T Params, R any](
+func FileHandler[T any, R any](
 	getFile func(T) string,
 	callFn func(context.Context, T) (R, error),
 	methodName string,

@@ -2,8 +2,6 @@
 package folders
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -23,8 +21,3 @@ Example:
 	},
 	Success: "Folder deleted",
 })
-
-// AddDeleteCommand adds the delete command to the parent command.
-func AddDeleteCommand(parentCmd *cobra.Command) {
-	parentCmd.AddCommand(DeleteCmd)
-}

@@ -30,11 +30,6 @@ func init() {
 	MuteCmd.GroupID = "user"
 }
 
-// AddMuteCommand adds the mute command to the root command.
-func AddMuteCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(MuteCmd)
-}
-
 // NewMuteCommand creates a new mute command (useful for subcommands).
 func NewMuteCommand() *cobra.Command {
 	return cliutil.NewToggleCommand(MuteConfig)

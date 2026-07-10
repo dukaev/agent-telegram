@@ -179,7 +179,6 @@ type PressInlineButtonResult struct {
 
 // ReadMessagesParams holds parameters for ReadMessages.
 type ReadMessagesParams struct {
-	NoValidation
 	Peer  string `json:"peer" validate:"required"`
 	MaxID int64  `json:"maxId,omitempty"` // Mark all messages up to this ID as read
 }
@@ -192,7 +191,6 @@ type ReadMessagesResult struct {
 
 // SetTypingParams holds parameters for SetTyping.
 type SetTypingParams struct {
-	NoValidation
 	Peer   string `json:"peer" validate:"required"`
 	Action string `json:"action,omitempty"` // typing, upload_photo, record_video, record_audio, etc.
 }
@@ -260,7 +258,6 @@ type ReplyToCommentResult struct {
 
 // GetScheduledMessagesParams holds parameters for GetScheduledMessages.
 type GetScheduledMessagesParams struct {
-	NoValidation
 	Peer string `json:"peer" validate:"required"`
 }
 

@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -21,8 +19,3 @@ Example:
 	},
 	Success: "Joined chat successfully",
 })
-
-// AddJoinChatCommand adds the join command to the root command.
-func AddJoinChatCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(JoinChatCmd)
-}

@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -28,8 +26,3 @@ Example:
 	MaxLimit:  200,
 	HasOffset: true,
 })
-
-// AddParticipantsCommand adds the participants command to the root command.
-func AddParticipantsCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(ParticipantsCmd)
-}

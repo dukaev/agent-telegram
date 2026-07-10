@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -25,8 +23,3 @@ Example:
 	},
 	Success: "Slow mode updated",
 })
-
-// AddSlowModeCommand adds the slow-mode command to the root command.
-func AddSlowModeCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(SlowModeCmd)
-}

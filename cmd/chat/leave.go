@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -16,8 +14,3 @@ var LeaveCmd = cliutil.NewSimpleCommand(cliutil.SimpleCommandDef{
 	Flags:   []cliutil.Flag{cliutil.ToFlag},
 	Success: "Left chat successfully",
 })
-
-// AddLeaveCommand adds the leave command to the root command.
-func AddLeaveCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(LeaveCmd)
-}

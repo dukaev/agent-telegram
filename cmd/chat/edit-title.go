@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -19,8 +17,3 @@ Example:
 	Flags:   []cliutil.Flag{cliutil.ToFlag, cliutil.TitleFlag},
 	Success: "Title updated successfully",
 })
-
-// AddEditTitleCommand adds the edit-title command to the root command.
-func AddEditTitleCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(EditTitleCmd)
-}

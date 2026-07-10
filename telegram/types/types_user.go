@@ -49,7 +49,6 @@ type GetUserInfoResult struct {
 
 // UpdateProfileParams holds parameters for UpdateProfile.
 type UpdateProfileParams struct {
-	NoValidation
 	FirstName string `json:"firstName" validate:"required"`
 	LastName  string `json:"lastName,omitempty"`
 	Bio       string `json:"bio,omitempty"`
@@ -62,7 +61,6 @@ type UpdateProfileResult struct {
 
 // UpdateAvatarParams holds parameters for UpdateAvatar.
 type UpdateAvatarParams struct {
-	NoValidation
 	File string `json:"file" validate:"required"`
 }
 

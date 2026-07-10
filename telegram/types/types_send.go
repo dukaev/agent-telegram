@@ -162,7 +162,6 @@ type SendVideoResult struct {
 
 // SendVoiceParams holds parameters for SendVoice.
 type SendVoiceParams struct {
-	NoValidation
 	Peer     string `json:"peer" validate:"required"`
 	File     string `json:"file" validate:"required"` // Path to voice file (OGG/OPUS)
 	Duration int    `json:"duration,omitempty"`       // Duration in seconds
@@ -179,7 +178,6 @@ type SendVoiceResult struct {
 
 // SendVideoNoteParams holds parameters for SendVideoNote.
 type SendVideoNoteParams struct {
-	NoValidation
 	Peer     string `json:"peer" validate:"required"`
 	File     string `json:"file" validate:"required"` // Path to video file
 	Duration int    `json:"duration,omitempty"`       // Duration in seconds
@@ -196,7 +194,6 @@ type SendVideoNoteResult struct {
 
 // SendGIFParams holds parameters for SendGIF.
 type SendGIFParams struct {
-	NoValidation
 	Peer    string `json:"peer" validate:"required"`
 	File    string `json:"file" validate:"required"` // Path to GIF file
 	Caption string `json:"caption,omitempty"`
@@ -257,7 +254,6 @@ type SendDiceResult struct {
 
 // GetStickerPacksParams holds parameters for GetStickerPacks.
 type GetStickerPacksParams struct {
-	NoValidation
 	// No required params - returns all sticker packs
 }
 

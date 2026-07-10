@@ -14,7 +14,6 @@ type SearchResult struct {
 
 // SearchGlobalParams holds parameters for SearchGlobal.
 type SearchGlobalParams struct {
-	NoValidation
 	Query string `json:"query" validate:"required"`
 	Type  string `json:"type,omitempty"` // bots, users, chats, channels, or empty for all
 	Limit int    `json:"limit,omitempty"`
@@ -30,7 +29,6 @@ type SearchGlobalResult struct {
 
 // SearchInChatParams holds parameters for SearchInChat.
 type SearchInChatParams struct {
-	NoValidation
 	Peer   string `json:"peer" validate:"required"`
 	Query  string `json:"query" validate:"required"`
 	Type   string `json:"type,omitempty"` // text, photos, videos, documents, links, audio, voice

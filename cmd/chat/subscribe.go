@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -19,8 +17,3 @@ Example:
 	Flags:   []cliutil.Flag{cliutil.ChannelFlag},
 	Success: "Subscribed to channel successfully",
 })
-
-// AddSubscribeCommand adds the subscribe command to the root command.
-func AddSubscribeCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(SubscribeCmd)
-}

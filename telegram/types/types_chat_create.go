@@ -26,7 +26,6 @@ type CreateGroupResult struct {
 
 // CreateChannelParams holds parameters for CreateChannel.
 type CreateChannelParams struct {
-	NoValidation
 	Title       string `json:"title" validate:"required"` // Channel title
 	Description string `json:"description,omitempty"`     // Channel description
 	Username    string `json:"username,omitempty"`        // Channel username (optional)
@@ -42,7 +41,6 @@ type CreateChannelResult struct {
 
 // EditTitleParams holds parameters for EditTitle.
 type EditTitleParams struct {
-	NoValidation
 	Peer  string `json:"peer" validate:"required"`  // Chat/channel username or ID
 	Title string `json:"title" validate:"required"` // New title
 }
@@ -55,7 +53,6 @@ type EditTitleResult struct {
 
 // SetPhotoParams holds parameters for SetPhoto.
 type SetPhotoParams struct {
-	NoValidation
 	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
 	File string `json:"file" validate:"required"` // Path to photo file
 }
@@ -67,7 +64,6 @@ type SetPhotoResult struct {
 
 // DeletePhotoParams holds parameters for DeletePhoto.
 type DeletePhotoParams struct {
-	NoValidation
 	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
 }
 

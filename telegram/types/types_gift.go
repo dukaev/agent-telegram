@@ -5,7 +5,6 @@ import "fmt"
 
 // GetStarGiftsParams holds parameters for GetStarGifts.
 type GetStarGiftsParams struct {
-	NoValidation
 	Limit int `json:"limit,omitempty"`
 }
 
@@ -61,7 +60,6 @@ type SendStarGiftResult struct {
 
 // GetSavedGiftsParams holds parameters for GetSavedGifts.
 type GetSavedGiftsParams struct {
-	NoValidation
 	Peer   string `json:"peer,omitempty"`
 	Offset string `json:"offset,omitempty"`
 	Limit  int    `json:"limit,omitempty"`
@@ -169,7 +167,6 @@ type UpdateGiftPriceResult struct {
 
 // GetBalanceParams holds parameters for GetBalance.
 type GetBalanceParams struct {
-	NoValidation
 }
 
 // GetBalanceResult is the result of GetBalance.
@@ -181,7 +178,6 @@ type GetBalanceResult struct {
 
 // OfferGiftParams holds parameters for OfferGift.
 type OfferGiftParams struct {
-	NoValidation
 	Peer     string `json:"peer" validate:"required"`
 	Slug     string `json:"slug" validate:"required"`
 	Price    int64  `json:"price" validate:"required"`
@@ -241,7 +237,6 @@ type GetResaleGiftsResult struct {
 
 // BuyResaleGiftParams holds parameters for BuyResaleGift.
 type BuyResaleGiftParams struct {
-	NoValidation
 	Slug string `json:"slug" validate:"required"`
 	Peer string `json:"peer,omitempty"`
 }
@@ -253,7 +248,6 @@ type BuyResaleGiftResult struct {
 
 // GetGiftValueParams holds parameters for GetGiftValue.
 type GetGiftValueParams struct {
-	NoValidation
 	Slug string `json:"slug" validate:"required"`
 }
 
@@ -277,7 +271,6 @@ type GetGiftValueResult struct {
 
 // GetGiftInfoParams holds parameters for GetGiftInfo.
 type GetGiftInfoParams struct {
-	NoValidation
 	Slug string `json:"slug" validate:"required"`
 }
 
@@ -317,7 +310,6 @@ type GetGiftAttrsResult struct {
 
 // AcceptGiftOfferParams holds parameters for AcceptGiftOffer.
 type AcceptGiftOfferParams struct {
-	NoValidation
 	OfferMsgID int `json:"offerMsgId" validate:"required"`
 }
 
@@ -328,7 +320,6 @@ type AcceptGiftOfferResult struct {
 
 // DeclineGiftOfferParams holds parameters for DeclineGiftOffer.
 type DeclineGiftOfferParams struct {
-	NoValidation
 	OfferMsgID int `json:"offerMsgId" validate:"required"`
 }
 

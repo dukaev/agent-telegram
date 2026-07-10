@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -35,8 +33,3 @@ Example:
 	},
 	Success: "User promoted to admin successfully",
 })
-
-// AddPromoteAdminCommand adds the promote-admin command to the root command.
-func AddPromoteAdminCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(PromoteAdminCmd)
-}

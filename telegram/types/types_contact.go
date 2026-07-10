@@ -18,7 +18,6 @@ type Contact struct {
 
 // GetContactsParams holds parameters for GetContacts.
 type GetContactsParams struct {
-	NoValidation
 	Query string `json:"query,omitempty"` // Search query to filter contacts
 	Limit int    `json:"limit,omitempty"` // Maximum number of contacts to return
 }
@@ -32,7 +31,6 @@ type GetContactsResult struct {
 
 // AddContactParams holds parameters for AddContact.
 type AddContactParams struct {
-	NoValidation
 	Phone     string `json:"phone" validate:"required"`     // Phone number (with country code, e.g. +1234567890)
 	FirstName string `json:"firstName" validate:"required"` // First name
 	LastName  string `json:"lastName,omitempty"`            // Last name (optional)

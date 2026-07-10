@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -19,8 +17,3 @@ Example:
 	Flags:   []cliutil.Flag{cliutil.ToFlag, cliutil.UserFlag},
 	Success: "Admin demoted successfully",
 })
-
-// AddDemoteAdminCommand adds the demote-admin command to the root command.
-func AddDemoteAdminCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(DemoteAdminCmd)
-}

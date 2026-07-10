@@ -5,7 +5,6 @@ import "fmt"
 
 // LeaveParams holds parameters for Leave.
 type LeaveParams struct {
-	NoValidation
 	Peer string `json:"peer" validate:"required"` // Chat/channel username or ID
 }
 
@@ -47,7 +46,6 @@ type Participant struct {
 
 // GetParticipantsParams holds parameters for GetParticipants.
 type GetParticipantsParams struct {
-	NoValidation
 	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
 	Limit int    `json:"limit,omitempty"`          // Maximum number of participants (default 100)
 }
@@ -61,7 +59,6 @@ type GetParticipantsResult struct {
 
 // GetAdminsParams holds parameters for GetAdmins.
 type GetAdminsParams struct {
-	NoValidation
 	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
 	Limit int    `json:"limit,omitempty"`          // Maximum number of admins (default 100)
 }
@@ -75,7 +72,6 @@ type GetAdminsResult struct {
 
 // GetBannedParams holds parameters for GetBanned.
 type GetBannedParams struct {
-	NoValidation
 	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
 	Limit int    `json:"limit,omitempty"`          // Maximum number of banned users (default 100)
 }

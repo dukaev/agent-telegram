@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -22,8 +20,3 @@ Use --to @username, --to username, or --to <chat_id> to specify the chat.`,
 	EnableMsg:     "Chat archived successfully!",
 	DisableMsg:    "Chat unarchived successfully!",
 })
-
-// AddArchiveCommand adds the archive command to the root command.
-func AddArchiveCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(ArchiveCmd)
-}

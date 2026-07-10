@@ -18,5 +18,5 @@ func AddFoldersCommand(rootCmd *cobra.Command) {
 
 	AddListCommand(FoldersCmd)
 	AddCreateCommand(FoldersCmd)
-	AddDeleteCommand(FoldersCmd)
+	FoldersCmd.AddCommand(DeleteCmd)
 }

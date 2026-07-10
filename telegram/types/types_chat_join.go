@@ -3,7 +3,6 @@ package types
 
 // JoinChatParams holds parameters for JoinChat.
 type JoinChatParams struct {
-	NoValidation
 	InviteLink string `json:"inviteLink" validate:"required"`
 }
 
@@ -16,7 +15,6 @@ type JoinChatResult struct {
 
 // SubscribeChannelParams holds parameters for SubscribeChannel.
 type SubscribeChannelParams struct {
-	NoValidation
 	Channel string `json:"channel" validate:"required"` // @username or username
 }
 
@@ -39,7 +37,6 @@ type ForumTopic struct {
 
 // GetTopicsParams holds parameters for GetTopics.
 type GetTopicsParams struct {
-	NoValidation
 	Peer  string `json:"peer" validate:"required"` // Channel username or ID
 	Limit int    `json:"limit,omitempty"`          // Maximum number of topics to return
 }

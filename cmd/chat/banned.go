@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -23,8 +21,3 @@ Example:
 	MaxLimit:  200,
 	HasOffset: true,
 })
-
-// AddBannedCommand adds the banned command to the root command.
-func AddBannedCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(BannedCmd)
-}

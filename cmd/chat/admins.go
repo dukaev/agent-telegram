@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -23,8 +21,3 @@ Example:
 	MaxLimit:  200,
 	HasOffset: true,
 })
-
-// AddAdminsCommand adds the admins command to the root command.
-func AddAdminsCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(AdminsCmd)
-}

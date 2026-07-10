@@ -54,7 +54,6 @@ type ClearHistoryResult struct {
 
 // ForwardMessageParams holds parameters for ForwardMessage.
 type ForwardMessageParams struct {
-	NoValidation
 	FromPeer  string `json:"fromPeer" validate:"required"`
 	MessageID int64  `json:"messageId" validate:"required"`
 	ToPeer    string `json:"toPeer" validate:"required"`

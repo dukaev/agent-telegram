@@ -2,8 +2,6 @@
 package chat
 
 import (
-	"github.com/spf13/cobra"
-
 	"agent-telegram/internal/cliutil"
 )
 
@@ -19,8 +17,3 @@ Example:
 	Flags:   []cliutil.Flag{cliutil.ToFlag},
 	Success: "Photo deleted successfully",
 })
-
-// AddDeletePhotoCommand adds the delete-photo command to the root command.
-func AddDeletePhotoCommand(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(DeletePhotoCmd)
-}
