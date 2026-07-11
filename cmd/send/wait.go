@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"agent-telegram/internal/cliutil"
+	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/observability"
 )
 
 const (
@@ -14,34 +16,111 @@ const (
 	waitPollLimit    = 10
 )
 
+var (
+	waitNow   = time.Now
+	waitSleep = time.Sleep
+)
+
+// ReplyPoller is the narrow polling surface used by reply waits.
+type ReplyPoller interface {
+	CallInternal(method string, params any) any
+}
+
+// WaitOutcome describes either a completed reply wait or its deadline.
+type WaitOutcome struct {
+	Reply          any
+	AfterMessageID int64
+	Polls          int
+	Timeout        time.Duration
+	Completed      bool
+}
+
 // WaitForReply polls get_messages until a reply appears after afterMsgID, or timeout.
-// Returns the first incoming message (not sent by us) with ID > afterMsgID.
-func WaitForReply(runner *cliutil.Runner, peer string, afterMsgID int64, timeout time.Duration) (any, int, error) {
-	deadline := time.Now().Add(timeout)
+// Its outcome preserves polling and deadline metadata without classifying the
+// timeout as a validation error.
+func WaitForReply(poller ReplyPoller, peer string, afterMsgID int64, timeout time.Duration) WaitOutcome {
+	outcome := WaitOutcome{AfterMessageID: afterMsgID, Timeout: timeout}
+	deadline := waitNow().Add(timeout)
 	polls := 0
 
-	for time.Now().Before(deadline) {
+	for waitNow().Before(deadline) {
 		params := map[string]any{
 			"username": peer,
 			"limit":    waitPollLimit,
 		}
 
 		polls++
-		result := runner.CallInternal("get_messages", params)
+		result := poller.CallInternal("get_messages", params)
 
 		if reply := findReply(result, afterMsgID); reply != nil {
-			return reply, polls, nil
+			outcome.Reply = reply
+			outcome.Polls = polls
+			outcome.Completed = true
+			return outcome
 		}
 
-		remaining := time.Until(deadline)
+		remaining := deadline.Sub(waitNow())
+		if remaining <= 0 {
+			break
+		}
 		if remaining < waitPollInterval {
-			time.Sleep(remaining)
+			waitSleep(remaining)
 		} else {
-			time.Sleep(waitPollInterval)
+			waitSleep(waitPollInterval)
 		}
 	}
 
-	return nil, polls, fmt.Errorf("no reply within %s", timeout)
+	outcome.Polls = polls
+	return outcome
+}
+
+// FailReplyTimeout reports a reply deadline without losing evidence of a
+// successful action that preceded the wait.
+func FailReplyTimeout(runner *cliutil.Runner, peer string, action any, outcome WaitOutcome) {
+	err, details := replyTimeoutFailure(runner, peer, action, outcome)
+	runner.FailTyped(err, details)
+}
+
+func replyTimeoutFailure(runner *cliutil.Runner, peer string, action any, outcome WaitOutcome) (*ipc.ErrorObject, cliutil.FailureDetails) {
+	wait := map[string]any{
+		"afterMessageId": outcome.AfterMessageID,
+		"polls":          outcome.Polls,
+		"timeout":        outcome.Timeout.String(),
+		"completed":      false,
+	}
+	data := map[string]any{"wait": wait}
+	details := cliutil.FailureDetails{
+		AuditStatus:  "error",
+		AuditSummary: map[string]any{"wait": wait},
+	}
+	if action != nil {
+		data["actionSucceeded"] = true
+		details.PartialResult = map[string]any{
+			"action": action,
+			"wait":   wait,
+		}
+		details.AuditStatus = "partial"
+		details.AuditSummary = map[string]any{
+			"action": observability.SummarizeResult(action),
+			"wait":   wait,
+		}
+	}
+	details.NextActions = []map[string]any{
+		{
+			"kind":    "wait_for_reply",
+			"command": fmt.Sprintf("agent-telegram msg wait %s --after-id %d --timeout %s --agent --run-id %s", cliutil.ShellArg(peer), outcome.AfterMessageID, outcome.Timeout, cliutil.ShellArg(runner.RunID())),
+			"safety":  "read",
+			"reason":  "continue waiting without repeating the write action",
+		},
+		{
+			"kind":    "inspect_trace",
+			"command": fmt.Sprintf("agent-telegram trace inspect %s --agent --run-id %s", cliutil.ShellArg(runner.TraceID()), cliutil.ShellArg(runner.RunID())),
+			"safety":  "read",
+			"reason":  "inspect correlated audit and log events",
+		},
+	}
+	err := ipc.NewTypedError(ipc.ErrCodeTimeout, ipc.ErrorTypeTimeout, fmt.Sprintf("no reply within %s", outcome.Timeout), data)
+	return err, details
 }
 
 // findReply searches messages for an incoming message with ID > afterMsgID.
@@ -92,18 +171,20 @@ func HandleWaitReply(runner *cliutil.Runner, peer string, sendResult any, timeou
 func HandleWaitReplyAfter(runner *cliutil.Runner, peer string, afterMsgID int64, actionResult any, timeout time.Duration) {
 	fmt.Fprintf(os.Stderr, "Waiting for reply (timeout: %s)...\n", timeout)
 
-	reply, polls, err := WaitForReply(runner, peer, afterMsgID, timeout)
-	if err != nil {
-		runner.Fatal(err.Error())
+	outcome := WaitForReply(runner, peer, afterMsgID, timeout)
+	if !outcome.Completed {
+		FailReplyTimeout(runner, peer, actionResult, outcome)
+		return
 	}
 
 	runner.PrintResult(map[string]any{
 		"action": actionResult,
-		"reply":  reply,
+		"reply":  outcome.Reply,
 		"wait": map[string]any{
 			"afterMessageId": afterMsgID,
-			"polls":          polls,
+			"polls":          outcome.Polls,
 			"timeout":        timeout.String(),
+			"completed":      true,
 		},
 	}, nil)
 }

@@ -50,6 +50,7 @@ Examples:
 
 func addContactCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(ContactCmd)
+	cliutil.MarkFirstArgPeer(ContactCmd)
 	contactFlags.RegisterOptionalTo(ContactCmd)
 	ContactCmd.Flags().StringVar(&contactPhone, "phone", "", "Phone number")
 	ContactCmd.Flags().StringVar(&contactFirstName, "first-name", "", "First name")

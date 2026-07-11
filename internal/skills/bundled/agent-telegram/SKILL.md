@@ -60,6 +60,21 @@ agent-telegram msg wait @bot --after-id <message_id> --timeout 20s --agent --run
 Use structured `nextActions` from bot responses to decide whether to send text,
 press a button, wait for a reply, or stop.
 
+`--send` is the canonical `bot step` flag; `--text` is accepted as an alias.
+Peer-taking commands accept negative IDs positionally, while
+`--to=-5424738551` remains the universal explicit form.
+
+If a reply wait ends in a retryable partial timeout, the preceding write may
+already have succeeded. Follow the returned `agent-telegram msg wait` and
+`agent-telegram trace inspect` recovery commands with the same Run ID. Always
+inspect first; do not repeat the action automatically.
+
+## Local Policy
+
+The server checks `policy.json` before each protected request. Valid changes
+take effect without restarting the server. A malformed or unreadable update
+keeps the last valid policy and emits a warning without exposing peer lists.
+
 ## Observability
 
 Keep one `RUN_ID` across related commands. When something fails, inspect the

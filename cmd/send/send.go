@@ -67,6 +67,7 @@ Use @username, username, or <chat_id> to specify the recipient.`,
 //nolint:funlen // Function registers many flags and handles peer resolution
 func AddSendCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(SendCmd)
+	cliutil.MarkFirstArgPeer(SendCmd)
 
 	// Register subcommands
 	addTextCommand(SendCmd)

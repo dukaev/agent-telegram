@@ -231,6 +231,13 @@
 
 ## Notes
 
+### Release resilience checks
+
+- [ ] While the IPC server remains running, edit a temporary `policy.json` allow list and confirm the next protected request uses the new valid policy.
+- [ ] Write malformed JSON to the temporary policy, confirm the last valid policy remains active, then correct the file and confirm the correction is applied without restart.
+- [ ] Exercise a peer-taking command with a negative group ID positionally, for example `bot step -5424738551 --send /start` (use a controlled test bot/chat).
+- [ ] Observe a real bot reply timeout and confirm it is `TIMEOUT`/partial, then match its Run ID and Trace ID across `audit`, `logs`, and `trace inspect` before considering another write.
+
 - Commands with supergroup require a public group or channel (not basic group)
 - Poll cannot be sent to Saved Messages (Telegram limitation)
 - `chat set-photo` requires minimum 512x512 image

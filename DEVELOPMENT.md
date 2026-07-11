@@ -139,6 +139,13 @@ Unknown RPC methods are denied by policy. Parameter decoding is strict (unknown
 fields and trailing JSON are rejected), and destructive or paid operations must
 carry an explicit confirmation bit from CLI, Unix IPC, or HTTP.
 
+The socket and HTTP server surfaces share a file-backed policy checker. It reads
+`policy.json` before each protected request and atomically publishes only valid
+snapshots. A valid edit is applied without a daemon restart; malformed,
+unsupported, or transiently unreadable replacements leave the last valid
+snapshot active and emit a redacted warning. Confirmed file deletion activates
+the default policy.
+
 The HTTP server binds to loopback by default. File paths supplied by remote
 callers are accepted only below configured `--file-root` directories; multipart
 uploads are copied to a request-scoped temporary directory and removed after the
@@ -228,9 +235,18 @@ runner.PrintResult(result, formatter)
 Agents should prefer `agent-telegram server ensure` before RPC-backed commands.
 Bot flows should prefer the high-level `bot step`, `bot press`, and `msg wait`
 commands over manually stitching lower-level button/message primitives.
+Peer-taking commands accept a negative ID as their first positional argument;
+`--to=-5424738551` is still the universal explicit form. For `bot step`,
+`--send` is canonical and `--text` is an accepted alias.
 For automation, prefer `--agent` plus a stable `--run-id` or
 `AGENT_TELEGRAM_RUN_ID`; this enables compact receipts, structured error
 envelopes, and run-level audit/log correlation.
+
+A reply deadline after a successful write is returned as a retryable partial
+`TIMEOUT`, not `VALIDATION`. Its envelope retains the action result, Run ID,
+Trace ID, wait metadata, and safe `msg wait`/`trace inspect` recovery commands.
+Callers must inspect or continue the wait before deciding whether to repeat a
+write; they must not retry the successful action automatically.
 
 **Recipient** - Peer identifier normalization:
 

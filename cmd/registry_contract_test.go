@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"agent-telegram/cmd/auth"
@@ -88,6 +89,48 @@ func TestAgenticContractDoesNotExposeRemovedFlags(t *testing.T) {
 	}
 }
 
+func TestFirstArgPeerCommandRegistry(t *testing.T) {
+	accepted := []string{
+		"bot step",
+		"bot press",
+		"send",
+		"send text",
+		"send poll",
+		"send contact",
+		"send location",
+		"send dice",
+		"game dice",
+		"chat keyboard",
+		"msg list",
+		"msg replies",
+		"msg inspect-keyboard",
+		"msg press-keyboard",
+		"msg wait",
+		"msg reply-comment",
+	}
+	for _, path := range accepted {
+		command := commandAtPath(RootCmd, path)
+		if command == nil {
+			t.Errorf("command %q is not registered", path)
+			continue
+		}
+		if !cliutil.AcceptsFirstArgPeer(command) {
+			t.Errorf("command %q should accept a first positional peer", path)
+		}
+	}
+
+	for _, path := range []string{"msg get", "msg press-button", "send update"} {
+		command := commandAtPath(RootCmd, path)
+		if command == nil {
+			t.Errorf("command %q is not registered", path)
+			continue
+		}
+		if cliutil.AcceptsFirstArgPeer(command) {
+			t.Errorf("command %q must not treat its first positional number as a peer", path)
+		}
+	}
+}
+
 func stringSet(values []string) map[string]struct{} {
 	set := make(map[string]struct{}, len(values))
 	for _, value := range values {
@@ -103,4 +146,15 @@ func childCommand(cmd *cobra.Command, name string) *cobra.Command {
 		}
 	}
 	return nil
+}
+
+func commandAtPath(root *cobra.Command, path string) *cobra.Command {
+	command := root
+	for _, name := range strings.Fields(path) {
+		command = childCommand(command, name)
+		if command == nil {
+			return nil
+		}
+	}
+	return command
 }

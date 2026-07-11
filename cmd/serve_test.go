@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"agent-telegram/internal/policy"
 	"agent-telegram/internal/sessionstore"
 )
 
@@ -101,4 +102,12 @@ func TestParseReloadSessionDataFromProviderReference(t *testing.T) {
 
 func TestLogoutTelegramClientAllowsNilClient(_ *testing.T) {
 	logoutTelegramClient(nil, true)
+}
+
+func TestLoadPolicyCheckerReturnsReloadingEnforcer(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	checker := loadPolicyChecker(nil)
+	if _, ok := checker.(*policy.ReloadingEnforcer); !ok {
+		t.Fatalf("checker = %T, want *policy.ReloadingEnforcer", checker)
+	}
 }

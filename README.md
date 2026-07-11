@@ -132,6 +132,23 @@ and `file` parts.
 
 For debugging, use `audit`, `logs`, `trace inspect`, and `run inspect`. Audit/log output is redacted by default.
 
+### Policy and bot-flow resilience
+
+The daemon checks `policy.json` before each protected request. Valid policy
+changes take effect without restarting the server. If an update is malformed
+or unreadable, the last valid policy remains active and the server emits a
+warning without logging peer lists.
+
+Commands whose first positional argument is a peer accept negative group IDs,
+for example `agent-telegram bot step -5424738551 --send /start`.
+`--to=-5424738551` remains the universal explicit form. `bot step` documents
+`--send` as canonical and also accepts `--text` as an alias.
+
+If a reply deadline expires after a write, agent mode reports a retryable
+partial timeout with the same Run ID and Trace ID. This does not prove that the
+write failed. Use the returned `msg wait` and `trace inspect` commands before
+deciding whether to act again; do not repeat the write automatically.
+
 ## Architecture
 
 ```text

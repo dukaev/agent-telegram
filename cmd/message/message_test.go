@@ -4,9 +4,13 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"agent-telegram/cmd/send"
 )
 
 func TestAddMsgCommandRegistersExpectedSurface(t *testing.T) {
+	resetMessageCommandTreeForTest(MsgCmd)
+	resetMessageCommandTreeForTest(send.SendCmd)
 	root := &cobra.Command{Use: "root"}
 
 	AddMsgCommand(root)
@@ -30,6 +34,17 @@ func TestAddMsgCommandRegistersExpectedSurface(t *testing.T) {
 	if PressButtonCmd.Flags().Lookup("wait-reply") == nil || PressKeyboardCmd.Flags().Lookup("timeout") == nil {
 		t.Fatal("expected button flags")
 	}
+}
+
+func resetMessageCommandTreeForTest(cmd *cobra.Command) {
+	if parent := cmd.Parent(); parent != nil {
+		parent.RemoveCommand(cmd)
+	}
+	for _, child := range cmd.Commands() {
+		resetMessageCommandTreeForTest(child)
+		cmd.RemoveCommand(child)
+	}
+	cmd.ResetFlags()
 }
 
 func TestFindButtonText(t *testing.T) {
