@@ -24,6 +24,9 @@ func (c *Client) Join(ctx context.Context, inviteLink string) (tg.UpdatesClass, 
 	// Use messages.ImportChatInvite to join
 	result, err := c.API().MessagesImportChatInvite(ctx, hash)
 	if err != nil {
+		if tg.IsUserAlreadyParticipant(err) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to join chat: %w", err)
 	}
 
@@ -114,6 +117,9 @@ func (c *Client) Subscribe(ctx context.Context, channel string) (tg.UpdatesClass
 	// Join the channel
 	result, err := c.API().ChannelsJoinChannel(ctx, inputChannel)
 	if err != nil {
+		if tg.IsUserAlreadyParticipant(err) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to subscribe to channel: %w", err)
 	}
 

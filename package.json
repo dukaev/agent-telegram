@@ -1,6 +1,6 @@
 {
   "name": "agent-telegram",
-  "version": "0.7.16",
+  "version": "0.7.17",
   "description": "Telegram IPC agent CLI - interact with Telegram via command line",
   "bin": {
     "agent-telegram": "./bin/run.js"

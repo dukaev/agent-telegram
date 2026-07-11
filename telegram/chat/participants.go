@@ -22,6 +22,10 @@ func (c *Client) GetParticipants(
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
 
 	var result types.GetParticipantsResult
 	result.Peer = params.Peer
@@ -36,6 +40,7 @@ func (c *Client) GetParticipants(
 				AccessHash: p.AccessHash,
 			},
 			Filter: &tg.ChannelParticipantsRecent{},
+			Offset: offset,
 			Limit:  limit,
 		})
 		if err != nil {
@@ -59,10 +64,18 @@ func (c *Client) GetParticipants(
 
 		if chatFull, ok := fullChat.FullChat.(*tg.ChatFull); ok {
 			if participants, ok := chatFull.Participants.(*tg.ChatParticipants); ok {
-				for _, participantClass := range participants.Participants {
+				result.Count = len(participants.Participants)
+				start := offset
+				if start > len(participants.Participants) {
+					start = len(participants.Participants)
+				}
+				end := start + limit
+				if end > len(participants.Participants) {
+					end = len(participants.Participants)
+				}
+				for _, participantClass := range participants.Participants[start:end] {
 					result.Participants = append(result.Participants, extractChatParticipant(participantClass, fullChat.Users))
 				}
-				result.Count = len(result.Participants)
 			}
 		}
 
@@ -196,6 +209,10 @@ func (c *Client) GetBanned(ctx context.Context, params types.GetBannedParams) (*
 	if limit <= 0 || limit > 200 {
 		limit = 100
 	}
+	offset := params.Offset
+	if offset < 0 {
+		offset = 0
+	}
 
 	// Use ChannelsGetParticipants with ChannelParticipantsKicked filter
 	channelResult, err := c.API().ChannelsGetParticipants(ctx, &tg.ChannelsGetParticipantsRequest{
@@ -204,6 +221,7 @@ func (c *Client) GetBanned(ctx context.Context, params types.GetBannedParams) (*
 			AccessHash: inputChannel.AccessHash,
 		},
 		Filter: &tg.ChannelParticipantsKicked{},
+		Offset: offset,
 		Limit:  limit,
 	})
 	if err != nil {
