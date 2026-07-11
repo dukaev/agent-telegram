@@ -7,6 +7,7 @@ import (
 )
 
 func TestAddSendCommandRegistersExpectedSurface(t *testing.T) {
+	resetSendCommandTreeForTest(SendCmd)
 	root := &cobra.Command{Use: "root"}
 
 	AddSendCommand(root)
@@ -25,6 +26,17 @@ func TestAddSendCommandRegistersExpectedSurface(t *testing.T) {
 			t.Fatalf("send flag --%s was not registered", flag)
 		}
 	}
+}
+
+func resetSendCommandTreeForTest(cmd *cobra.Command) {
+	if parent := cmd.Parent(); parent != nil {
+		parent.RemoveCommand(cmd)
+	}
+	for _, child := range cmd.Commands() {
+		resetSendCommandTreeForTest(child)
+		cmd.RemoveCommand(child)
+	}
+	cmd.ResetFlags()
 }
 
 func TestBuildSendParamsBranches(t *testing.T) {

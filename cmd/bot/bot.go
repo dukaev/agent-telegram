@@ -37,10 +37,11 @@ keyboard inspection, and wait handling into compact JSON responses.`,
 
 // StepCmd sends optional text and returns the current bot state.
 var StepCmd = &cobra.Command{
-	Use:     "step [peer]",
-	Short:   "Send optional text and return bot state",
-	Example: "  agent-telegram bot step <peer> --send <text>",
-	Args:    cobra.MaximumNArgs(1),
+	Use:   "step [peer]",
+	Short: "Send optional text and return bot state",
+	Example: `  agent-telegram bot step <peer> --send <text>
+  agent-telegram bot step -5424738551 --send /start`,
+	Args: cobra.MaximumNArgs(1),
 }
 
 // PressCmd presses an inline button and optionally waits for the next bot message.

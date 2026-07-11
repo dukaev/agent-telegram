@@ -78,3 +78,22 @@ func TestGenerateLLMMarkdownMentionsProjectAwareSkillOnboarding(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateLLMMarkdownDocumentsHotPolicyAndTimeoutRecovery(t *testing.T) {
+	root := &cobra.Command{Use: "agent-telegram"}
+	body := GenerateLLMMarkdown(root)
+	for _, want := range []string{
+		"policy changes are applied without restarting the server",
+		"--to=-5424738551",
+		"bot step",
+		"--send",
+		"--text",
+		"partial timeout",
+		"do not repeat the action automatically",
+		"trace inspect",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("generated docs missing %q:\n%s", want, body)
+		}
+	}
+}

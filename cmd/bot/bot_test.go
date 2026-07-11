@@ -8,6 +8,7 @@ import (
 )
 
 func TestAddBotCommandScopesStepTextAlias(t *testing.T) {
+	resetBotCommandTreeForTest(BotCmd)
 	root := &cobra.Command{Use: "agent-telegram"}
 	AddBotCommand(root)
 
@@ -17,9 +18,20 @@ func TestAddBotCommandScopesStepTextAlias(t *testing.T) {
 	if PressCmd.Flags().Lookup("text") != nil {
 		t.Fatal("bot press should not expose --text")
 	}
-	if !strings.Contains(StepCmd.Example, "--send") || strings.Contains(StepCmd.Example, "--text") {
-		t.Fatalf("bot step example = %q, want canonical --send only", StepCmd.Example)
+	if !strings.Contains(StepCmd.Example, "--send") || !strings.Contains(StepCmd.Example, "-5424738551") || strings.Contains(StepCmd.Example, "--text") {
+		t.Fatalf("bot step example = %q, want canonical --send and negative peer guidance", StepCmd.Example)
 	}
+}
+
+func resetBotCommandTreeForTest(cmd *cobra.Command) {
+	if parent := cmd.Parent(); parent != nil {
+		parent.RemoveCommand(cmd)
+	}
+	for _, child := range cmd.Commands() {
+		resetBotCommandTreeForTest(child)
+		cmd.RemoveCommand(child)
+	}
+	cmd.ResetFlags()
 }
 
 func TestResolveStepText(t *testing.T) {
