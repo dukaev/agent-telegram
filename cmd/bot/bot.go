@@ -15,6 +15,7 @@ import (
 var (
 	stepTo      cliutil.Recipient
 	stepSend    string
+	stepText    string
 	stepWait    bool
 	stepTimeout time.Duration
 	stepLimit   int
@@ -37,9 +38,10 @@ keyboard inspection, and wait handling into compact JSON responses.`,
 
 // StepCmd sends optional text and returns the current bot state.
 var StepCmd = &cobra.Command{
-	Use:   "step [peer]",
-	Short: "Send optional text and return bot state",
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "step [peer]",
+	Short:   "Send optional text and return bot state",
+	Example: "  agent-telegram bot step <peer> --send <text>",
+	Args:    cobra.MaximumNArgs(1),
 }
 
 // PressCmd presses an inline button and optionally waits for the next bot message.
@@ -58,6 +60,7 @@ func AddBotCommand(rootCmd *cobra.Command) {
 
 	StepCmd.Flags().VarP(&stepTo, "to", "t", "Bot peer")
 	StepCmd.Flags().StringVar(&stepSend, "send", "", "Text to send before reading state")
+	StepCmd.Flags().StringVar(&stepText, "text", "", "Alias for --send")
 	StepCmd.Flags().BoolVar(&stepWait, "wait-reply", true, "Wait for a reply after --send")
 	StepCmd.Flags().DurationVar(&stepTimeout, "timeout", 20*time.Second, "Maximum wait time")
 	StepCmd.Flags().IntVar(&stepLimit, "limit", 10, "Messages to inspect when reading state")
@@ -70,20 +73,24 @@ func AddBotCommand(rootCmd *cobra.Command) {
 	PressCmd.Run = runPress
 }
 
-func runStep(_ *cobra.Command, args []string) {
+func runStep(cmd *cobra.Command, args []string) {
+	runner := cliutil.NewRunnerFromCmd(cmd, true)
+	messageText, err := resolveStepText(cmd, stepSend, stepText)
+	if err != nil {
+		runner.Fatal(err.Error())
+	}
 	if len(args) > 0 {
 		_ = stepTo.Set(args[0])
 	}
-	runner := cliutil.NewRunnerFromCmd(StepCmd, true)
 	requirePeer(runner, stepTo.Peer())
 	var action any
 	var message map[string]any
 	var waitMeta map[string]any
 
-	if stepSend != "" {
+	if messageText != "" {
 		action = runner.Call("send_message", map[string]any{
 			"peer":    stepTo.Peer(),
-			"message": stepSend,
+			"message": messageText,
 		})
 		afterID := extractMessageID(action)
 		if stepWait {
@@ -111,6 +118,18 @@ func runStep(_ *cobra.Command, args []string) {
 		state["wait"] = waitMeta
 	}
 	runner.PrintResult(state, nil)
+}
+
+func resolveStepText(cmd *cobra.Command, sendValue, textValue string) (string, error) {
+	sendChanged := cmd.Flags().Changed("send")
+	textChanged := cmd.Flags().Changed("text")
+	if sendChanged && textChanged && sendValue != textValue {
+		return "", fmt.Errorf("use only --send or --text when values differ; example: agent-telegram bot step <peer> --send <text>")
+	}
+	if textChanged {
+		return textValue, nil
+	}
+	return sendValue, nil
 }
 
 func runPress(_ *cobra.Command, args []string) {

@@ -210,6 +210,8 @@ func hasFlag(args []string, flag string) bool {
 }
 
 func init() {
+	RootCmd.SetFlagErrorFunc(cliutil.FlagErrorWithHints)
+
 	// Add command groups
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDAuth, Title: "Authentication"})
 	RootCmd.AddGroup(&cobra.Group{ID: GroupIDMessage, Title: "Manage Messages"})
