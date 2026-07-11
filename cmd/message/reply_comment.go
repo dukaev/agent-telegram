@@ -31,6 +31,7 @@ Examples:
 // AddReplyCommentCommand adds the reply-comment command to the parent command.
 func AddReplyCommentCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(ReplyCommentCmd)
+	cliutil.MarkFirstArgPeer(ReplyCommentCmd)
 
 	ReplyCommentCmd.Flags().VarP(&replyCommentTo, "to", "t", "Channel peer")
 	ReplyCommentCmd.Flags().Int64VarP(&replyCommentMessage, "message", "m", 0, "Channel post message ID (required)")

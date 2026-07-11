@@ -29,6 +29,7 @@ messages, but polling steps are not written as separate CLI audit events.`,
 // AddWaitCommand adds the wait command to the parent command.
 func AddWaitCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(WaitCmd)
+	cliutil.MarkFirstArgPeer(WaitCmd)
 
 	WaitCmd.Flags().VarP(&waitTo, "to", "t", "Peer to wait on")
 	WaitCmd.Flags().Int64Var(&waitAfterID, "after-id", 0, "Only return incoming messages after this message ID")

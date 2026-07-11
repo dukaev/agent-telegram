@@ -32,6 +32,7 @@ Peer can be positional or via --to flag.`,
 // AddInspectKeyboardCommand adds the inspect-keyboard command to the root command.
 func AddInspectKeyboardCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(InspectKeyboardCmd)
+	cliutil.MarkFirstArgPeer(InspectKeyboardCmd)
 
 	InspectKeyboardCmd.Flags().VarP(&inspectKeyboardTo, "to", "t", "Recipient (@username, username, or chat ID)")
 

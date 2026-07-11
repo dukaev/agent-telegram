@@ -53,6 +53,8 @@ var PressCmd = &cobra.Command{
 func AddBotCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(BotCmd)
 	BotCmd.AddCommand(StepCmd, PressCmd)
+	cliutil.MarkFirstArgPeer(StepCmd)
+	cliutil.MarkFirstArgPeer(PressCmd)
 
 	StepCmd.Flags().VarP(&stepTo, "to", "t", "Bot peer")
 	StepCmd.Flags().StringVar(&stepSend, "send", "", "Text to send before reading state")

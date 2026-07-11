@@ -49,6 +49,7 @@ Examples:
 
 func addDiceCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(DiceCmd)
+	cliutil.MarkFirstArgPeer(DiceCmd)
 	diceSubFlags.RegisterOptionalTo(DiceCmd)
 	DiceCmd.Flags().StringVar(&diceSubEmoticon, "emoticon", "", "Dice emoticon (default: 🎲, also: 🎯, 🏀, ⚽, 🎳, 🎰)")
 	DiceCmd.Flags().Int64Var(&diceSubReplyToID, "reply-to", 0, "Reply to message ID")

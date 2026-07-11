@@ -59,6 +59,7 @@ Examples:
 
 func addPollCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(PollCmd)
+	cliutil.MarkFirstArgPeer(PollCmd)
 	pollSubFlags.RegisterOptionalTo(PollCmd)
 	PollCmd.Flags().StringSliceVar(&pollSubOptions, "option", nil, "Poll options (can be used multiple times)")
 }

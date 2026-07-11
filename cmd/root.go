@@ -179,9 +179,12 @@ func writeOnboardingMessage(cmd *cobra.Command, format string, args ...any) {
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the RootCmd.
 func Execute() {
+	args := cliutil.NormalizeNegativePeerArgs(RootCmd, os.Args[1:])
+	RootCmd.SetArgs(args)
+
 	// Handle --schema before cobra's Execute to bypass required flag/arg validation.
-	if hasFlag(os.Args[1:], "--schema") {
-		cmd, _, _ := RootCmd.Find(os.Args[1:])
+	if hasFlag(args, "--schema") {
+		cmd, _, _ := RootCmd.Find(args)
 		if cmd != nil && cmd != RootCmd {
 			cliutil.PrintCommandSchema(cmd)
 		}

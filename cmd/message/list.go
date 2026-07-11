@@ -33,6 +33,7 @@ Examples:
 // AddListCommand adds the list command to the parent command.
 func AddListCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(ListCmd)
+	cliutil.MarkFirstArgPeer(ListCmd)
 
 	ListCmd.Flags().VarP(&listTo, "to", "t", "Chat/user to get messages from")
 	ListCmd.Flags().IntVar(&listLimit, "limit", 10, "Number of messages to fetch")

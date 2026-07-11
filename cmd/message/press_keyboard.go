@@ -41,6 +41,7 @@ Examples:
 // AddPressKeyboardCommand adds the press-keyboard command to the parent command.
 func AddPressKeyboardCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(PressKeyboardCmd)
+	cliutil.MarkFirstArgPeer(PressKeyboardCmd)
 
 	PressKeyboardCmd.Flags().VarP(&pressKeyboardTo, "to", "t", "Recipient (@username, username, or chat ID)")
 	PressKeyboardCmd.Flags().BoolVarP(&pressKeyboardWait, "wait-reply", "w", false, "Wait for a reply after pressing")

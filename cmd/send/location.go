@@ -44,6 +44,7 @@ Examples:
 
 func addLocationCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(LocationCmd)
+	cliutil.MarkFirstArgPeer(LocationCmd)
 	locationFlags.RegisterOptionalTo(LocationCmd)
 	LocationCmd.Flags().Float64Var(&locationLat, "lat", 0, "Latitude")
 	LocationCmd.Flags().Float64Var(&locationLong, "long", 0, "Longitude")
