@@ -73,6 +73,9 @@ func (c *Client) Invite(ctx context.Context, params types.InviteParams) (*types.
 				Users: []tg.InputUserClass{inputUser},
 			})
 			if err != nil {
+				if tg.IsUserAlreadyParticipant(err) {
+					continue
+				}
 				return nil, fmt.Errorf("failed to invite to channel: %w", err)
 			}
 		case *tg.InputPeerChat:
@@ -81,6 +84,9 @@ func (c *Client) Invite(ctx context.Context, params types.InviteParams) (*types.
 				UserID: inputUser,
 			})
 			if err != nil {
+				if tg.IsUserAlreadyParticipant(err) {
+					continue
+				}
 				return nil, fmt.Errorf("failed to invite to chat: %w", err)
 			}
 		}
