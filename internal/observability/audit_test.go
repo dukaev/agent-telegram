@@ -45,3 +45,29 @@ func TestWriteAuditRedactsParams(t *testing.T) {
 		t.Fatalf("city = %v, want safe redaction", params["city"])
 	}
 }
+
+func TestWriteAuditPreservesPartialTimeoutCorrelation(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	event := AuditEvent{
+		RunID:     "run-test",
+		TraceID:   "trace-test",
+		Surface:   "cli",
+		Method:    "send_message",
+		Status:    "partial",
+		ErrorType: "TIMEOUT",
+		ResultSummary: map[string]any{
+			"wait": map[string]any{"afterMessageId": 123, "completed": false},
+		},
+	}
+	if err := WriteAudit("", event); err != nil {
+		t.Fatal(err)
+	}
+	events, err := ReadAudit("", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := events[0]
+	if got.Status != "partial" || got.ErrorType != "TIMEOUT" || got.RunID != "run-test" || got.TraceID != "trace-test" {
+		t.Fatalf("event = %+v", got)
+	}
+}

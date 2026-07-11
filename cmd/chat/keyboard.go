@@ -36,6 +36,7 @@ Examples:
 // AddKeyboardCommand adds the keyboard command to the parent command.
 func AddKeyboardCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(KeyboardCmd)
+	cliutil.MarkFirstArgPeer(KeyboardCmd)
 
 	KeyboardCmd.Flags().VarP(&chatKeyboardTo, "to", "t", "Recipient (@username, username, or chat ID)")
 

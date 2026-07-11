@@ -31,6 +31,7 @@ Examples:
 // AddRepliesCommand adds the replies command to the parent command.
 func AddRepliesCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(RepliesCmd)
+	cliutil.MarkFirstArgPeer(RepliesCmd)
 
 	RepliesCmd.Flags().VarP(&repliesTo, "to", "t", "Channel to get replies from")
 	RepliesCmd.Flags().Int64VarP(&repliesMessage, "message", "m", 0, "Message ID to get replies for (required)")

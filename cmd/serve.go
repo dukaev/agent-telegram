@@ -495,13 +495,13 @@ func importSessionForMemoryStorage(tgClient *telegram.Client, sessionData []byte
 	return nil
 }
 
-func loadPolicyChecker(tgClient *telegram.Client) ipc.PolicyChecker {
-	p, err := policy.LoadDefault()
+func loadPolicyChecker(resolver policy.PeerResolver) ipc.PolicyChecker {
+	path, err := policy.DefaultPath()
 	if err != nil {
-		slog.Warn("failed to load local policy, using defaults", "error", err)
-		p = policy.Default()
+		slog.Warn("failed to resolve local policy path, using defaults", "error", err)
+		return policy.NewEnforcer(policy.Default(), resolver)
 	}
-	return policy.NewEnforcer(p, tgClient)
+	return policy.NewReloadingEnforcer(path, resolver)
 }
 
 func logoutTelegramClient(tgClient *telegram.Client, enabled bool) {

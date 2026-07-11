@@ -3,10 +3,49 @@ package policy
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"agent-telegram/internal/ipc"
 )
+
+func TestParseValidatesAndNormalizesPolicy(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr string
+	}{
+		{name: "valid", body: `{"version":1,"allowPeers":["Ada"]}`},
+		{name: "unsupported version", body: `{"version":2}`, wantErr: "unsupported policy version 2"},
+		{name: "malformed", body: `{`, wantErr: "parse policy"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Parse([]byte(tt.body))
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil || len(got.AllowPeers) != 1 || got.AllowPeers[0] != "@ada" {
+				t.Fatalf("policy = %+v, error = %v", got, err)
+			}
+		})
+	}
+}
+
+func TestLoadMissingReturnsDefault(t *testing.T) {
+	got, err := Load(filepath.Join(t.TempDir(), "missing.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Default()
+	if got.Version != want.Version || got.Safeties != want.Safeties || got.PeerTypes != want.PeerTypes {
+		t.Fatalf("policy = %+v, want default %+v", got, want)
+	}
+}
 
 func TestEnforcerBlocksDisabledSafety(t *testing.T) {
 	p := Default()

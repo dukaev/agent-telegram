@@ -1,11 +1,31 @@
 package skills
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestBundledSkillDocumentsHotPolicyAndTimeoutRecovery(t *testing.T) {
+	data, err := fs.ReadFile(bundledFS, "bundled/agent-telegram/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	for _, want := range []string{
+		"agent-telegram bot step @bot --send",
+		"without restarting the server",
+		"partial timeout",
+		"do not repeat the action automatically",
+		"agent-telegram trace inspect",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("bundled skill missing %q:\n%s", want, body)
+		}
+	}
+}
 
 func TestManifestIncludesAgentTelegramSkill(t *testing.T) {
 	items := Manifest()

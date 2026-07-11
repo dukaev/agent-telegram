@@ -89,6 +89,15 @@ type Runner struct {
 	commandPath   string
 }
 
+// FailureDetails adds partial-result and recovery metadata to a typed local
+// failure such as a reply deadline reached after a successful action.
+type FailureDetails struct {
+	PartialResult any
+	NextActions   []map[string]any
+	AuditStatus   string
+	AuditSummary  map[string]any
+}
+
 // NewRunner creates a new command runner with the given socket flag and JSON output setting.
 func NewRunner(socketFlag string, jsonOutput bool) *Runner {
 	return &Runner{
@@ -160,6 +169,17 @@ func (r *Runner) SetAction(method string) {
 // AgentMode reports whether the compact agent contract is enabled.
 func (r *Runner) AgentMode() bool {
 	return r.agentMode
+}
+
+// RunID returns the correlation identifier shared by this command and its
+// recovery commands.
+func (r *Runner) RunID() string {
+	return r.runID
+}
+
+// TraceID returns the trace identifier for this command.
+func (r *Runner) TraceID() string {
+	return r.traceID
 }
 
 // NewRunnerFromRoot creates a runner from a root command with socket flag.
@@ -412,6 +432,56 @@ func (r *Runner) Fatal(msg string) {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "Error: %s\n", msg)
+	Exit(1)
+}
+
+// FailTyped records and prints a structured local runtime failure.
+func (r *Runner) FailTyped(err *ipc.ErrorObject, details FailureDetails) {
+	if err == nil {
+		err = ipc.NewTypedError(-32000, ipc.ErrorTypeInternal, "command failed", nil)
+	}
+	status := details.AuditStatus
+	if status == "" {
+		status = "error"
+	}
+
+	log := getCLILogger(r.socketFlag)
+	log.Info("cli: local failure",
+		"run_id", r.runID,
+		"trace_id", r.traceID,
+		"method", r.lastMethod,
+		"error_type", errorType(err),
+		"status", status,
+		"summary", observability.RedactAny(details.AuditSummary),
+	)
+	event := observability.AuditEvent{
+		Time:          time.Now().UTC(),
+		RunID:         r.runID,
+		TraceID:       r.traceID,
+		Surface:       "cli",
+		Method:        r.lastMethod,
+		Safety:        r.lastSafety,
+		Status:        status,
+		ResultSummary: details.AuditSummary,
+		ErrorCode:     err.Code,
+		ErrorType:     errorType(err),
+		Error:         err.Message,
+	}
+	if auditErr := observability.WriteAudit(r.socketFlag, event); auditErr != nil {
+		log.Warn("cli: audit write failed", "error", auditErr)
+	}
+
+	if r.agentMode {
+		r.printErrorEnvelopeWithDetails(err, details)
+		Exit(1)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "Error: %s\n", err.Message)
+	for _, action := range details.NextActions {
+		if command, _ := action["command"].(string); command != "" {
+			fmt.Fprintf(os.Stderr, "Next: %s\n", command)
+		}
+	}
 	Exit(1)
 }
 

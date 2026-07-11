@@ -64,6 +64,7 @@ Examples:
 
 func addTextCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(TextCmd)
+	cliutil.MarkFirstArgPeer(TextCmd)
 	textFlags.RegisterOptionalTo(TextCmd)
 	TextCmd.Flags().Int64Var(&textReplyToMsgID, "reply-to", 0, "Reply to message ID")
 }

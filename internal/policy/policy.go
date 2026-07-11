@@ -100,20 +100,36 @@ func LoadDefault() (Policy, error) {
 
 // Load reads a policy from path.
 func Load(path string) (Policy, error) {
-	p := Default()
 	//nolint:gosec // path is a caller-selected local policy file path.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return p, nil
+			return Default(), nil
 		}
 		return Policy{}, fmt.Errorf("read policy: %w", err)
 	}
+	return Parse(data)
+}
+
+// Parse decodes, normalizes, and validates a policy snapshot.
+func Parse(data []byte) (Policy, error) {
+	p := Default()
 	if err := json.Unmarshal(data, &p); err != nil {
 		return Policy{}, fmt.Errorf("parse policy: %w", err)
 	}
 	p.Normalize()
+	if err := p.Validate(); err != nil {
+		return Policy{}, err
+	}
 	return p, nil
+}
+
+// Validate verifies that the policy uses a supported schema version.
+func (p Policy) Validate() error {
+	if p.Version != version {
+		return fmt.Errorf("unsupported policy version %d", p.Version)
+	}
+	return nil
 }
 
 // SaveDefault writes policy to the default path.
