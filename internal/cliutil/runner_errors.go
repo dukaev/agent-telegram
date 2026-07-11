@@ -50,6 +50,14 @@ func (r *Runner) ensureErrorToRPC(err error, method string) *ipc.ErrorObject {
 }
 
 func (r *Runner) printErrorEnvelope(err *ipc.ErrorObject) {
+	r.printErrorEnvelopeWithDetails(err, FailureDetails{})
+}
+
+func (r *Runner) printErrorEnvelopeWithDetails(err *ipc.ErrorObject, details FailureDetails) {
+	nextActions := nextActionsForError(err, r)
+	if details.NextActions != nil {
+		nextActions = details.NextActions
+	}
 	payload := map[string]any{
 		"ok":          false,
 		"runId":       r.runID,
@@ -59,7 +67,10 @@ func (r *Runner) printErrorEnvelope(err *ipc.ErrorObject) {
 		"safety":      r.lastSafety,
 		"error":       errorObjectForOutput(err),
 		"diagnosis":   diagnosisForError(err),
-		"nextActions": nextActionsForError(err, r),
+		"nextActions": nextActions,
+	}
+	if details.PartialResult != nil {
+		payload["partialResult"] = details.PartialResult
 	}
 	data, jsonErr := json.MarshalIndent(payload, "", "  ")
 	if jsonErr != nil {
@@ -114,6 +125,12 @@ func diagnosisForError(err *ipc.ErrorObject) map[string]any {
 			"category": "validation",
 			"summary":  "Command parameters failed validation.",
 			"retry":    "Inspect the schema and retry with valid parameters.",
+		}
+	case ipc.ErrorTypeTimeout:
+		return map[string]any{
+			"category": "timeout",
+			"summary":  "The requested wait did not complete before the deadline.",
+			"retry":    "Continue waiting or inspect the trace before repeating a write action.",
 		}
 	case ipc.ErrorTypePeerNotFound:
 		return map[string]any{

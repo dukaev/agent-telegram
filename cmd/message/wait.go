@@ -40,20 +40,23 @@ func AddWaitCommand(parentCmd *cobra.Command) {
 			_ = waitTo.Set(args[0])
 		}
 		runner := cliutil.NewRunnerFromCmd(WaitCmd, true)
+		runner.SetAction("wait_for_reply")
 		if waitTo.Peer() == "" {
 			runner.Fatal("peer is required (positional or --to)")
 		}
 
-		reply, polls, err := send.WaitForReply(runner, waitTo.Peer(), waitAfterID, waitTimeout)
-		if err != nil {
-			runner.Fatal(err.Error())
+		outcome := send.WaitForReply(runner, waitTo.Peer(), waitAfterID, waitTimeout)
+		if !outcome.Completed {
+			send.FailReplyTimeout(runner, waitTo.Peer(), nil, outcome)
+			return
 		}
 		runner.PrintResult(map[string]any{
-			"reply": reply,
+			"reply": outcome.Reply,
 			"wait": map[string]any{
 				"afterMessageId": waitAfterID,
-				"polls":          polls,
+				"polls":          outcome.Polls,
 				"timeout":        waitTimeout.String(),
+				"completed":      true,
 			},
 		}, nil)
 	}

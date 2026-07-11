@@ -2,9 +2,11 @@ package cliutil
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"agent-telegram/internal/ipc"
+	"agent-telegram/internal/observability"
 )
 
 func TestPrintDryRunReceiptIncludesActionMetadata(t *testing.T) {
@@ -44,6 +46,110 @@ func TestPrintDryRunReceiptIncludesActionMetadata(t *testing.T) {
 	}
 	if !body.Result.DryRun || body.Result.Method != "send_message" {
 		t.Fatalf("dry-run result = %+v, want send_message dry-run", body.Result)
+	}
+}
+
+func TestFailTypedTimeoutProducesPartialEnvelopeAndAudit(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	SetExitFunc(func(code int) {
+		if code != 1 {
+			t.Errorf("exit code = %d, want 1", code)
+		}
+	})
+	t.Cleanup(func() { SetExitFunc(nil) })
+
+	runner := NewRunner("", true)
+	runner.agentMode = true
+	runner.runID = "run-test"
+	runner.traceID = "trace-test"
+	runner.SetAction("send_message")
+	runner.writeAudit("send_message", map[string]any{"peer": "@bot", "message": "must not appear"}, map[string]any{"id": 123}, nil, 0)
+	err := ipc.NewTypedError(ipc.ErrCodeTimeout, ipc.ErrorTypeTimeout, "no reply within 20s", map[string]any{
+		"actionSucceeded": true,
+	})
+	details := FailureDetails{
+		PartialResult: map[string]any{
+			"action": map[string]any{"id": 123},
+			"wait": map[string]any{
+				"afterMessageId": 123,
+				"completed":      false,
+			},
+		},
+		NextActions: []map[string]any{{"kind": "wait_for_reply", "command": "agent-telegram msg wait @bot"}},
+		AuditStatus: "partial",
+		AuditSummary: map[string]any{
+			"wait": map[string]any{"afterMessageId": 123, "completed": false},
+		},
+	}
+
+	output := captureStdout(t, func() { runner.FailTyped(err, details) })
+	var body struct {
+		RunID   string `json:"runId"`
+		TraceID string `json:"traceId"`
+		Error   struct {
+			Type      string `json:"type"`
+			Retryable bool   `json:"retryable"`
+			Data      struct {
+				ActionSucceeded bool `json:"actionSucceeded"`
+			} `json:"data"`
+		} `json:"error"`
+		PartialResult struct {
+			Wait struct {
+				Completed bool `json:"completed"`
+			} `json:"wait"`
+		} `json:"partialResult"`
+	}
+	if err := json.Unmarshal([]byte(output), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Error.Type != ipc.ErrorTypeTimeout || !body.Error.Retryable || !body.Error.Data.ActionSucceeded {
+		t.Fatalf("error = %+v, want retryable TIMEOUT after successful action", body.Error)
+	}
+	if body.PartialResult.Wait.Completed {
+		t.Fatalf("partial timeout = %+v", body.PartialResult)
+	}
+	if body.RunID != "run-test" || body.TraceID != "trace-test" {
+		t.Fatalf("correlation IDs = %+v", body)
+	}
+
+	events, readErr := observability.ReadAudit("", 10)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if len(events) != 2 || events[0].Status != "ok" || events[0].RunID != "run-test" || events[0].TraceID != "trace-test" {
+		t.Fatalf("successful action audit was not preserved: %+v", events)
+	}
+	params, _ := events[0].Params.(map[string]any)
+	if params["message"] != "[TEXT REDACTED]" {
+		t.Fatalf("message text leaked into audit: %+v", params)
+	}
+	last := events[len(events)-1]
+	if last.Status != "partial" || last.ErrorType != ipc.ErrorTypeTimeout || last.RunID != "run-test" || last.TraceID != "trace-test" {
+		t.Fatalf("audit = %+v", last)
+	}
+}
+
+func TestFailTypedStandaloneWaitOmitsPartialResultAndActionSucceeded(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	SetExitFunc(func(int) {})
+	t.Cleanup(func() { SetExitFunc(nil) })
+	runner := NewRunner("", true)
+	runner.agentMode = true
+	runner.SetAction("wait_for_reply")
+	err := ipc.NewTypedError(ipc.ErrCodeTimeout, ipc.ErrorTypeTimeout, "no reply", map[string]any{})
+
+	output := captureStdout(t, func() {
+		runner.FailTyped(err, FailureDetails{AuditStatus: "error"})
+	})
+	if strings.Contains(output, "partialResult") || strings.Contains(output, "actionSucceeded") {
+		t.Fatalf("standalone wait contains action-only fields: %s", output)
+	}
+	events, readErr := observability.ReadAudit("", 10)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if last := events[len(events)-1]; last.Status != "error" || last.ErrorType != ipc.ErrorTypeTimeout {
+		t.Fatalf("audit = %+v", last)
 	}
 }
 
