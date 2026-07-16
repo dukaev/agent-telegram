@@ -30,6 +30,7 @@ Example:
 // AddTopicsCommand adds the topics command to the root command.
 func AddTopicsCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(TopicsCmd)
+	cliutil.MarkFirstArgPeer(TopicsCmd)
 
 	TopicsCmd.Flags().VarP(&topicsTo, "to", "t", "Chat or bot peer (@username, username, or ID)")
 	TopicsCmd.Flags().IntVarP(&topicsLimit, "limit", "l", cliutil.DefaultLimitMax, "Maximum number of topics (max 100)")

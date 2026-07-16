@@ -101,6 +101,7 @@ func TestFirstArgPeerCommandRegistry(t *testing.T) {
 		"send dice",
 		"game dice",
 		"chat keyboard",
+		"chat topics",
 		"msg list",
 		"msg replies",
 		"msg inspect-keyboard",
@@ -128,6 +129,32 @@ func TestFirstArgPeerCommandRegistry(t *testing.T) {
 		if cliutil.AcceptsFirstArgPeer(command) {
 			t.Errorf("command %q must not treat its first positional number as a peer", path)
 		}
+	}
+}
+
+func TestThreadAwareBotFlowContract(t *testing.T) {
+	wantFlags := map[string][]string{
+		"bot step":  {"thread-id"},
+		"bot press": {"text"},
+		"msg list":  {"thread-id"},
+		"msg wait":  {"thread-id"},
+		"send":      {"thread-id", "reply-to"},
+	}
+	for path, flags := range wantFlags {
+		command := commandAtPath(RootCmd, path)
+		if command == nil {
+			t.Fatalf("command %q is not registered", path)
+		}
+		for _, flag := range flags {
+			if command.Flags().Lookup(flag) == nil {
+				t.Errorf("%s should expose --%s", path, flag)
+			}
+		}
+	}
+
+	topics := commandAtPath(RootCmd, "chat topics")
+	if topics == nil || !strings.Contains(topics.Use, "[peer]") {
+		t.Fatalf("chat topics usage = %v", topics)
 	}
 }
 
