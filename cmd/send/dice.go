@@ -7,9 +7,8 @@ import (
 )
 
 var (
-	diceSubFlags     SendFlags
-	diceSubEmoticon  string
-	diceSubReplyToID int64
+	diceSubFlags    SendFlags
+	diceSubEmoticon string
 )
 
 // DiceCmd represents the send dice subcommand.
@@ -32,12 +31,9 @@ Examples:
 
 		runner := diceSubFlags.NewRunner()
 		params := map[string]any{}
-		diceSubFlags.To.AddToParams(params)
+		diceSubFlags.AddToParams(params)
 		if diceSubEmoticon != "" {
 			params["emoticon"] = diceSubEmoticon
-		}
-		if diceSubReplyToID != 0 {
-			params["replyTo"] = diceSubReplyToID
 		}
 
 		result := runner.CallWithParams("send_dice", params)
@@ -52,5 +48,4 @@ func addDiceCommand(parentCmd *cobra.Command) {
 	cliutil.MarkFirstArgPeer(DiceCmd)
 	diceSubFlags.RegisterOptionalTo(DiceCmd)
 	DiceCmd.Flags().StringVar(&diceSubEmoticon, "emoticon", "", "Dice emoticon (default: 🎲, also: 🎯, 🏀, ⚽, 🎳, 🎰)")
-	DiceCmd.Flags().Int64Var(&diceSubReplyToID, "reply-to", 0, "Reply to message ID")
 }

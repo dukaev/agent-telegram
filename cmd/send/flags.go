@@ -17,6 +17,8 @@ import (
 type SendFlags struct {
 	To          cliutil.Recipient
 	Caption     string
+	ThreadID    int64
+	ReplyTo     int64
 	WaitReply   bool
 	WaitTimeout time.Duration
 	cmd         *cobra.Command
@@ -27,6 +29,7 @@ func (f *SendFlags) Register(command *cobra.Command) {
 	f.cmd = command
 	command.Flags().VarP(&f.To, "to", "t", "Recipient (@username, username, or chat ID)")
 	command.Flags().StringVar(&f.Caption, "caption", "", "Caption")
+	f.registerThreadTarget(command)
 	_ = command.MarkFlagRequired("to")
 }
 
@@ -35,6 +38,7 @@ func (f *SendFlags) RegisterOptionalTo(command *cobra.Command) {
 	f.cmd = command
 	command.Flags().VarP(&f.To, "to", "t", "Recipient (@username, username, or chat ID)")
 	command.Flags().StringVar(&f.Caption, "caption", "", "Caption")
+	f.registerThreadTarget(command)
 	command.Flags().BoolVarP(&f.WaitReply, "wait-reply", "w", false, "Wait for a reply after sending")
 	command.Flags().DurationVar(&f.WaitTimeout, "timeout", 10*time.Second, "Timeout for --wait-reply")
 }
@@ -51,6 +55,22 @@ func (f *SendFlags) AddToParams(params map[string]any) {
 	f.To.AddToParams(params)
 	if f.Caption != "" {
 		params["caption"] = f.Caption
+	}
+	f.AddThreadTarget(params)
+}
+
+func (f *SendFlags) registerThreadTarget(command *cobra.Command) {
+	command.Flags().Int64Var(&f.ThreadID, "thread-id", 0, "Forum topic root message ID")
+	command.Flags().Int64Var(&f.ReplyTo, "reply-to", 0, "Reply to message ID")
+}
+
+// AddThreadTarget adds non-zero topic and reply identifiers to an IPC request.
+func (f *SendFlags) AddThreadTarget(params map[string]any) {
+	if f.ThreadID != 0 {
+		params["threadId"] = f.ThreadID
+	}
+	if f.ReplyTo != 0 {
+		params["replyTo"] = f.ReplyTo
 	}
 }
 

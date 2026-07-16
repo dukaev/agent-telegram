@@ -88,6 +88,12 @@ func TestMessageParamValidation(t *testing.T) {
 }
 
 func TestSendParamValidation(t *testing.T) {
+	if err := (ThreadTarget{ThreadID: -1}).Validate(); err == nil {
+		t.Fatal("negative thread ID should fail")
+	}
+	if err := (ThreadTarget{ReplyTo: -1}).Validate(); err == nil {
+		t.Fatal("negative reply target should fail")
+	}
 	if err := (SendLocationParams{Latitude: 91, Longitude: 0}).Validate(); err == nil {
 		t.Fatal("invalid latitude should fail")
 	}

@@ -28,8 +28,6 @@ var (
 	sendVideoNote string
 	sendSticker   string
 	sendGIF       string
-	// Reply options
-	replyToMessageID int64
 	// Poll options
 	pollQuestion string
 	pollOptions  []string
@@ -90,9 +88,6 @@ func AddSendCommand(rootCmd *cobra.Command) {
 	SendCmd.Flags().StringVar(&sendVideoNote, "video-note", "", "Send video note (circle)")
 	SendCmd.Flags().StringVar(&sendSticker, "sticker", "", "Send sticker (WEBP)")
 	SendCmd.Flags().StringVar(&sendGIF, "gif", "", "Send GIF/animation")
-
-	// Reply flag
-	SendCmd.Flags().Int64Var(&replyToMessageID, "reply-to", 0, "Reply to message ID")
 
 	// Poll flags
 	SendCmd.Flags().StringVar(&pollQuestion, "poll", "", "Create poll with question")
@@ -155,7 +150,7 @@ func AddSendCommand(rootCmd *cobra.Command) {
 
 		// Handle --wait-reply: send, then poll for reply
 		if sendFlags.WaitReply {
-			HandleWaitReply(runner, sendFlags.To.Peer(), result, sendFlags.WaitTimeout)
+			HandleWaitReply(runner, sendFlags.To.Peer(), sendFlags.ThreadID, result, sendFlags.WaitTimeout)
 			return
 		}
 
@@ -184,7 +179,7 @@ func buildSendParams(args []string) (string, map[string]any) {
 	params := make(map[string]any)
 
 	// Always add recipient
-	sendFlags.To.AddToParams(params)
+	sendFlags.AddToParams(params)
 
 	// Add caption if present
 	if sendFlags.Caption != "" {
@@ -197,9 +192,6 @@ func buildSendParams(args []string) (string, map[string]any) {
 	case sendDice:
 		if diceEmoticon != "" {
 			params["emoticon"] = diceEmoticon
-		}
-		if replyToMessageID != 0 {
-			params["replyTo"] = replyToMessageID
 		}
 		return "send_dice", params
 
@@ -266,13 +258,14 @@ func buildSendParams(args []string) (string, map[string]any) {
 		params["file"] = sendFile
 		return "send_file", params
 
-	case replyToMessageID != 0:
+	case sendFlags.ReplyTo != 0:
 		if len(args) == 0 {
 			params["text"] = ""
 		} else {
 			params["text"] = args[0]
 		}
-		params["messageId"] = replyToMessageID
+		params["messageId"] = sendFlags.ReplyTo
+		delete(params, "replyTo")
 		return methodSendReply, params
 
 	case len(args) > 0:

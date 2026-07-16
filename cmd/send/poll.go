@@ -40,7 +40,7 @@ Examples:
 		params := map[string]any{
 			"question": question,
 		}
-		pollSubFlags.To.AddToParams(params)
+		pollSubFlags.AddToParams(params)
 
 		if len(pollSubOptions) > 0 {
 			optionMaps := make([]map[string]string, len(pollSubOptions))

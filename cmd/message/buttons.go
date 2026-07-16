@@ -80,7 +80,7 @@ func AddPressButtonCommand(rootCmd *cobra.Command) {
 		pressInlineButtonTo.AddToParams(params)
 		result := runner.CallWithParams("press_inline_button", params)
 		if pressInlineButtonWait {
-			send.HandleWaitReplyAfter(runner, pressInlineButtonTo.Peer(), messageID, result, pressInlineButtonTimeout)
+			send.HandleWaitReplyAfter(runner, pressInlineButtonTo.Peer(), 0, messageID, result, pressInlineButtonTimeout)
 			return
 		}
 		runner.PrintResult(result, nil)

@@ -94,7 +94,7 @@ func runStep(cmd *cobra.Command, args []string) {
 		})
 		afterID := extractMessageID(action)
 		if stepWait {
-			outcome := send.WaitForReply(runner, stepTo.Peer(), afterID, stepTimeout)
+			outcome := send.WaitForReply(runner, stepTo.Peer(), 0, afterID, stepTimeout)
 			if !outcome.Completed {
 				send.FailReplyTimeout(runner, stepTo.Peer(), action, outcome)
 				return
@@ -157,7 +157,7 @@ func runPress(_ *cobra.Command, args []string) {
 	var message map[string]any
 	var waitMeta map[string]any
 	if pressWait {
-		outcome := send.WaitForReply(runner, pressTo.Peer(), messageID, pressTimeout)
+		outcome := send.WaitForReply(runner, pressTo.Peer(), 0, messageID, pressTimeout)
 		if !outcome.Completed {
 			send.FailReplyTimeout(runner, pressTo.Peer(), action, outcome)
 			return

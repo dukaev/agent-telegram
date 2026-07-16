@@ -21,9 +21,14 @@ func TestAddSendCommandRegistersExpectedSurface(t *testing.T) {
 			t.Fatalf("send subcommand %q was not registered", name)
 		}
 	}
-	for _, flag := range []string{"to", "caption", "wait-reply", "file", "photo", "video", "poll", "latitude", "contact", "dice"} {
+	for _, flag := range []string{"to", "caption", "wait-reply", "thread-id", "reply-to", "file", "photo", "video", "poll", "latitude", "contact", "dice"} {
 		if SendCmd.Flags().Lookup(flag) == nil {
 			t.Fatalf("send flag --%s was not registered", flag)
+		}
+	}
+	for _, cmd := range []*cobra.Command{TextCmd, PhotoCmd, VideoCmd, VoiceCmd, StickerCmd, DiceCmd, PollCmd, LocationCmd, ContactCmd} {
+		if cmd.Flags().Lookup("thread-id") == nil || cmd.Flags().Lookup("reply-to") == nil {
+			t.Fatalf("%s should expose thread target flags", cmd.CommandPath())
 		}
 	}
 }
@@ -52,7 +57,7 @@ func TestBuildSendParamsBranches(t *testing.T) {
 			name: "text",
 			setup: func() {
 				sendFlags.Caption = "caption"
-				replyToMessageID = 42
+				sendFlags.ReplyTo = 42
 			},
 			args:   []string{"hello"},
 			method: methodSendReply,
@@ -64,7 +69,7 @@ func TestBuildSendParamsBranches(t *testing.T) {
 			setup: func() {
 				sendDice = true
 				diceEmoticon = "dart"
-				replyToMessageID = 7
+				sendFlags.ReplyTo = 7
 			},
 			method: "send_dice",
 			key:    "emoticon",
@@ -116,6 +121,8 @@ func TestBuildSendParamsBranches(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resetSendGlobals(t)
 			_ = sendFlags.To.Set("@peer")
+			sendFlags.ThreadID = 77
+			sendFlags.ReplyTo = 88
 			tt.setup()
 
 			method, params := buildSendParams(tt.args)
@@ -127,6 +134,12 @@ func TestBuildSendParamsBranches(t *testing.T) {
 			}
 			if params[tt.key] != tt.value {
 				t.Fatalf("%s = %v, want %v; params=%#v", tt.key, params[tt.key], tt.value, params)
+			}
+			if params["threadId"] != int64(77) {
+				t.Fatalf("threadId = %v; params=%#v", params["threadId"], params)
+			}
+			if method != methodSendReply && params["replyTo"] == nil {
+				t.Fatalf("replyTo missing; params=%#v", params)
 			}
 		})
 	}
@@ -157,7 +170,6 @@ func resetSendGlobals(t *testing.T) {
 	sendVideoNote = ""
 	sendSticker = ""
 	sendGIF = ""
-	replyToMessageID = 0
 	pollQuestion = ""
 	pollOptions = nil
 	latitude = 0

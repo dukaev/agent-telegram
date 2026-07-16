@@ -37,6 +37,9 @@ func TestAddMsgCommandRegistersExpectedSurface(t *testing.T) {
 	if ListCmd.Flags().Lookup("thread-id") == nil {
 		t.Fatal("msg list should expose --thread-id")
 	}
+	if WaitCmd.Flags().Lookup("thread-id") == nil {
+		t.Fatal("msg wait should expose --thread-id")
+	}
 }
 
 func resetMessageCommandTreeForTest(cmd *cobra.Command) {

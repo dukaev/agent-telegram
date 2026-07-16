@@ -10,9 +10,10 @@ import (
 )
 
 var (
-	waitTo      cliutil.Recipient
-	waitAfterID int64
-	waitTimeout time.Duration
+	waitTo       cliutil.Recipient
+	waitAfterID  int64
+	waitThreadID int64
+	waitTimeout  time.Duration
 )
 
 // WaitCmd waits for the next incoming message from a peer.
@@ -33,6 +34,7 @@ func AddWaitCommand(parentCmd *cobra.Command) {
 
 	WaitCmd.Flags().VarP(&waitTo, "to", "t", "Peer to wait on")
 	WaitCmd.Flags().Int64Var(&waitAfterID, "after-id", 0, "Only return incoming messages after this message ID")
+	WaitCmd.Flags().Int64Var(&waitThreadID, "thread-id", 0, "Forum topic root message ID")
 	WaitCmd.Flags().DurationVar(&waitTimeout, "timeout", 30*time.Second, "Maximum time to wait")
 
 	WaitCmd.Run = func(_ *cobra.Command, args []string) {
@@ -45,19 +47,27 @@ func AddWaitCommand(parentCmd *cobra.Command) {
 			runner.Fatal("peer is required (positional or --to)")
 		}
 
-		outcome := send.WaitForReply(runner, waitTo.Peer(), waitAfterID, waitTimeout)
+		if waitThreadID < 0 {
+			runner.Fatal("thread-id must be >= 0")
+		}
+
+		outcome := send.WaitForReply(runner, waitTo.Peer(), waitThreadID, waitAfterID, waitTimeout)
 		if !outcome.Completed {
 			send.FailReplyTimeout(runner, waitTo.Peer(), nil, outcome)
 			return
 		}
+		wait := map[string]any{
+			"afterMessageId": waitAfterID,
+			"polls":          outcome.Polls,
+			"timeout":        waitTimeout.String(),
+			"completed":      true,
+		}
+		if waitThreadID != 0 {
+			wait["threadId"] = waitThreadID
+		}
 		runner.PrintResult(map[string]any{
 			"reply": outcome.Reply,
-			"wait": map[string]any{
-				"afterMessageId": waitAfterID,
-				"polls":          outcome.Polls,
-				"timeout":        waitTimeout.String(),
-				"completed":      true,
-			},
+			"wait":  wait,
 		}, nil)
 	}
 }

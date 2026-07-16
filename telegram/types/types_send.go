@@ -9,6 +9,17 @@ type ThreadTarget struct {
 	ReplyTo  int64 `json:"replyTo,omitempty"`
 }
 
+// Validate rejects invalid Telegram message identifiers.
+func (t ThreadTarget) Validate() error {
+	if t.ThreadID < 0 {
+		return fmt.Errorf("threadId must be >= 0")
+	}
+	if t.ReplyTo < 0 {
+		return fmt.Errorf("replyTo must be >= 0")
+	}
+	return nil
+}
+
 // SendMessageParams holds parameters for SendMessage.
 type SendMessageParams struct {
 	PeerInfo
