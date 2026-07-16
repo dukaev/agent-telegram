@@ -8,6 +8,7 @@ import (
 
 	"github.com/gotd/td/tg"
 
+	"agent-telegram/telegram/internal/replytarget"
 	"agent-telegram/telegram/types"
 )
 
@@ -33,10 +34,8 @@ func (c *Client) SendDice(ctx context.Context, params types.SendDiceParams) (*ty
 	req := &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    dice,
+		ReplyTo:  replytarget.Build(params.ThreadTarget),
 		RandomID: time.Now().UnixNano(),
-	}
-	if params.ReplyTo != 0 {
-		req.ReplyTo = &tg.InputReplyToMessage{ReplyToMsgID: int(params.ReplyTo)}
 	}
 
 	result, err := c.API().MessagesSendMedia(ctx, req)

@@ -1,6 +1,48 @@
 package types
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func TestMessagingSendParamsExposeThreadTarget(t *testing.T) {
+	target := ThreadTarget{ThreadID: 77, ReplyTo: 88}
+	params := []any{
+		SendMessageParams{ThreadTarget: target},
+		SendReplyParams{ThreadTarget: target},
+		SendLocationParams{ThreadTarget: target},
+		SendPhotoParams{ThreadTarget: target},
+		SendContactParams{ThreadTarget: target},
+		SendFileParams{ThreadTarget: target},
+		SendPollParams{ThreadTarget: target},
+		SendVideoParams{ThreadTarget: target},
+		SendVoiceParams{ThreadTarget: target},
+		SendVideoNoteParams{ThreadTarget: target},
+		SendGIFParams{ThreadTarget: target},
+		SendStickerParams{ThreadTarget: target},
+		SendDiceParams{ThreadTarget: target},
+	}
+
+	for _, param := range params {
+		data, err := json.Marshal(param)
+		if err != nil {
+			t.Fatalf("marshal %T: %v", param, err)
+		}
+		got := string(data)
+		if !strings.Contains(got, `"threadId":77`) || !strings.Contains(got, `"replyTo":88`) {
+			t.Fatalf("%T JSON = %s", param, got)
+		}
+	}
+
+	gift, err := json.Marshal(SendStarGiftParams{Peer: "@p", GiftID: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(gift), "threadId") || strings.Contains(string(gift), "replyTo") {
+		t.Fatalf("gift schema unexpectedly has thread target: %s", gift)
+	}
+}
 
 func TestMessageParamValidation(t *testing.T) {
 	validPeerMsg := []interface{ Validate() error }{

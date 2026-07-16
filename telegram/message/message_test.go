@@ -284,6 +284,17 @@ func TestReadAndSendMethodsWithFakeAPI(t *testing.T) {
 				Users: []tg.UserClass{},
 			}, nil
 		case *tg.MessagesSendMessageRequest:
+			reply, ok := req.ReplyTo.(*tg.InputReplyToMessage)
+			if !ok {
+				t.Fatalf("missing reply target for %q: %#v", req.Message, req.ReplyTo)
+			}
+			wantReply := 88
+			if req.Message == "reply" {
+				wantReply = 2
+			}
+			if reply.ReplyToMsgID != wantReply || reply.TopMsgID != 77 {
+				t.Fatalf("reply target for %q = %#v", req.Message, reply)
+			}
 			return &tg.UpdateShortSentMessage{ID: 33}, nil
 		default:
 			t.Fatalf("unexpected request %T", input)
@@ -325,8 +336,9 @@ func TestReadAndSendMethodsWithFakeAPI(t *testing.T) {
 		t.Fatalf("buttons = %+v", buttons)
 	}
 	sent, err := c.SendMessage(context.Background(), types.SendMessageParams{
-		PeerInfo: types.PeerInfo{Peer: "me"},
-		Message:  "hello",
+		PeerInfo:     types.PeerInfo{Peer: "me"},
+		ThreadTarget: types.ThreadTarget{ThreadID: 77, ReplyTo: 88},
+		Message:      "hello",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -335,9 +347,10 @@ func TestReadAndSendMethodsWithFakeAPI(t *testing.T) {
 		t.Fatalf("sent = %+v", sent)
 	}
 	reply, err := c.SendReply(context.Background(), types.SendReplyParams{
-		PeerInfo: types.PeerInfo{Peer: "me"},
-		MsgID:    types.MsgID{MessageID: 2},
-		Text:     "reply",
+		PeerInfo:     types.PeerInfo{Peer: "me"},
+		ThreadTarget: types.ThreadTarget{ThreadID: 77},
+		MsgID:        types.MsgID{MessageID: 2},
+		Text:         "reply",
 	})
 	if err != nil {
 		t.Fatal(err)

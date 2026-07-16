@@ -25,6 +25,7 @@ type GetMessageResult struct {
 // SendReplyParams holds parameters for SendReply.
 type SendReplyParams struct {
 	PeerInfo
+	ThreadTarget
 	MsgID
 	Text string `json:"text" validate:"required"`
 }

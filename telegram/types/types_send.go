@@ -3,9 +3,16 @@ package types // revive:disable:var-naming
 
 import "fmt"
 
+// ThreadTarget identifies a forum topic and an optional message reply target.
+type ThreadTarget struct {
+	ThreadID int64 `json:"threadId,omitempty"`
+	ReplyTo  int64 `json:"replyTo,omitempty"`
+}
+
 // SendMessageParams holds parameters for SendMessage.
 type SendMessageParams struct {
 	PeerInfo
+	ThreadTarget
 	Message string `json:"message" validate:"required"`
 }
 
@@ -20,6 +27,7 @@ type SendMessageResult struct {
 // SendLocationParams holds parameters for SendLocation.
 type SendLocationParams struct {
 	PeerInfo
+	ThreadTarget
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 }
@@ -51,6 +59,7 @@ type SendLocationResult struct {
 // SendPhotoParams holds parameters for SendPhoto.
 type SendPhotoParams struct {
 	PeerInfo
+	ThreadTarget
 	File    string `json:"file" validate:"required"`
 	Caption string `json:"caption,omitempty"`
 }
@@ -66,6 +75,7 @@ type SendPhotoResult struct {
 // SendContactParams holds parameters for SendContact.
 type SendContactParams struct {
 	PeerInfo
+	ThreadTarget
 	Phone     string `json:"phone" validate:"required"`
 	FirstName string `json:"firstName" validate:"required"`
 	LastName  string `json:"lastName,omitempty"`
@@ -82,6 +92,7 @@ type SendContactResult struct {
 // SendFileParams holds parameters for SendFile.
 type SendFileParams struct {
 	PeerInfo
+	ThreadTarget
 	File    string `json:"file" validate:"required"`
 	Caption string `json:"caption,omitempty"`
 }
@@ -102,6 +113,7 @@ type PollOption struct {
 // SendPollParams holds parameters for SendPoll.
 type SendPollParams struct {
 	PeerInfo
+	ThreadTarget
 	Question   string       `json:"question" validate:"required"`
 	Options    []PollOption `json:"options"`
 	Anonymous  bool         `json:"anonymous,omitempty"`
@@ -148,6 +160,7 @@ type SendPollResult struct {
 // SendVideoParams holds parameters for SendVideo.
 type SendVideoParams struct {
 	PeerInfo
+	ThreadTarget
 	File    string `json:"file" validate:"required"`
 	Caption string `json:"caption,omitempty"`
 }
@@ -162,6 +175,7 @@ type SendVideoResult struct {
 
 // SendVoiceParams holds parameters for SendVoice.
 type SendVoiceParams struct {
+	ThreadTarget
 	Peer     string `json:"peer" validate:"required"`
 	File     string `json:"file" validate:"required"` // Path to voice file (OGG/OPUS)
 	Duration int    `json:"duration,omitempty"`       // Duration in seconds
@@ -178,6 +192,7 @@ type SendVoiceResult struct {
 
 // SendVideoNoteParams holds parameters for SendVideoNote.
 type SendVideoNoteParams struct {
+	ThreadTarget
 	Peer     string `json:"peer" validate:"required"`
 	File     string `json:"file" validate:"required"` // Path to video file
 	Duration int    `json:"duration,omitempty"`       // Duration in seconds
@@ -194,6 +209,7 @@ type SendVideoNoteResult struct {
 
 // SendGIFParams holds parameters for SendGIF.
 type SendGIFParams struct {
+	ThreadTarget
 	Peer    string `json:"peer" validate:"required"`
 	File    string `json:"file" validate:"required"` // Path to GIF file
 	Caption string `json:"caption,omitempty"`
@@ -212,6 +228,7 @@ var ErrRequiresStickerOrFile = fmt.Errorf("stickerId or file is required")
 
 // SendStickerParams holds parameters for SendSticker.
 type SendStickerParams struct {
+	ThreadTarget
 	Peer      string `json:"peer" validate:"required"`
 	StickerID string `json:"stickerId,omitempty"` // Sticker file_id or short_name
 	File      string `json:"file,omitempty"`      // Path to sticker file (WEBP)
@@ -239,8 +256,8 @@ type SendStickerResult struct {
 // SendDiceParams holds parameters for SendDice.
 type SendDiceParams struct {
 	PeerInfo
+	ThreadTarget
 	Emoticon string `json:"emoticon,omitempty"`
-	ReplyTo  int64  `json:"replyTo,omitempty"`
 }
 
 // SendDiceResult is the result of SendDice.
