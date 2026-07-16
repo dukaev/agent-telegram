@@ -46,8 +46,9 @@ type Participant struct {
 
 // GetParticipantsParams holds parameters for GetParticipants.
 type GetParticipantsParams struct {
-	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
-	Limit int    `json:"limit,omitempty"`          // Maximum number of participants (default 100)
+	Peer   string `json:"peer" validate:"required"` // Chat/channel username or ID
+	Limit  int    `json:"limit,omitempty"`          // Maximum number of participants (default 100)
+	Offset int    `json:"offset,omitempty"`         // Number of participants to skip
 }
 
 // GetParticipantsResult is the result of GetParticipants.
@@ -59,8 +60,9 @@ type GetParticipantsResult struct {
 
 // GetAdminsParams holds parameters for GetAdmins.
 type GetAdminsParams struct {
-	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
-	Limit int    `json:"limit,omitempty"`          // Maximum number of admins (default 100)
+	Peer   string `json:"peer" validate:"required"` // Chat/channel username or ID
+	Limit  int    `json:"limit,omitempty"`          // Maximum number of admins (default 100)
+	Offset int    `json:"offset,omitempty"`         // Number of admins to skip
 }
 
 // GetAdminsResult is the result of GetAdmins.
@@ -72,8 +74,9 @@ type GetAdminsResult struct {
 
 // GetBannedParams holds parameters for GetBanned.
 type GetBannedParams struct {
-	Peer  string `json:"peer" validate:"required"` // Chat/channel username or ID
-	Limit int    `json:"limit,omitempty"`          // Maximum number of banned users (default 100)
+	Peer   string `json:"peer" validate:"required"` // Chat/channel username or ID
+	Limit  int    `json:"limit,omitempty"`          // Maximum number of banned users (default 100)
+	Offset int    `json:"offset,omitempty"`         // Number of banned users to skip
 }
 
 // GetBannedResult is the result of GetBanned.
