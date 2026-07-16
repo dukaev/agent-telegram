@@ -56,7 +56,7 @@ func WaitForReply(poller ReplyPoller, peer string, threadID, afterMsgID int64, t
 		polls++
 		result := poller.CallInternal("get_messages", params)
 
-		if reply := findReply(result, afterMsgID, threadID); reply != nil {
+		if reply := FindReply(result, afterMsgID, threadID); reply != nil {
 			outcome.Reply = reply
 			outcome.Polls = polls
 			outcome.Completed = true
@@ -134,8 +134,8 @@ func replyTimeoutFailure(runner *cliutil.Runner, peer string, action any, outcom
 	return err, details
 }
 
-// findReply searches messages for an incoming message with ID > afterMsgID.
-func findReply(result any, afterMsgID, threadID int64) map[string]any {
+// FindReply searches messages for an incoming message in the requested thread.
+func FindReply(result any, afterMsgID, threadID int64) map[string]any {
 	r, ok := result.(map[string]any)
 	if !ok {
 		return nil
@@ -169,6 +169,10 @@ func findReply(result any, afterMsgID, threadID int64) map[string]any {
 	}
 
 	return nil
+}
+
+func findReply(result any, afterMsgID, threadID int64) map[string]any {
+	return FindReply(result, afterMsgID, threadID)
 }
 
 // HandleWaitReply performs the wait-reply flow after a send.

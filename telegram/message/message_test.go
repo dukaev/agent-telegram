@@ -359,3 +359,39 @@ func TestReadAndSendMethodsWithFakeAPI(t *testing.T) {
 		t.Fatalf("reply = %+v", reply)
 	}
 }
+
+func TestPressInlineButtonSelectsByText(t *testing.T) {
+	c := NewClient(fakeParent{peer: &tg.InputPeerSelf{}})
+	c.SetAPI(tg.NewClient(tgmock.Invoker(func(input bin.Encoder) (bin.Encoder, error) {
+		switch req := input.(type) {
+		case *tg.MessagesGetMessagesRequest:
+			return &tg.MessagesMessages{Messages: []tg.MessageClass{&tg.Message{
+				ID: 123, PeerID: &tg.PeerUser{UserID: 1},
+				ReplyMarkup: &tg.ReplyInlineMarkup{Rows: []tg.KeyboardButtonRow{{Buttons: []tg.KeyboardButtonClass{
+					&tg.KeyboardButtonCallback{Text: "First", Data: []byte("first")},
+					&tg.KeyboardButtonCallback{Text: "Edit", Data: []byte("edit")},
+				}}}},
+			}}}, nil
+		case *tg.MessagesGetBotCallbackAnswerRequest:
+			if string(req.Data) != "edit" {
+				t.Fatalf("callback data = %q", req.Data)
+			}
+			return &tg.MessagesBotCallbackAnswer{}, nil
+		default:
+			t.Fatalf("unexpected request %T", input)
+			return nil, nil
+		}
+	})))
+
+	result, err := c.PressInlineButton(context.Background(), types.PressInlineButtonParams{
+		PeerInfo:   types.PeerInfo{Peer: "me"},
+		MsgID:      types.MsgID{MessageID: 123},
+		ButtonText: "Edit",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Success || result.MessageID != 123 {
+		t.Fatalf("result = %+v", result)
+	}
+}
