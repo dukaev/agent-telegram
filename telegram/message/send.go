@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"agent-telegram/telegram/helpers"
+	"agent-telegram/telegram/internal/replytarget"
 	"agent-telegram/telegram/types"
 	"github.com/gotd/td/tg"
 )
@@ -28,6 +29,7 @@ func (c *Client) SendMessage(ctx context.Context, params types.SendMessageParams
 	req := &tg.MessagesSendMessageRequest{
 		Peer:     inputPeer,
 		Message:  parsed,
+		ReplyTo:  replytarget.Build(params.ThreadTarget),
 		RandomID: time.Now().UnixNano(),
 	}
 	if len(entities) > 0 {
@@ -58,9 +60,12 @@ func (c *Client) SendReply(ctx context.Context, params types.SendReplyParams) (*
 
 	parsed, entities := helpers.ParseCustomEmojis(params.Text)
 	req := &tg.MessagesSendMessageRequest{
-		Peer:     inputPeer,
-		Message:  parsed,
-		ReplyTo:  &tg.InputReplyToMessage{ReplyToMsgID: int(params.MessageID)},
+		Peer:    inputPeer,
+		Message: parsed,
+		ReplyTo: replytarget.Build(types.ThreadTarget{
+			ThreadID: params.ThreadID,
+			ReplyTo:  params.MessageID,
+		}),
 		RandomID: time.Now().UnixNano(),
 	}
 	if len(entities) > 0 {

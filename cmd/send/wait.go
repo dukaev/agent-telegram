@@ -29,6 +29,7 @@ type ReplyPoller interface {
 // WaitOutcome describes either a completed reply wait or its deadline.
 type WaitOutcome struct {
 	Reply          any
+	ThreadID       int64
 	AfterMessageID int64
 	Polls          int
 	Timeout        time.Duration
@@ -38,8 +39,8 @@ type WaitOutcome struct {
 // WaitForReply polls get_messages until a reply appears after afterMsgID, or timeout.
 // Its outcome preserves polling and deadline metadata without classifying the
 // timeout as a validation error.
-func WaitForReply(poller ReplyPoller, peer string, afterMsgID int64, timeout time.Duration) WaitOutcome {
-	outcome := WaitOutcome{AfterMessageID: afterMsgID, Timeout: timeout}
+func WaitForReply(poller ReplyPoller, peer string, threadID, afterMsgID int64, timeout time.Duration) WaitOutcome {
+	outcome := WaitOutcome{ThreadID: threadID, AfterMessageID: afterMsgID, Timeout: timeout}
 	deadline := waitNow().Add(timeout)
 	polls := 0
 
@@ -48,11 +49,14 @@ func WaitForReply(poller ReplyPoller, peer string, afterMsgID int64, timeout tim
 			"username": peer,
 			"limit":    waitPollLimit,
 		}
+		if threadID != 0 {
+			params["threadId"] = threadID
+		}
 
 		polls++
 		result := poller.CallInternal("get_messages", params)
 
-		if reply := findReply(result, afterMsgID); reply != nil {
+		if reply := FindReply(result, afterMsgID, threadID); reply != nil {
 			outcome.Reply = reply
 			outcome.Polls = polls
 			outcome.Completed = true
@@ -88,6 +92,9 @@ func replyTimeoutFailure(runner *cliutil.Runner, peer string, action any, outcom
 		"timeout":        outcome.Timeout.String(),
 		"completed":      false,
 	}
+	if outcome.ThreadID != 0 {
+		wait["threadId"] = outcome.ThreadID
+	}
 	data := map[string]any{"wait": wait}
 	details := cliutil.FailureDetails{
 		AuditStatus:  "error",
@@ -105,10 +112,14 @@ func replyTimeoutFailure(runner *cliutil.Runner, peer string, action any, outcom
 			"wait":   wait,
 		}
 	}
+	threadArg := ""
+	if outcome.ThreadID != 0 {
+		threadArg = fmt.Sprintf(" --thread-id %d", outcome.ThreadID)
+	}
 	details.NextActions = []map[string]any{
 		{
 			"kind":    "wait_for_reply",
-			"command": fmt.Sprintf("agent-telegram msg wait %s --after-id %d --timeout %s --agent --run-id %s", cliutil.ShellArg(peer), outcome.AfterMessageID, outcome.Timeout, cliutil.ShellArg(runner.RunID())),
+			"command": fmt.Sprintf("agent-telegram msg wait %s --after-id %d%s --timeout %s --agent --run-id %s", cliutil.ShellArg(peer), outcome.AfterMessageID, threadArg, outcome.Timeout, cliutil.ShellArg(runner.RunID())),
 			"safety":  "read",
 			"reason":  "continue waiting without repeating the write action",
 		},
@@ -123,8 +134,8 @@ func replyTimeoutFailure(runner *cliutil.Runner, peer string, action any, outcom
 	return err, details
 }
 
-// findReply searches messages for an incoming message with ID > afterMsgID.
-func findReply(result any, afterMsgID int64) map[string]any {
+// FindReply searches messages for an incoming message in the requested thread.
+func FindReply(result any, afterMsgID, threadID int64) map[string]any {
 	r, ok := result.(map[string]any)
 	if !ok {
 		return nil
@@ -148,44 +159,56 @@ func findReply(result any, afterMsgID int64) map[string]any {
 
 		// Check message ID > afterMsgID
 		msgID := cliutil.ExtractInt64(msg, "id")
-		if msgID > afterMsgID {
-			return msg
+		if msgID <= afterMsgID {
+			continue
 		}
+		if threadID != 0 && cliutil.ExtractInt64(msg, "threadId") != threadID {
+			continue
+		}
+		return msg
 	}
 
 	return nil
 }
 
+func findReply(result any, afterMsgID, threadID int64) map[string]any {
+	return FindReply(result, afterMsgID, threadID)
+}
+
 // HandleWaitReply performs the wait-reply flow after a send.
 // sendResult is the result from the send call. Exits on timeout.
-func HandleWaitReply(runner *cliutil.Runner, peer string, sendResult any, timeout time.Duration) {
+func HandleWaitReply(runner *cliutil.Runner, peer string, threadID int64, sendResult any, timeout time.Duration) {
 	sentID := extractSentID(sendResult)
 	if sentID == 0 {
 		fmt.Fprintln(os.Stderr, "Warning: could not extract sent message ID, waiting for any new message")
 	}
-	HandleWaitReplyAfter(runner, peer, sentID, sendResult, timeout)
+	HandleWaitReplyAfter(runner, peer, threadID, sentID, sendResult, timeout)
 }
 
 // HandleWaitReplyAfter waits for a reply after a known message ID and prints a
 // combined result with both the triggering action and the reply.
-func HandleWaitReplyAfter(runner *cliutil.Runner, peer string, afterMsgID int64, actionResult any, timeout time.Duration) {
+func HandleWaitReplyAfter(runner *cliutil.Runner, peer string, threadID, afterMsgID int64, actionResult any, timeout time.Duration) {
 	fmt.Fprintf(os.Stderr, "Waiting for reply (timeout: %s)...\n", timeout)
 
-	outcome := WaitForReply(runner, peer, afterMsgID, timeout)
+	outcome := WaitForReply(runner, peer, threadID, afterMsgID, timeout)
 	if !outcome.Completed {
 		FailReplyTimeout(runner, peer, actionResult, outcome)
 		return
 	}
 
+	wait := map[string]any{
+		"afterMessageId": afterMsgID,
+		"polls":          outcome.Polls,
+		"timeout":        timeout.String(),
+		"completed":      true,
+	}
+	if threadID != 0 {
+		wait["threadId"] = threadID
+	}
 	runner.PrintResult(map[string]any{
 		"action": actionResult,
 		"reply":  outcome.Reply,
-		"wait": map[string]any{
-			"afterMessageId": afterMsgID,
-			"polls":          outcome.Polls,
-			"timeout":        timeout.String(),
-			"completed":      true,
-		},
+		"wait":   wait,
 	}, nil)
 }
 

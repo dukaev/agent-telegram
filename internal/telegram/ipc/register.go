@@ -217,6 +217,8 @@ func classifyRPCError(err error) *ipc.ErrorObject {
 	}
 	if telegramErr, ok := tgerr.As(err); ok {
 		switch {
+		case telegramErr.IsOneOf("CHANNEL_FORUM_MISSING", "CHAT_FORUM_MISSING", "FORUM_NOT_ENABLED"):
+			return ipc.NewTypedError(ipc.ErrCodeTopicsNotEnabled, ipc.ErrorTypeTopicsNotEnabled, err.Error(), nil)
 		case telegramErr.IsOneOf("USERNAME_INVALID", "USERNAME_NOT_OCCUPIED", "CHANNEL_INVALID", "USER_ID_INVALID", "PEER_ID_INVALID"):
 			return ipc.NewTypedError(ipc.ErrCodePeerNotFound, ipc.ErrorTypePeerNotFound, err.Error(), nil)
 		case telegramErr.Code == 403 || telegramErr.IsOneOf("CHAT_ADMIN_REQUIRED", "CHAT_WRITE_FORBIDDEN", "USER_BANNED_IN_CHANNEL"):
@@ -227,6 +229,11 @@ func classifyRPCError(err error) *ipc.ErrorObject {
 	msg := err.Error()
 	lower := strings.ToLower(msg)
 	switch {
+	case strings.Contains(lower, "channel_forum_missing") ||
+		strings.Contains(lower, "chat_forum_missing") ||
+		strings.Contains(lower, "forum_not_enabled") ||
+		strings.Contains(lower, "topics_not_enabled"):
+		return ipc.NewTypedError(ipc.ErrCodeTopicsNotEnabled, ipc.ErrorTypeTopicsNotEnabled, msg, nil)
 	case strings.Contains(lower, "flood_wait") || strings.Contains(lower, "flood wait"):
 		data := map[string]any{}
 		if retryAfter := parseRetryAfter(lower); retryAfter > 0 {

@@ -8,7 +8,7 @@ import (
 	"github.com/gotd/td/tg"
 )
 
-// GetTopics retrieves forum topics from a channel.
+// GetTopics retrieves forum topics from a resolved Telegram peer.
 func (c *Client) GetTopics(ctx context.Context, params types.GetTopicsParams) (*types.GetTopicsResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -18,14 +18,6 @@ func (c *Client) GetTopics(ctx context.Context, params types.GetTopicsParams) (*
 	peer, err := c.ResolvePeer(ctx, params.Peer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve peer: %w", err)
-	}
-
-	// Verify it's a channel
-	switch peer.(type) {
-	case *tg.InputPeerChannel:
-		// OK, it's a channel
-	default:
-		return nil, fmt.Errorf("not a channel: %s", params.Peer)
 	}
 
 	// Set limit

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"agent-telegram/telegram/helpers"
+	"agent-telegram/telegram/internal/replytarget"
 	"agent-telegram/telegram/types"
 	"github.com/gotd/td/tg"
 )
@@ -42,6 +43,7 @@ func (c *Client) SendVoice(ctx context.Context, params types.SendVoiceParams) (*
 		Peer:     inputPeer,
 		Media:    media,
 		Message:  parsed,
+		ReplyTo:  replytarget.Build(params.ThreadTarget),
 		RandomID: time.Now().UnixNano(),
 	}
 	if len(entities) > 0 {
@@ -100,6 +102,7 @@ func (c *Client) SendVideoNote(
 	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
+		ReplyTo:  replytarget.Build(params.ThreadTarget),
 		RandomID: time.Now().UnixNano(),
 	})
 	if err != nil {

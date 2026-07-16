@@ -441,6 +441,7 @@ func ErrorTypesManifest() []map[string]any {
 		{"type": ErrorTypePeerNotFound, "code": ErrCodePeerNotFound, "retryable": false},
 		{"type": ErrorTypeForbidden, "code": ErrCodeForbidden, "retryable": false},
 		{"type": ErrorTypeFloodWait, "code": ErrCodeFloodWait, "retryable": true},
+		{"type": ErrorTypeTopicsNotEnabled, "code": ErrCodeTopicsNotEnabled, "retryable": false},
 		{"type": ErrorTypePolicyDenied, "code": ErrCodePolicyDenied, "retryable": false},
 		{"type": ErrorTypeValidation, "code": ErrCodeInvalidParams, "retryable": false},
 		{"type": ErrorTypeInternal, "code": -32000, "retryable": false},

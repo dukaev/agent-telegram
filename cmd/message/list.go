@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	listTo     cliutil.Recipient
-	listLimit  int
-	listOffset int
+	listTo       cliutil.Recipient
+	listLimit    int
+	listOffset   int
+	listThreadID int64
 )
 
 // ListCmd represents the msg list command.
@@ -38,6 +39,7 @@ func AddListCommand(parentCmd *cobra.Command) {
 	ListCmd.Flags().VarP(&listTo, "to", "t", "Chat/user to get messages from")
 	ListCmd.Flags().IntVar(&listLimit, "limit", 10, "Number of messages to fetch")
 	ListCmd.Flags().IntVar(&listOffset, "offset", 0, "Offset message ID")
+	ListCmd.Flags().Int64Var(&listThreadID, "thread-id", 0, "Forum topic root message ID")
 
 	ListCmd.Run = func(_ *cobra.Command, args []string) {
 		if len(args) > 0 {
@@ -57,6 +59,9 @@ func AddListCommand(parentCmd *cobra.Command) {
 		}
 		if listOffset > 0 {
 			params["offset"] = listOffset
+		}
+		if listThreadID != 0 {
+			params["threadId"] = listThreadID
 		}
 
 		result := runner.CallWithParams("get_messages", params)

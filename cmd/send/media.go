@@ -61,10 +61,7 @@ func newMediaCommand(def mediaCommandDef) (*cobra.Command, *SendFlags) {
 
 			runner := flags.NewRunner()
 			params := map[string]any{"file": file}
-			flags.To.AddToParams(params)
-			if flags.Caption != "" {
-				params["caption"] = flags.Caption
-			}
+			flags.AddToParams(params)
 
 			result := runner.CallWithParams(def.Method, params)
 			runner.PrintResult(result, func(r any) {

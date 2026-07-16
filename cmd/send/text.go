@@ -6,10 +6,7 @@ import (
 	"agent-telegram/internal/cliutil"
 )
 
-var (
-	textFlags        SendFlags
-	textReplyToMsgID int64
-)
+var textFlags SendFlags
 
 // TextCmd represents the send text subcommand.
 var TextCmd = &cobra.Command{
@@ -45,13 +42,14 @@ Examples:
 		params := map[string]any{
 			"message": messageText,
 		}
-		textFlags.To.AddToParams(params)
+		textFlags.AddToParams(params)
 
 		method := "send_message"
-		if textReplyToMsgID != 0 {
+		if textFlags.ReplyTo != 0 {
 			params["text"] = messageText
 			delete(params, "message")
-			params["messageId"] = textReplyToMsgID
+			params["messageId"] = textFlags.ReplyTo
+			delete(params, "replyTo")
 			method = methodSendReply
 		}
 
@@ -66,5 +64,4 @@ func addTextCommand(parentCmd *cobra.Command) {
 	parentCmd.AddCommand(TextCmd)
 	cliutil.MarkFirstArgPeer(TextCmd)
 	textFlags.RegisterOptionalTo(TextCmd)
-	TextCmd.Flags().Int64Var(&textReplyToMsgID, "reply-to", 0, "Reply to message ID")
 }

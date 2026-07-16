@@ -81,7 +81,7 @@ func TestWaitOutcomeReturnsIncomingMessageAfterAction(t *testing.T) {
 			map[string]any{"id": float64(125), "out": false},
 		}},
 	}}
-	outcome := WaitForReply(poller, "@bot", 123, time.Second)
+	outcome := WaitForReply(poller, "@bot", 0, 123, time.Second)
 	if !outcome.Completed || outcome.Polls != 2 || outcome.AfterMessageID != 123 || outcome.Timeout != time.Second {
 		t.Fatalf("outcome = %+v", outcome)
 	}
@@ -105,10 +105,29 @@ func TestWaitOutcomeDeadlineIsDeterministic(t *testing.T) {
 	}
 	waitSleep = func(time.Duration) { t.Fatal("deadline should not sleep") }
 
-	outcome := WaitForReply(&fakeReplyPoller{}, "-5424738551", 123, time.Nanosecond)
+	outcome := WaitForReply(&fakeReplyPoller{}, "-5424738551", 0, 123, time.Nanosecond)
 	want := WaitOutcome{AfterMessageID: 123, Timeout: time.Nanosecond, Completed: false}
 	if outcome != want {
 		t.Fatalf("outcome = %+v, want %+v", outcome, want)
+	}
+}
+
+func TestFindReplyFiltersThread(t *testing.T) {
+	result := map[string]any{"messages": []any{
+		map[string]any{"id": float64(105), "out": true, "threadId": float64(77)},
+		map[string]any{"id": float64(99), "out": false, "threadId": float64(77)},
+		map[string]any{"id": float64(104), "out": false},
+		map[string]any{"id": float64(103), "out": false, "threadId": float64(78)},
+		map[string]any{"id": float64(102), "out": false, "threadId": float64(77)},
+	}}
+
+	got := findReply(result, 100, 77)
+	if cliutil.ExtractInt64(got, "id") != 102 {
+		t.Fatalf("thread reply = %#v", got)
+	}
+	legacy := findReply(result, 100, 0)
+	if cliutil.ExtractInt64(legacy, "id") != 104 {
+		t.Fatalf("legacy reply = %#v", legacy)
 	}
 }
 

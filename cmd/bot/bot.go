@@ -12,14 +12,16 @@ import (
 )
 
 var (
-	stepTo      cliutil.Recipient
-	stepSend    string
-	stepText    string
-	stepWait    bool
-	stepTimeout time.Duration
-	stepLimit   int
+	stepTo       cliutil.Recipient
+	stepSend     string
+	stepText     string
+	stepWait     bool
+	stepTimeout  time.Duration
+	stepLimit    int
+	stepThreadID int64
 
 	pressTo      cliutil.Recipient
+	pressText    string
 	pressWait    bool
 	pressTimeout time.Duration
 )
@@ -46,9 +48,9 @@ var StepCmd = &cobra.Command{
 
 // PressCmd presses an inline button and optionally waits for the next bot message.
 var PressCmd = &cobra.Command{
-	Use:   "press [peer] <message_id> <button_index>",
+	Use:   "press [peer] <message_id> [button_index]",
 	Short: "Press an inline button in a bot flow",
-	Args:  cobra.RangeArgs(2, 3),
+	Args:  cobra.RangeArgs(1, 3),
 }
 
 // AddBotCommand adds bot commands to the root command.
@@ -64,8 +66,10 @@ func AddBotCommand(rootCmd *cobra.Command) {
 	StepCmd.Flags().BoolVar(&stepWait, "wait-reply", true, "Wait for a reply after --send")
 	StepCmd.Flags().DurationVar(&stepTimeout, "timeout", 20*time.Second, "Maximum wait time")
 	StepCmd.Flags().IntVar(&stepLimit, "limit", 10, "Messages to inspect when reading state")
+	StepCmd.Flags().Int64Var(&stepThreadID, "thread-id", 0, "Forum topic root message ID")
 
 	PressCmd.Flags().VarP(&pressTo, "to", "t", "Bot peer")
+	PressCmd.Flags().StringVar(&pressText, "text", "", "Inline button text")
 	PressCmd.Flags().BoolVar(&pressWait, "wait-reply", true, "Wait for a reply after pressing")
 	PressCmd.Flags().DurationVar(&pressTimeout, "timeout", 20*time.Second, "Maximum wait time")
 
@@ -83,18 +87,25 @@ func runStep(cmd *cobra.Command, args []string) {
 		_ = stepTo.Set(args[0])
 	}
 	requirePeer(runner, stepTo.Peer())
+	if stepThreadID < 0 {
+		runner.Fatal("thread-id must be >= 0")
+	}
 	var action any
 	var message map[string]any
 	var waitMeta map[string]any
 
 	if messageText != "" {
-		action = runner.Call("send_message", map[string]any{
+		sendParams := map[string]any{
 			"peer":    stepTo.Peer(),
 			"message": messageText,
-		})
+		}
+		if stepThreadID != 0 {
+			sendParams["threadId"] = stepThreadID
+		}
+		action = runner.Call("send_message", sendParams)
 		afterID := extractMessageID(action)
 		if stepWait {
-			outcome := send.WaitForReply(runner, stepTo.Peer(), afterID, stepTimeout)
+			outcome := send.WaitForReply(runner, stepTo.Peer(), stepThreadID, afterID, stepTimeout)
 			if !outcome.Completed {
 				send.FailReplyTimeout(runner, stepTo.Peer(), action, outcome)
 				return
@@ -105,14 +116,18 @@ func runStep(cmd *cobra.Command, args []string) {
 				"polls":          outcome.Polls,
 				"timeout":        stepTimeout.String(),
 				"completed":      true,
+				"event":          "new_message",
+			}
+			if stepThreadID != 0 {
+				waitMeta["threadId"] = stepThreadID
 			}
 		}
 	}
 	if message == nil {
-		message = latestMessage(runner, stepTo.Peer(), stepLimit)
+		message = latestMessage(runner, stepTo.Peer(), stepThreadID, stepLimit)
 	}
 
-	state := buildBotState(runner, stepTo.Peer(), message)
+	state := buildBotState(runner, stepTo.Peer(), stepThreadID, message)
 	if action != nil {
 		state["action"] = action
 	}
@@ -135,57 +150,103 @@ func resolveStepText(cmd *cobra.Command, sendValue, textValue string) (string, e
 }
 
 func runPress(_ *cobra.Command, args []string) {
-	var messageIDArg, buttonIndexArg string
-	switch len(args) {
-	case 3:
-		_ = pressTo.Set(args[0])
-		messageIDArg = args[1]
-		buttonIndexArg = args[2]
-	case 2:
-		messageIDArg = args[0]
-		buttonIndexArg = args[1]
-	}
 	runner := cliutil.NewRunnerFromCmd(PressCmd, true)
+	peerArg, messageIDArg, buttonIndexArg, err := resolvePressArgs(args, pressTo.Peer() != "", pressText)
+	if err != nil {
+		runner.Fatal(err.Error())
+	}
+	if peerArg != "" {
+		_ = pressTo.Set(peerArg)
+	}
 	requirePeer(runner, pressTo.Peer())
 	messageID := runner.MustParseInt64(messageIDArg)
-	action := runner.Call("press_inline_button", map[string]any{
-		"peer":        pressTo.Peer(),
-		"messageId":   messageID,
-		"buttonIndex": runner.MustParseInt(buttonIndexArg),
-	})
+	source := getMessage(runner, pressTo.Peer(), messageID)
+	snapshot := newMessageSnapshot(source)
+	threadID := snapshot.ThreadID
+	pressParams := map[string]any{
+		"peer":      pressTo.Peer(),
+		"messageId": messageID,
+	}
+	if pressText != "" {
+		pressParams["buttonText"] = pressText
+	} else {
+		pressParams["buttonIndex"] = runner.MustParseInt(buttonIndexArg)
+	}
+	action := runner.Call("press_inline_button", pressParams)
 
 	var message map[string]any
 	var waitMeta map[string]any
+	var event string
 	if pressWait {
-		outcome := send.WaitForReply(runner, pressTo.Peer(), messageID, pressTimeout)
+		outcome := waitForBotEvent(runner, pressTo.Peer(), threadID, messageID, snapshot, pressTimeout)
 		if !outcome.Completed {
-			send.FailReplyTimeout(runner, pressTo.Peer(), action, outcome)
+			send.FailReplyTimeout(runner, pressTo.Peer(), action, send.WaitOutcome{
+				ThreadID: threadID, AfterMessageID: messageID, Polls: outcome.Polls, Timeout: pressTimeout,
+			})
 			return
 		}
-		message, _ = outcome.Reply.(map[string]any)
+		message = outcome.Message
+		event = outcome.Event
 		waitMeta = map[string]any{
 			"afterMessageId": messageID,
 			"polls":          outcome.Polls,
 			"timeout":        pressTimeout.String(),
 			"completed":      true,
+			"event":          outcome.Event,
+		}
+		if threadID != 0 {
+			waitMeta["threadId"] = threadID
 		}
 	} else {
-		message = latestMessage(runner, pressTo.Peer(), stepLimit)
+		message = latestMessage(runner, pressTo.Peer(), threadID, stepLimit)
 	}
 
-	state := buildBotState(runner, pressTo.Peer(), message)
+	state := buildBotState(runner, pressTo.Peer(), threadID, message)
 	state["action"] = action
 	if waitMeta != nil {
 		state["wait"] = waitMeta
+		state["completed"] = true
+		state["event"] = event
 	}
 	runner.PrintResult(state, nil)
 }
 
-func latestMessage(runner *cliutil.Runner, peer string, limit int) map[string]any {
+func resolvePressArgs(args []string, peerProvided bool, buttonText string) (peer, messageID, buttonIndex string, err error) {
+	if peerProvided {
+		if len(args) < 1 || len(args) > 2 {
+			return "", "", "", fmt.Errorf("expected <message_id> and an optional <button_index>")
+		}
+		messageID = args[0]
+		if len(args) == 2 {
+			buttonIndex = args[1]
+		}
+	} else {
+		if len(args) < 2 || len(args) > 3 {
+			return "", "", "", fmt.Errorf("expected <peer> <message_id> and an optional <button_index>")
+		}
+		peer, messageID = args[0], args[1]
+		if len(args) == 3 {
+			buttonIndex = args[2]
+		}
+	}
+	if buttonText != "" && buttonIndex != "" {
+		return "", "", "", fmt.Errorf("use either --text or button_index, not both")
+	}
+	if buttonText == "" && buttonIndex == "" {
+		return "", "", "", fmt.Errorf("button selector is required: provide --text or button_index")
+	}
+	return peer, messageID, buttonIndex, nil
+}
+
+func latestMessage(runner *cliutil.Runner, peer string, threadID int64, limit int) map[string]any {
 	if limit <= 0 {
 		limit = 10
 	}
-	result := runner.Call("get_messages", map[string]any{"username": peer, "limit": limit})
+	params := map[string]any{"username": peer, "limit": limit}
+	if threadID != 0 {
+		params["threadId"] = threadID
+	}
+	result := runner.Call("get_messages", params)
 	m, ok := result.(map[string]any)
 	if !ok {
 		return nil
@@ -198,13 +259,16 @@ func latestMessage(runner *cliutil.Runner, peer string, limit int) map[string]an
 	return message
 }
 
-func buildBotState(runner *cliutil.Runner, peer string, message map[string]any) map[string]any {
+func buildBotState(runner *cliutil.Runner, peer string, threadID int64, message map[string]any) map[string]any {
 	state := map[string]any{
 		"peer":    peer,
 		"message": message,
 	}
+	if threadID != 0 {
+		state["threadId"] = threadID
+	}
 	if message == nil {
-		next := nextActions(peer, 0, state)
+		next := nextActions(peer, threadID, 0, state)
 		state["nextActions"] = next
 		state["suggestedActions"] = actionNames(next)
 		return state
@@ -224,23 +288,30 @@ func buildBotState(runner *cliutil.Runner, peer string, message map[string]any) 
 	if m, ok := keyboard.(map[string]any); ok {
 		state["replyKeyboard"] = m["keyboard"]
 	}
-	next := nextActions(peer, messageID, state)
+	next := nextActions(peer, threadID, messageID, state)
 	state["nextActions"] = next
 	state["suggestedActions"] = actionNames(next)
 	return state
 }
 
-func nextActions(peer string, messageID int64, state map[string]any) []map[string]any {
+func nextActions(peer string, threadID, messageID int64, state map[string]any) []map[string]any {
 	var actions []map[string]any
 	if buttons, ok := state["inlineButtons"].([]any); ok && len(buttons) > 0 {
+		buttonText := "<button_text>"
+		if button, ok := buttons[0].(map[string]any); ok {
+			if text, ok := button["text"].(string); ok && text != "" {
+				buttonText = text
+			}
+		}
 		actions = append(actions, map[string]any{
 			"kind":    "press_inline_button",
-			"command": fmt.Sprintf("agent-telegram bot press %s %d <button_index> --agent", cliutil.ShellArg(peer), messageID),
+			"command": fmt.Sprintf("agent-telegram bot press %s %d --text %s --agent", cliutil.ShellArg(peer), messageID, cliutil.ShellArg(buttonText)),
 			"safety":  "write",
 			"reason":  "inline buttons are available on the latest bot message",
 			"params": map[string]any{
-				"peer":      peer,
-				"messageId": messageID,
+				"peer":       peer,
+				"messageId":  messageID,
+				"buttonText": buttonText,
 			},
 		})
 	}
@@ -257,14 +328,20 @@ func nextActions(peer string, messageID int64, state map[string]any) []map[strin
 			})
 		}
 	}
+	threadArg := ""
+	if threadID != 0 {
+		threadArg = fmt.Sprintf(" --thread-id %d", threadID)
+	}
+	sendParams := map[string]any{"peer": peer}
+	if threadID != 0 {
+		sendParams["threadId"] = threadID
+	}
 	actions = append(actions, map[string]any{
 		"kind":    "send_text",
-		"command": fmt.Sprintf("agent-telegram bot step %s --send <text> --agent", cliutil.ShellArg(peer)),
+		"command": fmt.Sprintf("agent-telegram bot step %s --send <text>%s --agent", cliutil.ShellArg(peer), threadArg),
 		"safety":  "write",
 		"reason":  "send text to continue the bot flow",
-		"params": map[string]any{
-			"peer": peer,
-		},
+		"params":  sendParams,
 	})
 	return actions
 }

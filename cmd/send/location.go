@@ -33,7 +33,7 @@ Examples:
 			"latitude":  locationLat,
 			"longitude": locationLong,
 		}
-		locationFlags.To.AddToParams(params)
+		locationFlags.AddToParams(params)
 
 		result := runner.CallWithParams("send_location", params)
 		runner.PrintResult(result, func(r any) {

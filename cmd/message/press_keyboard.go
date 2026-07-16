@@ -88,7 +88,7 @@ func AddPressKeyboardCommand(parentCmd *cobra.Command) {
 
 		// Step 4: Optionally wait for reply
 		if pressKeyboardWait {
-			send.HandleWaitReply(runner, pressKeyboardTo.Peer(), result, pressKeyboardTimeout)
+			send.HandleWaitReply(runner, pressKeyboardTo.Peer(), 0, result, pressKeyboardTimeout)
 			return
 		}
 

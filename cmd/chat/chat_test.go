@@ -32,6 +32,9 @@ func TestAddChatCommandRegistersExpectedSurface(t *testing.T) {
 	if PermissionsCmd.Flags().Lookup("send-messages") == nil {
 		t.Fatal("expected permissions flags")
 	}
+	if err := TopicsCmd.Args(TopicsCmd, []string{"@bot"}); err != nil {
+		t.Fatalf("chat topics should accept a positional peer: %v", err)
+	}
 }
 
 func TestFilterChatInfo(t *testing.T) {

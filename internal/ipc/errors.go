@@ -4,11 +4,12 @@ import "errors"
 
 const (
 	// Domain-level errors.
-	ErrCodeTimeout      = -32004
-	ErrCodePeerNotFound = -32010
-	ErrCodeForbidden    = -32011
-	ErrCodeFloodWait    = -32012
-	ErrCodePolicyDenied = -32020
+	ErrCodeTimeout          = -32004
+	ErrCodePeerNotFound     = -32010
+	ErrCodeForbidden        = -32011
+	ErrCodeFloodWait        = -32012
+	ErrCodeTopicsNotEnabled = -32013
+	ErrCodePolicyDenied     = -32020
 )
 
 const (
@@ -20,6 +21,7 @@ const (
 	ErrorTypePeerNotFound     = "PEER_NOT_FOUND"
 	ErrorTypeForbidden        = "FORBIDDEN"
 	ErrorTypeFloodWait        = "FLOOD_WAIT"
+	ErrorTypeTopicsNotEnabled = "TOPICS_NOT_ENABLED"
 	ErrorTypePolicyDenied     = "POLICY_DENIED"
 	ErrorTypeValidation       = "VALIDATION"
 	ErrorTypeInternal         = "INTERNAL"

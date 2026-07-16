@@ -33,7 +33,7 @@ Examples:
 		params := map[string]any{
 			"phone": contactPhone,
 		}
-		contactFlags.To.AddToParams(params)
+		contactFlags.AddToParams(params)
 		if contactFirstName != "" {
 			params["firstName"] = contactFirstName
 		}

@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"agent-telegram/telegram/internal/replytarget"
 	"agent-telegram/telegram/types"
 	"github.com/gotd/td/tg"
 )
 
 // SendDocument sends a document to a peer with custom mime type.
 func (c *Client) SendDocument(
-	ctx context.Context, peer, file, mimeType, caption string,
+	ctx context.Context, peer, file, mimeType, caption string, target types.ThreadTarget,
 ) (*types.SendFileResult, error) {
 	if err := c.CheckInitialized(); err != nil {
 		return nil, err
@@ -36,6 +37,7 @@ func (c *Client) SendDocument(
 	result, err := c.API().MessagesSendMedia(ctx, &tg.MessagesSendMediaRequest{
 		Peer:     inputPeer,
 		Media:    media,
+		ReplyTo:  replytarget.Build(target),
 		RandomID: time.Now().UnixNano(),
 	})
 	if err != nil {
@@ -53,12 +55,12 @@ func (c *Client) SendDocument(
 
 // SendFile sends a file to a peer.
 func (c *Client) SendFile(ctx context.Context, params types.SendFileParams) (*types.SendFileResult, error) {
-	return c.SendDocument(ctx, params.Peer, params.File, "application/octet-stream", params.Caption)
+	return c.SendDocument(ctx, params.Peer, params.File, "application/octet-stream", params.Caption, params.ThreadTarget)
 }
 
 // SendVideo sends a video to a peer.
 func (c *Client) SendVideo(ctx context.Context, params types.SendVideoParams) (*types.SendVideoResult, error) {
-	fileResult, err := c.SendDocument(ctx, params.Peer, params.File, "video/mp4", params.Caption)
+	fileResult, err := c.SendDocument(ctx, params.Peer, params.File, "video/mp4", params.Caption, params.ThreadTarget)
 	if err != nil {
 		return nil, err
 	}

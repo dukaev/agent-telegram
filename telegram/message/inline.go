@@ -128,11 +128,24 @@ func (c *Client) PressInlineButton(
 		return nil, fmt.Errorf("failed to inspect buttons: %w", err)
 	}
 
-	if params.ButtonIndex < 0 || params.ButtonIndex >= len(inspectResult.Buttons) {
+	buttonIndex := params.ButtonIndex
+	if params.ButtonText != "" {
+		buttonIndex = -1
+		for i, candidate := range inspectResult.Buttons {
+			if candidate.Text == params.ButtonText {
+				buttonIndex = i
+				break
+			}
+		}
+		if buttonIndex < 0 {
+			return nil, fmt.Errorf("button text %q not found", params.ButtonText)
+		}
+	}
+	if buttonIndex < 0 || buttonIndex >= len(inspectResult.Buttons) {
 		return nil, fmt.Errorf("button index out of range")
 	}
 
-	button := inspectResult.Buttons[params.ButtonIndex]
+	button := inspectResult.Buttons[buttonIndex]
 
 	// Press the button using the callback data
 	_, err = c.API().MessagesGetBotCallbackAnswer(ctx, &tg.MessagesGetBotCallbackAnswerRequest{

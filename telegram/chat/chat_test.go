@@ -25,6 +25,29 @@ func (f fakeParent) ResolvePeer(_ context.Context, peer string) (tg.InputPeerCla
 
 func (fakeParent) CachePeer(string, tg.InputPeerClass) {}
 
+func TestGetTopicsAcceptsPrivateBotPeer(t *testing.T) {
+	peer := &tg.InputPeerUser{UserID: 1, AccessHash: 2}
+	c := NewClient(fakeParent{peers: map[string]tg.InputPeerClass{"@bot": peer}})
+	c.SetAPI(tg.NewClient(tgmock.Invoker(func(input bin.Encoder) (bin.Encoder, error) {
+		req, ok := input.(*tg.MessagesGetForumTopicsRequest)
+		if !ok {
+			t.Fatalf("unexpected request %T", input)
+		}
+		if req.Peer != peer {
+			t.Fatalf("peer = %#v, want %#v", req.Peer, peer)
+		}
+		return &tg.MessagesForumTopics{}, nil
+	})))
+
+	result, err := c.GetTopics(context.Background(), types.GetTopicsParams{Peer: "@bot", Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Peer != "@bot" || result.Count != 0 {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
 func TestClientMethodsRequireInitialization(t *testing.T) {
 	c := NewClient(nil)
 	ctx := context.Background()

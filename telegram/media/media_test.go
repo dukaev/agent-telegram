@@ -40,7 +40,7 @@ func TestClientMethodsRequireInitialization(t *testing.T) {
 	check("SendDice", err)
 	_, err = c.SendFile(ctx, types.SendFileParams{})
 	check("SendFile", err)
-	_, err = c.SendDocument(ctx, "@p", "file.txt", "text/plain", "")
+	_, err = c.SendDocument(ctx, "@p", "file.txt", "text/plain", "", types.ThreadTarget{})
 	check("SendDocument", err)
 	_, err = c.SendVideo(ctx, types.SendVideoParams{})
 	check("SendVideo", err)
@@ -121,8 +121,12 @@ func TestUploadFileOpenError(t *testing.T) {
 func TestSimpleSendMediaMethodsWithFakeAPI(t *testing.T) {
 	c := NewClient(fakeParent{peer: &tg.InputPeerSelf{}})
 	c.SetAPI(tg.NewClient(tgmock.Invoker(func(input bin.Encoder) (bin.Encoder, error) {
-		switch input.(type) {
+		switch req := input.(type) {
 		case *tg.MessagesSendMediaRequest:
+			reply, ok := req.ReplyTo.(*tg.InputReplyToMessage)
+			if !ok || reply.ReplyToMsgID != 88 || reply.TopMsgID != 77 {
+				t.Fatalf("reply target = %#v", req.ReplyTo)
+			}
 			out := &tg.UpdateShortSentMessage{ID: 44}
 			out.SetMedia(&tg.MessageMediaDice{Value: 6, Emoticon: "dice"})
 			return out, nil
@@ -134,9 +138,10 @@ func TestSimpleSendMediaMethodsWithFakeAPI(t *testing.T) {
 	ctx := context.Background()
 
 	contact, err := c.SendContact(ctx, types.SendContactParams{
-		PeerInfo:  types.PeerInfo{Peer: "me"},
-		Phone:     "+1",
-		FirstName: "Ada",
+		PeerInfo:     types.PeerInfo{Peer: "me"},
+		ThreadTarget: types.ThreadTarget{ThreadID: 77, ReplyTo: 88},
+		Phone:        "+1",
+		FirstName:    "Ada",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -145,9 +150,10 @@ func TestSimpleSendMediaMethodsWithFakeAPI(t *testing.T) {
 		t.Fatalf("contact = %+v", contact)
 	}
 	location, err := c.SendLocation(ctx, types.SendLocationParams{
-		PeerInfo:  types.PeerInfo{Peer: "me"},
-		Latitude:  1.2,
-		Longitude: 3.4,
+		PeerInfo:     types.PeerInfo{Peer: "me"},
+		ThreadTarget: types.ThreadTarget{ThreadID: 77, ReplyTo: 88},
+		Latitude:     1.2,
+		Longitude:    3.4,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -156,9 +162,10 @@ func TestSimpleSendMediaMethodsWithFakeAPI(t *testing.T) {
 		t.Fatalf("location = %+v", location)
 	}
 	poll, err := c.SendPoll(ctx, types.SendPollParams{
-		PeerInfo: types.PeerInfo{Peer: "me"},
-		Question: "Q",
-		Options:  []types.PollOption{{Text: "A"}, {Text: "B"}},
+		PeerInfo:     types.PeerInfo{Peer: "me"},
+		ThreadTarget: types.ThreadTarget{ThreadID: 77, ReplyTo: 88},
+		Question:     "Q",
+		Options:      []types.PollOption{{Text: "A"}, {Text: "B"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +173,9 @@ func TestSimpleSendMediaMethodsWithFakeAPI(t *testing.T) {
 	if poll.ID != 44 || poll.Question != "Q" {
 		t.Fatalf("poll = %+v", poll)
 	}
-	dice, err := c.SendDice(ctx, types.SendDiceParams{PeerInfo: types.PeerInfo{Peer: "me"}})
+	dice, err := c.SendDice(ctx, types.SendDiceParams{
+		PeerInfo: types.PeerInfo{Peer: "me"}, ThreadTarget: types.ThreadTarget{ThreadID: 77, ReplyTo: 88},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
