@@ -103,6 +103,9 @@ func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams
 	if params.Offset < 0 {
 		params.Offset = 0
 	}
+	if params.ThreadID < 0 {
+		return nil, fmt.Errorf("threadId must be >= 0")
+	}
 
 	// Resolve peer (supports @username, numeric ID, me/self/current_user)
 	inputPeer, err := c.ResolvePeer(ctx, normalizePeer(params.Username))
@@ -110,13 +113,22 @@ func (c *Client) GetMessages(ctx context.Context, params types.GetMessagesParams
 		return nil, fmt.Errorf("failed to resolve peer %s: %w", params.Username, err)
 	}
 
-	// Get messages from the peer
-	messagesClass, err := c.API().MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
-		Peer:      inputPeer,
-		Limit:     params.Limit,
-		OffsetID:  params.Offset,
-		AddOffset: 0,
-	})
+	var messagesClass tg.MessagesMessagesClass
+	if params.ThreadID != 0 {
+		messagesClass, err = c.API().MessagesGetReplies(ctx, &tg.MessagesGetRepliesRequest{
+			Peer:     inputPeer,
+			MsgID:    int(params.ThreadID),
+			Limit:    params.Limit,
+			OffsetID: params.Offset,
+		})
+	} else {
+		messagesClass, err = c.API().MessagesGetHistory(ctx, &tg.MessagesGetHistoryRequest{
+			Peer:      inputPeer,
+			Limit:     params.Limit,
+			OffsetID:  params.Offset,
+			AddOffset: 0,
+		})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get messages: %w", err)
 	}

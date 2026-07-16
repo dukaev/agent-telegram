@@ -34,6 +34,9 @@ func TestAddMsgCommandRegistersExpectedSurface(t *testing.T) {
 	if PressButtonCmd.Flags().Lookup("wait-reply") == nil || PressKeyboardCmd.Flags().Lookup("timeout") == nil {
 		t.Fatal("expected button flags")
 	}
+	if ListCmd.Flags().Lookup("thread-id") == nil {
+		t.Fatal("msg list should expose --thread-id")
+	}
 }
 
 func resetMessageCommandTreeForTest(cmd *cobra.Command) {

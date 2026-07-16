@@ -135,6 +135,18 @@ func extractMessageContent(msg *tg.Message, r *types.MessageResult) {
 	}
 	if msg.ReplyTo != nil {
 		r.ReplyTo = convertReplyHeader(msg.ReplyTo)
+		if header, ok := msg.ReplyTo.(*tg.MessageReplyHeader); ok {
+			if header.ReplyToMsgID != 0 {
+				r.ReplyToMessageID = int64(header.ReplyToMsgID)
+			}
+			if header.ReplyToTopID != 0 {
+				r.ThreadID = int64(header.ReplyToTopID)
+				r.IsTopicMessage = true
+			} else if header.ForumTopic && header.ReplyToMsgID != 0 {
+				r.ThreadID = int64(header.ReplyToMsgID)
+				r.IsTopicMessage = true
+			}
+		}
 	}
 	if !msg.FwdFrom.Zero() {
 		r.Forwarded = true

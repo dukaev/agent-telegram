@@ -229,15 +229,47 @@ func TestMediaButtonKeyboardAndEntityHelpers(t *testing.T) {
 	}
 }
 
+func TestConvertMessageNormalizesTopicMetadata(t *testing.T) {
+	tests := []struct {
+		name      string
+		header    *tg.MessageReplyHeader
+		threadID  int64
+		topic     bool
+		replyToID int64
+	}{
+		{"nested topic", &tg.MessageReplyHeader{ReplyToMsgID: 88, ReplyToTopID: 77, ForumTopic: true}, 77, true, 88},
+		{"topic root", &tg.MessageReplyHeader{ReplyToMsgID: 77, ForumTopic: true}, 77, true, 77},
+		{"ordinary reply", &tg.MessageReplyHeader{ReplyToMsgID: 42}, 0, false, 42},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := convertMessage(&tg.Message{
+				ID:      1,
+				PeerID:  &tg.PeerUser{UserID: 1},
+				ReplyTo: tt.header,
+			}, nil)
+			if got.ThreadID != tt.threadID || got.IsTopicMessage != tt.topic || got.ReplyToMessageID != tt.replyToID {
+				t.Fatalf("topic metadata = thread:%d topic:%v reply:%d", got.ThreadID, got.IsTopicMessage, got.ReplyToMessageID)
+			}
+		})
+	}
+}
+
 func TestReadAndSendMethodsWithFakeAPI(t *testing.T) {
 	c := NewClient(fakeParent{peer: &tg.InputPeerSelf{}})
 	c.SetAPI(tg.NewClient(tgmock.Invoker(func(input bin.Encoder) (bin.Encoder, error) {
-		switch input.(type) {
+		switch req := input.(type) {
 		case *tg.MessagesGetHistoryRequest:
 			return &tg.MessagesMessages{
 				Messages: []tg.MessageClass{&tg.Message{ID: 1, Date: 10, Message: "history", PeerID: &tg.PeerUser{UserID: 1}}},
 				Users:    []tg.UserClass{},
 			}, nil
+		case *tg.MessagesGetRepliesRequest:
+			if req.MsgID != 77 || req.OffsetID != 100 || req.Limit != 20 {
+				t.Fatalf("getReplies request = %+v", req)
+			}
+			return &tg.MessagesMessages{Messages: []tg.MessageClass{}, Users: []tg.UserClass{}}, nil
 		case *tg.MessagesGetMessagesRequest:
 			return &tg.MessagesMessages{
 				Messages: []tg.MessageClass{&tg.Message{
@@ -265,6 +297,12 @@ func TestReadAndSendMethodsWithFakeAPI(t *testing.T) {
 	}
 	if messages.Count != 1 || messages.Messages[0].Text != "history" || messages.Limit != 10 {
 		t.Fatalf("messages = %+v", messages)
+	}
+	threadMessages, err := c.GetMessages(context.Background(), types.GetMessagesParams{
+		Username: "me", ThreadID: 77, Limit: 20, Offset: 100,
+	})
+	if err != nil || threadMessages.Count != 0 {
+		t.Fatalf("thread messages = %+v, %v", threadMessages, err)
 	}
 	one, err := c.GetMessage(context.Background(), types.GetMessageParams{
 		PeerInfo: types.PeerInfo{Peer: "me"},
