@@ -50,3 +50,15 @@ func TestClassifyRPCErrorPeerNotFound(t *testing.T) {
 		t.Fatalf("code = %d, want %d", errObj.Code, baseipc.ErrCodePeerNotFound)
 	}
 }
+
+func TestClassifyRPCErrorTopicsNotEnabled(t *testing.T) {
+	for _, message := range []string{"CHANNEL_FORUM_MISSING", "CHAT_FORUM_MISSING", "FORUM_NOT_ENABLED"} {
+		errObj := classifyRPCError(errors.New(message))
+		if errObj.Code != baseipc.ErrCodeTopicsNotEnabled {
+			t.Fatalf("%s code = %d", message, errObj.Code)
+		}
+		if got := errObj.Data.(map[string]any)["type"]; got != baseipc.ErrorTypeTopicsNotEnabled {
+			t.Fatalf("%s type = %v", message, got)
+		}
+	}
+}

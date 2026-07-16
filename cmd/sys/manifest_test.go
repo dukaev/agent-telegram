@@ -41,6 +41,15 @@ func TestManifestCommandOutputsOperations(t *testing.T) {
 	if len(body.ErrorTypes) == 0 {
 		t.Fatal("manifest should include error types")
 	}
+	foundTopicsError := false
+	for _, item := range body.ErrorTypes {
+		if item.Type == "TOPICS_NOT_ENABLED" && !item.Retryable {
+			foundTopicsError = true
+		}
+	}
+	if !foundTopicsError {
+		t.Fatal("manifest should include non-retryable TOPICS_NOT_ENABLED")
+	}
 	if len(body.Skills) == 0 || body.Skills[0].Name != "agent-telegram" || body.Skills[0].InstallCommand == "" {
 		t.Fatalf("manifest should include installable skills: %+v", body.Skills)
 	}

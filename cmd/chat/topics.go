@@ -15,33 +15,37 @@ var (
 
 // TopicsCmd represents the topics command.
 var TopicsCmd = &cobra.Command{
-	Use:   "topics",
-	Short: "List forum topics in a channel",
-	Long: `List all forum topics in a Telegram channel that has enabled forum mode.
+	Use:   "topics [peer]",
+	Short: "List forum topics in a chat",
+	Long: `List all forum topics in a Telegram chat that has enabled forum mode.
 
-Use --to @username or --to username to specify the channel.
+Use a positional peer or --to @username to specify the chat.
 Use --limit to set the maximum number of topics to return (max 100).
 
 Example:
-  agent-telegram chat topics --to @mychannel --limit 20`,
-	Args: cobra.NoArgs,
+  agent-telegram chat topics @mybot --limit 20`,
+	Args: cobra.MaximumNArgs(1),
 }
 
 // AddTopicsCommand adds the topics command to the root command.
 func AddTopicsCommand(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(TopicsCmd)
 
-	TopicsCmd.Flags().VarP(&topicsTo, "to", "t", "Channel (@username or username)")
+	TopicsCmd.Flags().VarP(&topicsTo, "to", "t", "Chat or bot peer (@username, username, or ID)")
 	TopicsCmd.Flags().IntVarP(&topicsLimit, "limit", "l", cliutil.DefaultLimitMax, "Maximum number of topics (max 100)")
 	TopicsCmd.Flags().IntVarP(&topicsOffset, "offset", "o", 0, "Offset for pagination")
-	_ = TopicsCmd.MarkFlagRequired("to")
-
-	TopicsCmd.Run = func(_ *cobra.Command, _ []string) {
+	TopicsCmd.Run = func(_ *cobra.Command, args []string) {
+		runner := cliutil.NewRunnerFromCmd(TopicsCmd, true) // Always JSON output
+		if len(args) > 0 {
+			_ = topicsTo.Set(args[0])
+		}
+		if topicsTo.Peer() == "" {
+			runner.Fatal("peer is required (positional or --to)")
+		}
 		pag := cliutil.NewPagination(topicsLimit, topicsOffset, cliutil.PaginationConfig{
 			MaxLimit: cliutil.MaxLimitStandard,
 		})
 
-		runner := cliutil.NewRunnerFromCmd(TopicsCmd, true) // Always JSON output
 		params := map[string]any{}
 		topicsTo.AddToParams(params)
 		pag.ToParams(params, true)
